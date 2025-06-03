@@ -1,4 +1,8 @@
-Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
+Core/Src/utils.o: ../Core/Src/utils.c ../Core/Inc/globals.h \
+ ../Core/Inc/types/button_state.h ../Core/Inc/types/bitmap_type.h \
+ ../Core/Inc/utils/macros_utils.h \
+ ../Core/Inc/utils/../types/bitmap_type.h \
+ ../Core/Inc/utils/../types/carmode_type.h ../Core/Inc/types/led_status.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h \
  ../Core/Inc/stm32f1xx_hal_conf.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h \
@@ -28,17 +32,15 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_usb.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd_ex.h \
- ../USB_DEVICE/App/usb_device.h \
- C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_def.h \
- ../USB_DEVICE/Target/usbd_conf.h ../Core/Inc/globals.h \
- ../Core/Inc/types/button_state.h ../Core/Inc/types/bitmap_type.h \
- ../Core/Inc/utils/macros_utils.h \
- ../Core/Inc/utils/../types/bitmap_type.h \
- ../Core/Inc/utils/../types/carmode_type.h ../Core/Inc/types/led_status.h \
  ../Core/Inc/types/carmode_type.h ../Core/Inc/utils/macros_utils.h \
- ../Core/Inc/utils.h ../Core/Inc/types/bitmap_type.h \
- ../Core/Inc/types/button_state.h
-../Core/Inc/main.h:
+ ../Core/Inc/utils.h
+../Core/Inc/globals.h:
+../Core/Inc/types/button_state.h:
+../Core/Inc/types/bitmap_type.h:
+../Core/Inc/utils/macros_utils.h:
+../Core/Inc/utils/../types/bitmap_type.h:
+../Core/Inc/utils/../types/carmode_type.h:
+../Core/Inc/types/led_status.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 ../Core/Inc/stm32f1xx_hal_conf.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h:
@@ -68,18 +70,6 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_usb.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd_ex.h:
-../USB_DEVICE/App/usb_device.h:
-C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_def.h:
-../USB_DEVICE/Target/usbd_conf.h:
-../Core/Inc/globals.h:
-../Core/Inc/types/button_state.h:
-../Core/Inc/types/bitmap_type.h:
-../Core/Inc/utils/macros_utils.h:
-../Core/Inc/utils/../types/bitmap_type.h:
-../Core/Inc/utils/../types/carmode_type.h:
-../Core/Inc/types/led_status.h:
 ../Core/Inc/types/carmode_type.h:
 ../Core/Inc/utils/macros_utils.h:
 ../Core/Inc/utils.h:
-../Core/Inc/types/bitmap_type.h:
-../Core/Inc/types/button_state.h:

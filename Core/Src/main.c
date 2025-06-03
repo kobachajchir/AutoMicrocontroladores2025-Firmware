@@ -23,6 +23,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "globals.h"
+#include "utils.h"
+#include "types/bitmap_type.h"
+#include "types/button_state.h"
+#include "utils/macros_utils.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,8 +55,12 @@ volatile uint16_t adc_last_values[8];
 volatile uint8_t procesar_flag = 0;
 volatile uint16_t tim3_overflow_count = 0;
 volatile uint32_t contador = 0;
-uint16_t testValue = 0;
-int i;
+volatile ButtonState_t btnUser;
+volatile LedStatus_t ledStatus;
+volatile Byte_Flag_Struct systemFlags;
+
+volatile CarMode_t testMode;
+
 /* --- Variables globales --- */
 
 /* USER CODE END PV */
@@ -64,7 +72,7 @@ static void MX_DMA_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
-
+void initCarMode();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -106,29 +114,59 @@ int main(void)
   MX_TIM3_Init();
   MX_ADC1_Init();
   MX_USB_DEVICE_Init();
+  MX_DMA_Init();
+  MX_TIM3_Init();
+  if (HAL_ADC_Start_DMA(&hadc1, (uint32_t*) adc_last_values, 8) != HAL_OK) {
+	Error_Handler();
+  }
+  HAL_TIM_Base_Start_IT(&htim3);
+  HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1);
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-	MX_DMA_Init();
-	if (HAL_ADC_Start_DMA(&hadc1, (uint32_t*) adc_last_values, 8) != HAL_OK) {
-		Error_Handler();
-	}
-	MX_TIM3_Init();
-	HAL_TIM_Base_Start_IT(&htim3);
-	HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1);
-	MX_USB_DEVICE_Init();
+  initCarMode();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
-		for (i = 0; i < 8; i++) {
-			testValue = adc_last_values[i];
+		//TESTING ONLY
+
+		//END TESTING ONLY
+		if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
+			if (IS_FLAG_SET(btnUser.flags, BTN_USER_SHORT_PRESS)) { // Acción short
+
+				CLEAR_FLAG(btnUser.flags, BTN_USER_SHORT_PRESS);
+			}
+			if (IS_FLAG_SET(btnUser.flags, BTN_USER_LONG_PRESS)) { // Acción long
+				Handle_ModeChange_ByButton(&btnUser, &ledStatus);
+				CLEAR_FLAG(btnUser.flags, BTN_USER_LONG_PRESS);
+			}
 		}
+		if(IS_FLAG_SET(systemFlags, PROCESS_IR_DATA)){
+			//Procesar aca la data de los IR
+			CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
+		}
+		// Si quieres saber cuántos sobrepasos de 1 s hubo (0..9):
+		//uint8_t num_overflows = NIBBLEH_GET_STATE(btnUser.flags);
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 	}
   /* USER CODE END 3 */
+}
+
+void initCarMode(){
+	NIBBLEH_SET_STATE(systemFlags, IDLE_MODE);
+	testMode = GET_CAR_MODE();
+	ledStatus.gpio_port = LED_PORT;
+	ledStatus.gpio_pin = LED_PORT_PIN;
+	ledStatus.flags.byte = 0;
+	ledStatus.counter = 0;
+	ledStatus.onTime = LED_IDLE_ONTIME;
+	ledStatus.offTime = LED_IDLE_OFFTIME;
+	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
+	SET_FLAG(systemFlags, INIT_CAR);
 }
 
 /**

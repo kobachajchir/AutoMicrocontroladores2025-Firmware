@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "globals.h"
+#include "utils.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -264,11 +265,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if (htim->Instance == TIM3)
     {
         /* Cada 10 ms (cuando TIM3 hace Update/overflow) entra aquí */
+    	Button_Task_10ms(&btnUser);
+		StateLED_Task_10ms(&ledStatus);
         tim3_overflow_count++;
-        if (tim3_overflow_count >= 13)  // ≈13×10 ms = 130 ms Completo los 4K samples de 8 sensores
+        if (tim3_overflow_count >= COUNT_IRDATA_TENMS)  // ≈13×10 ms = 130 ms Completo los 4K samples de 8 sensores
         {
             tim3_overflow_count = 0;
-            procesar_flag = 1;
+            SET_FLAG(systemFlags, PROCESS_IR_DATA);
         }
     }
 }
@@ -282,8 +285,8 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM3 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
     {
-        /* Aquí haces toggle de PB0 para probar con el osciloscopio */
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+        /* Aquí iba el toggle de algun pin para probar con el osciloscopio el pulso de 30us para el ADC trigger */
+    	//Ya anduvo, dejamos por las dudas
     }
 }
 
