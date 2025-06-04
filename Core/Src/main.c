@@ -83,6 +83,7 @@ static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void initCarMode();
 void initUsartBufferHandler();
+void USART1_PrintString(const char *msg);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -107,6 +108,10 @@ static void MyRxHandler(uint8_t byte)
     }
     char eco[4] = { (char)byte, '\r', '\n', '\0' };
     USART1_PushTxString(&usart1Buf, eco);
+}
+
+void USART1_PrintString(const char *msg) {
+    USART1_PushTxString(&usart1Buf, msg);
 }
 
 /* USER CODE END 0 */
@@ -162,7 +167,7 @@ int main(void)
   if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
 	  Error_Handler();
   }
-
+  USART1_PrintString("Bienvenido. Sistema inicializado correctamente.\r\n");
   /* Solo llamo initCarMode() una vez, antes del while */
   if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
 	  initCarMode();
@@ -179,9 +184,7 @@ int main(void)
 		if ((now - lastTime) >= 5000)
 		{
 			lastTime = now;
-			USART1_PushTxString(&usart1Buf,
-				"Mensaje periodico cada 5 segundos.\r\n");
-			__NOP();
+			USART1_PrintString("Mensaje periodico cada 5 segundos.\r\n");
 		}
 		//END TESTING ONLY
 		if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
@@ -539,8 +542,6 @@ void initCarMode(){
 	ledStatus.offTime = LED_IDLE_OFFTIME;
 	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
 	SET_FLAG(systemFlags, INIT_CAR);
-	USART1_PushTxString(&usart1Buf,
-	"Bienvenido. Sistema inicializado correctamente.\r\n");
 }
 
 /* USER CODE END 4 */
