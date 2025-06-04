@@ -128,4 +128,3 @@ void Handle_ModeChange_ByButton(volatile ButtonState_t *btn, volatile LedStatus_
 	// Forzamos que el LED reinicie con nueva secuencia
 	SET_FLAG(led->flags, LED_FLAG_DIRTY);
 }
-

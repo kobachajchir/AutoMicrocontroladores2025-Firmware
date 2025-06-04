@@ -1,2 +1,2 @@
 eclipse.preferences.version=1
-sfrviewstate={"fFavorites"\:{"fLists"\:{}},"fProperties"\:{"fNodeProperties"\:{}}}
+sfrviewstate={"fFavorites"\:{"fLists"\:{"Timer3 Compare 1"\:["STM32F103/TIM3/SR/CC1IF"]}},"fProperties"\:{"fNodeProperties"\:{"STM32F103/TIM3/CNT"\:{"fNodeProperties"\:{"autoupdate"\:"true"}},"STM32F103/TIM3/SR"\:{"fNodeProperties"\:{"autoupdate"\:"true"}}}}}

@@ -27,6 +27,9 @@
 #include "types/bitmap_type.h"
 #include "types/button_state.h"
 #include "utils/macros_utils.h"
+#include "types/usart_buffer_type.h"
+#include "usart_dma_buffer.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,6 +53,10 @@ DMA_HandleTypeDef hdma_adc1;
 
 TIM_HandleTypeDef htim3;
 
+UART_HandleTypeDef huart1;
+DMA_HandleTypeDef hdma_usart1_tx;
+DMA_HandleTypeDef hdma_usart1_rx;
+
 /* USER CODE BEGIN PV */
 volatile uint16_t adc_last_values[8];
 volatile uint8_t procesar_flag = 0;
@@ -58,8 +65,9 @@ volatile uint32_t contador = 0;
 volatile ButtonState_t btnUser;
 volatile LedStatus_t ledStatus;
 volatile Byte_Flag_Struct systemFlags;
-
 volatile CarMode_t testMode;
+USART_Buffer_t usart1Buf;
+
 
 /* --- Variables globales --- */
 
@@ -71,13 +79,35 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void initCarMode();
+void initUsartBufferHandler();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+/* Wrappers para HAL UART DMA */
+static HAL_StatusTypeDef HAL_UART1_TxDMA_Wrapper(uint8_t *pData, uint16_t size)
+{
+    return HAL_UART_Transmit_DMA(&huart1, pData, size);
+}
 
+static HAL_StatusTypeDef HAL_UART1_RxDMA_Wrapper(uint8_t *pData, uint16_t size)
+{
+    return HAL_UART_Receive_DMA(&huart1, pData, size);
+}
+
+/* Callback que procesará cada byte recibido */
+static void MyRxHandler(uint8_t byte)
+{
+    // Ejemplo: convertir a mayúscula y reenviar
+    if (byte >= 'a' && byte <= 'z') {
+        byte -= ('a' - 'A');
+    }
+    char eco[4] = { (char)byte, '\r', '\n', '\0' };
+    USART1_PushTxString(&usart1Buf, eco);
+}
 
 /* USER CODE END 0 */
 
@@ -114,23 +144,45 @@ int main(void)
   MX_TIM3_Init();
   MX_ADC1_Init();
   MX_USB_DEVICE_Init();
-  MX_DMA_Init();
-  MX_TIM3_Init();
-  if (HAL_ADC_Start_DMA(&hadc1, (uint32_t*) adc_last_values, 8) != HAL_OK) {
-	Error_Handler();
-  }
-  HAL_TIM_Base_Start_IT(&htim3);
-  HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1);
-  MX_USB_DEVICE_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  initCarMode();
+  if (USART1_RegisterHandle(&huart1) != HAL_OK) {
+	  Error_Handler();
+  }
+  if (USART1_SetDMACallbacks(HAL_UART1_TxDMA_Wrapper,
+							 HAL_UART1_RxDMA_Wrapper) != HAL_OK)
+  {
+	  Error_Handler();
+  }
+
+  if (USART1_DMA_Init(&usart1Buf) != HAL_OK) {
+	  Error_Handler();
+  }
+
+  if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
+	  Error_Handler();
+  }
+
+  /* Solo llamo initCarMode() una vez, antes del while */
+  if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
+	  initCarMode();
+  }
+  static uint32_t lastTime = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
+		USART1_Update();
 		//TESTING ONLY
-
+		uint32_t now = HAL_GetTick();
+		if ((now - lastTime) >= 5000)
+		{
+			lastTime = now;
+			USART1_PushTxString(&usart1Buf,
+				"Mensaje periodico cada 5 segundos.\r\n");
+			__NOP();
+		}
 		//END TESTING ONLY
 		if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
 			if (IS_FLAG_SET(btnUser.flags, BTN_USER_SHORT_PRESS)) { // Acción short
@@ -154,19 +206,6 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	}
   /* USER CODE END 3 */
-}
-
-void initCarMode(){
-	NIBBLEH_SET_STATE(systemFlags, IDLE_MODE);
-	testMode = GET_CAR_MODE();
-	ledStatus.gpio_port = LED_PORT;
-	ledStatus.gpio_pin = LED_PORT_PIN;
-	ledStatus.flags.byte = 0;
-	ledStatus.counter = 0;
-	ledStatus.onTime = LED_IDLE_ONTIME;
-	ledStatus.offTime = LED_IDLE_OFFTIME;
-	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
-	SET_FLAG(systemFlags, INIT_CAR);
 }
 
 /**
@@ -382,6 +421,39 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -394,6 +466,12 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA1_Channel4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
+  /* DMA1_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
 
 }
 
@@ -441,6 +519,29 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void initUsartBufferHandler(){
+    usart1Buf.headTx = 0;
+    usart1Buf.tailTx = 0;
+    usart1Buf.headRx = 0;
+    usart1Buf.tailRx = 0;
+    usart1Buf.flags.byte = 0;
+}
+
+void initCarMode(){
+	NIBBLEH_SET_STATE(systemFlags, IDLE_MODE);
+	testMode = GET_CAR_MODE();
+	ledStatus.gpio_port = LED_PORT;
+	ledStatus.gpio_pin = LED_PORT_PIN;
+	ledStatus.flags.byte = 0;
+	ledStatus.counter = 0;
+	ledStatus.onTime = LED_IDLE_ONTIME;
+	ledStatus.offTime = LED_IDLE_OFFTIME;
+	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
+	SET_FLAG(systemFlags, INIT_CAR);
+	USART1_PushTxString(&usart1Buf,
+	"Bienvenido. Sistema inicializado correctamente.\r\n");
+}
 
 /* USER CODE END 4 */
 

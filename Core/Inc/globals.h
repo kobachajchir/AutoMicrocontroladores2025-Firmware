@@ -6,16 +6,8 @@
 #include "types/button_state.h"
 #include "types/led_status.h"
 #include "types/carmode_type.h"
+#include "types/usart_buffer_type.h"
 #include "utils/macros_utils.h"
-
-extern volatile uint16_t adc_last_values[8];
-extern volatile uint8_t  procesar_flag;
-extern volatile uint16_t tim3_overflow_count;
-extern volatile uint32_t contador;
-extern volatile ButtonState_t btnUser;
-extern volatile LedStatus_t ledStatus;
-extern volatile Byte_Flag_Struct systemFlags;
-extern volatile CarMode_t testMode;
 
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
@@ -27,5 +19,17 @@ extern volatile CarMode_t testMode;
 
 #define INIT_CAR BIT0_MASK
 #define PROCESS_IR_DATA BIT1_MASK
+
+#define USART1_BUFFER_SIZE 64
+
+extern volatile uint16_t adc_last_values[8];
+extern volatile uint8_t  procesar_flag;
+extern volatile uint16_t tim3_overflow_count;
+extern volatile uint32_t contador;
+extern volatile ButtonState_t btnUser;
+extern volatile LedStatus_t ledStatus;
+extern volatile Byte_Flag_Struct systemFlags;
+extern volatile CarMode_t testMode;
+extern USART_Buffer_t usart1Buf;
 
 #endif // GLOBALS_H
