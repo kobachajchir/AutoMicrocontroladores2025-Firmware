@@ -58,16 +58,28 @@ DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
-volatile uint16_t adc_last_values[8];
-volatile uint8_t procesar_flag = 0;
-volatile uint16_t tim3_overflow_count = 0;
-volatile uint32_t contador = 0;
+volatile bool procesar_flag = false;
+volatile bool lanzar_ADC_trigger_flag = false;
 volatile ButtonState_t btnUser;
 volatile LedStatus_t ledStatus;
 volatile Byte_Flag_Struct systemFlags;
 volatile CarMode_t testMode;
 USART_Buffer_t usart1Buf;
-
+volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
+TCRT_LightConfig_t tcrtLight;
+TCRTHandlerTask tcrtTask;
+volatile uint8_t cnt_adc_trigger = 0;
+volatile uint16_t cnt_10ms = 0;
+bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
+    TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
+    TCRT_PULL_UP,    // canal 1: línea lateral izq
+    TCRT_PULL_UP,    // canal 2: línea lateral der
+    TCRT_PULL_DOWN,  // canal 3: obstáculo diag izq (invertir)
+    TCRT_PULL_DOWN,  // canal 4: obstáculo frente izq
+    TCRT_PULL_DOWN,  // canal 5: obstáculo centro
+    TCRT_PULL_DOWN,  // canal 6: obstáculo frente der
+    TCRT_PULL_DOWN   // canal 7: obstáculo diag der
+};
 
 /* --- Variables globales --- */
 
@@ -83,6 +95,7 @@ static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void initCarMode();
 void initUsartBufferHandler();
+void initTCRTLib();
 void USART1_PrintString(const char *msg);
 /* USER CODE END PFP */
 
@@ -172,6 +185,13 @@ int main(void)
   if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
 	  initCarMode();
   }
+
+  initTCRTLib();
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
+  HAL_TIM_Base_Start_IT(&htim3);
+  if (TCRT5000_StartCalibration(&tcrtTask, 50, 50) != HAL_OK) {
+	  USART1_PrintString("Error en la calibracion.\r\n");
+  }
   static uint32_t lastTime = 0;
   /* USER CODE END 2 */
 
@@ -185,6 +205,32 @@ int main(void)
 		{
 			lastTime = now;
 			USART1_PrintString("Mensaje periodico cada 5 segundos.\r\n");
+		}
+		if (procesar_flag) {
+			TCRT5000_Update(&tcrtTask);
+			procesar_flag = false; // ya procesó la transferencia
+		}
+		// Si pasó a READY, entonces podemos usar IsReady + Update para filtrar continuamente:
+		if (TCRT5000_IsReady(&tcrtTask)) {
+			/*// Ya hay resultados listos en tcrtTask.results
+			// Leer banderas digitales:
+			bool too_left   = tcrtTask.results.flags.bitmap.bit0;
+			bool too_right  = tcrtTask.results.flags.bitmap.bit1;
+			bool obs_center = tcrtTask.results.flags.bitmap.bit4;
+			bool light_on   = tcrtTask.results.flags.bitmap.bit7;
+
+			// Por ejemplo, controlar la luz:
+			if (tcrtTask.results.line_detected) {
+				TCRT5000_SetLight(&tcrtTask, false);
+			} else {
+				TCRT5000_SetLight(&tcrtTask, true);
+			}
+
+			// Leer raws si hace falta:
+			uint16_t raw_center = tcrtTask.results.raw.channels.line;
+			uint16_t raw_obs5   = tcrtTask.results.raw.channels.obs_center;
+			*/
+			TCRT5000_ClearReady(&tcrtTask);
 		}
 		//END TESTING ONLY
 		if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
@@ -379,7 +425,6 @@ static void MX_TIM3_Init(void)
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
 
   /* USER CODE BEGIN TIM3_Init 1 */
 
@@ -387,7 +432,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 71;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 9999;
+  htim3.Init.Period = 249;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -399,21 +444,9 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_TIM_OC_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_OC1REF;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_TIMING;
-  sConfigOC.Pulse = 25;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_OC_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -542,6 +575,21 @@ void initCarMode(){
 	ledStatus.offTime = LED_IDLE_OFFTIME;
 	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
 	SET_FLAG(systemFlags, INIT_CAR);
+}
+
+void initTCRTLib(){
+	tcrtLight.port = TCRT_LED_PORT;
+	tcrtLight.pin = TCRT_LED_PORT_PIN;
+	tcrtLight.state = true;
+	if (TCRT5000_Create(        /* NULL en print debug para silenciar debug */
+		&tcrtTask,
+		&procesar_flag,
+		sensor_raw_data,
+		pull_cfg,
+		&tcrtLight,
+		USART1_PrintString) != HAL_OK){
+			USART1_PrintString("Error al crear instancia TCRT.\r\n");
+	}
 }
 
 /* USER CODE END 4 */

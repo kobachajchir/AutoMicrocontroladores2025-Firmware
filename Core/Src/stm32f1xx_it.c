@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include "globals.h"
 #include "utils.h"
+#include "tcrt5000.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -63,7 +64,6 @@ extern ADC_HandleTypeDef hadc1;
 extern TIM_HandleTypeDef htim3;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 extern DMA_HandleTypeDef hdma_usart1_rx;
-extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -290,49 +290,7 @@ void TIM3_IRQHandler(void)
   /* USER CODE END TIM3_IRQn 1 */
 }
 
-/**
-  * @brief This function handles USART1 global interrupt.
-  */
-void USART1_IRQHandler(void)
-{
-  /* USER CODE BEGIN USART1_IRQn 0 */
-
-  /* USER CODE END USART1_IRQn 0 */
-  HAL_UART_IRQHandler(&huart1);
-  /* USER CODE BEGIN USART1_IRQn 1 */
-
-  /* USER CODE END USART1_IRQn 1 */
-}
-
 /* USER CODE BEGIN 1 */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-    if (htim->Instance == TIM3)
-    {
-        /* Cada 10 ms (cuando TIM3 hace Update/overflow) entra aquí */
-    	Button_Task_10ms(&btnUser);
-		StateLED_Task_10ms(&ledStatus);
-        tim3_overflow_count++;
-        if (tim3_overflow_count >= COUNT_IRDATA_TENMS)  // ≈13×10 ms = 130 ms Completo los 4K samples de 8 sensores
-        {
-            tim3_overflow_count = 0;
-            SET_FLAG(systemFlags, PROCESS_IR_DATA);
-        }
-    }
-}
 
-/**
-  * @brief  Callback llamado cuando TIM3 detecta un compare match en canal 1 (CCR1)
-  * @param  htim puntero al handle del timer
-  * @retval None
-  */
-void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
-{
-    if (htim->Instance == TIM3 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
-    {
-        /* Aquí iba el toggle de algun pin para probar con el osciloscopio el pulso de 30us para el ADC trigger */
-    	//Ya anduvo, dejamos por las dudas
-    }
-}
 
 /* USER CODE END 1 */

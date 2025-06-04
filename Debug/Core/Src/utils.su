@@ -1,3 +1,5 @@
-../Core/Src/utils.c:17:6:StateLED_Task_10ms	24	static
-../Core/Src/utils.c:64:6:Button_Task_10ms	24	static
-../Core/Src/utils.c:110:6:Handle_ModeChange_ByButton	16	static
+../Core/Src/utils.c:12:6:HAL_TIM_PeriodElapsedCallback	16	static
+../Core/Src/utils.c:36:6:HAL_ADC_ConvCpltCallback	16	static
+../Core/Src/utils.c:49:6:StateLED_Task_10ms	24	static
+../Core/Src/utils.c:96:6:Button_Task_10ms	24	static
+../Core/Src/utils.c:142:6:Handle_ModeChange_ByButton	16	static

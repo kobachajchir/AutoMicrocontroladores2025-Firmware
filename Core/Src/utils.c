@@ -9,6 +9,38 @@
 #include "utils/macros_utils.h"
 #include "stm32f1xx_hal.h"  // para HAL_GPIO_ReadPin
 
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM3)
+    {
+        // Cada vez que TIM3 desborda (250 µs), entramos aquí
+        cnt_10ms++;
+        if (cnt_10ms >= 40) {          // 40 × 250 µs = 10 000 µs = 10 ms
+            cnt_10ms = 0;
+            // Llamar a las rutinas de 10 ms
+            Button_Task_10ms(&btnUser);
+            StateLED_Task_10ms(&ledStatus);
+
+            // Si deseas seguir con el conteo de ~130 ms para PROCESS_IR_DATA:
+            // static uint16_t tim3_overflow_count = 0;
+            // tim3_overflow_count++;
+            // if (tim3_overflow_count >= (130000 / 250)) {  // 130 ms / 250 µs ≈ 520
+            //     tim3_overflow_count = 0;
+            //     SET_FLAG(systemFlags, PROCESS_IR_DATA);
+            // }
+        }
+    }
+}
+
+/* Callback que el HAL llama cuando DMA terminó de llenar sensor_raw_data[8] */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+    if (hadc->Instance == ADC1) {
+		procesar_flag = true; // Cada vez que hacer ovf el tim 3 que es cada 250us -> 4Khz de muestreo
+    }
+}
+
+
 /**
  * @brief Se invoca cada 10 ms desde el callback de TIM3.
  *        Verifica el tiempo del led y si ya se acabo cambia el estado.
