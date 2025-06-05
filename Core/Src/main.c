@@ -607,7 +607,6 @@ void initTCRTLib(void)
         //   2) Hacer un breve HAL_Delay(1), o sencillamente nada (espera ocupada).
         USART1_Update();
     }*/
-	HAL_Delay(100);
     if(USART1_PushTxString(&usart1Buf, ">> Entré en initTCRTLib()\r\n") != HAL_OK){
     	__NOP();
     }

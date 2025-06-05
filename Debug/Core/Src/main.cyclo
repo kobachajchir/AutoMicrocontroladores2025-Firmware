@@ -16,4 +16,4 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto Proyecto/HAL
 ../Core/Src/main.c:578:6:initUsartBufferHandler	1
 ../Core/Src/main.c:586:6:initCarMode	1
 ../Core/Src/main.c:600:6:initTCRTLib	2
-../Core/Src/main.c:639:6:Error_Handler	1
+../Core/Src/main.c:638:6:Error_Handler	1
