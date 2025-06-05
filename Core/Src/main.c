@@ -97,6 +97,7 @@ void initCarMode();
 void initUsartBufferHandler();
 void initTCRTLib();
 void USART1_PrintString(const char *msg);
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -164,8 +165,8 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  if (USART1_RegisterHandle(&huart1) != HAL_OK) {
-	  Error_Handler();
+  if (USART1_RegisterHandle(&huart1) != HAL_OK){
+	 Error_Handler();
   }
   if (USART1_SetDMACallbacks(HAL_UART1_TxDMA_Wrapper,
 							 HAL_UART1_RxDMA_Wrapper) != HAL_OK)
@@ -180,7 +181,7 @@ int main(void)
   if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
 	  Error_Handler();
   }
-  USART1_PrintString("Bienvenido. Sistema inicializado correctamente.\r\n");
+  USART1_PushTxString(&usart1Buf, "Bienvenido. UART1 + DMA listo.\r\n");
   /* Solo llamo initCarMode() una vez, antes del while */
   if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
 	  initCarMode();
@@ -192,7 +193,7 @@ int main(void)
   if (TCRT5000_StartCalibration(&tcrtTask, 50, 50) != HAL_OK) {
 	  USART1_PrintString("Error en la calibracion.\r\n");
   }
-  static uint32_t lastTime = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -200,12 +201,6 @@ int main(void)
 	while (1) {
 		USART1_Update();
 		//TESTING ONLY
-		uint32_t now = HAL_GetTick();
-		if ((now - lastTime) >= 5000)
-		{
-			lastTime = now;
-			USART1_PrintString("Mensaje periodico cada 5 segundos.\r\n");
-		}
 		if (procesar_flag) {
 			TCRT5000_Update(&tcrtTask);
 			procesar_flag = false; // ya procesó la transferencia
@@ -463,7 +458,6 @@ static void MX_TIM3_Init(void)
   */
 static void MX_USART1_UART_Init(void)
 {
-
   /* USER CODE BEGIN USART1_Init 0 */
 
   /* USER CODE END USART1_Init 0 */
@@ -484,10 +478,18 @@ static void MX_USART1_UART_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN USART1_Init 2 */
+  // ------------------- INSERTAR AQUÍ -------------------
+  // Vincular los handles DMA de TX y RX con huart1 para que HAL UART reciba
+  // el evento “Transfer Complete” del DMA.
+
+  __HAL_LINKDMA(&huart1, hdmatx, hdma_usart1_tx);
+  __HAL_LINKDMA(&huart1, hdmarx, hdma_usart1_rx);
+  // ------------------------------------------------------
 
   /* USER CODE END USART1_Init 2 */
 
 }
+
 
 /**
   * Enable DMA controller clock
@@ -556,6 +558,17 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+/**
+  * @brief  Callback que llama la HAL cuando el DMA de UART1 completa una transmisión.
+  *         Necesario para que la librería maneje el “avance de índices” y, si hay datos
+  *         pendientes, relance otro bloque DMA.
+  */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    USART1_DMA_TxCpltHandler(huart);
+    __NOP();
+}
+
 void initUsartBufferHandler(){
     usart1Buf.headTx = 0;
     usart1Buf.tailTx = 0;
@@ -577,19 +590,35 @@ void initCarMode(){
 	SET_FLAG(systemFlags, INIT_CAR);
 }
 
-void initTCRTLib(){
-	tcrtLight.port = TCRT_LED_PORT;
-	tcrtLight.pin = TCRT_LED_PORT_PIN;
-	tcrtLight.state = true;
-	if (TCRT5000_Create(        /* NULL en print debug para silenciar debug */
-		&tcrtTask,
-		&procesar_flag,
-		sensor_raw_data,
-		pull_cfg,
-		&tcrtLight,
-		USART1_PrintString) != HAL_OK){
-			USART1_PrintString("Error al crear instancia TCRT.\r\n");
-	}
+void initTCRTLib(void)
+{
+    // Un mensaje rápido para verificar que llegamos aquí
+    /*while (USART1_PushTxString(&usart1Buf, ">> Entré en initTCRTLib()\r\n") != HAL_OK) {
+        // Aquí el buffer TX estaba ocupado → esperamos un poco y reintentamos
+        // Por ejemplo, podrías:
+        //   1) Llamar a USART1_Update() para procesar RX,
+        //   2) Hacer un breve HAL_Delay(1), o sencillamente nada (espera ocupada).
+        USART1_Update();
+    }*/
+    USART1_PushTxString(&usart1Buf, ">> Entré en initTCRTLib()\r\n");
+    __NOP();
+    tcrtLight.port  = TCRT_LED_PORT;
+    tcrtLight.pin   = TCRT_LED_PORT_PIN;
+    tcrtLight.state = true;
+
+    /*HAL_StatusTypeDef st = TCRT5000_Create(
+        &tcrtTask,
+        &procesar_flag,
+        sensor_raw_data,
+        pull_cfg,
+        &tcrtLight,
+        USART1_PrintString
+    );
+    if (st != HAL_OK) {
+        USART1_PrintString("TCRT5000_Create devolvió HAL_ERROR\r\n");
+    } else {
+        USART1_PrintString("TCRT5000_Create devolvió HAL_OK\r\n");
+    }*/
 }
 
 /* USER CODE END 4 */
