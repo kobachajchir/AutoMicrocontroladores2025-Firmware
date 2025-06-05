@@ -231,6 +231,7 @@ void DMA1_Channel4_IRQHandler(void)
   /* USER CODE END DMA1_Channel4_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_usart1_tx);
   /* USER CODE BEGIN DMA1_Channel4_IRQn 1 */
+  __NOP();
 
   /* USER CODE END DMA1_Channel4_IRQn 1 */
 }

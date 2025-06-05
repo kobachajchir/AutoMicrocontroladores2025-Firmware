@@ -181,7 +181,6 @@ int main(void)
   if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
 	  Error_Handler();
   }
-  USART1_PushTxString(&usart1Buf, "Bienvenido. UART1 + DMA listo.\r\n");
   /* Solo llamo initCarMode() una vez, antes del while */
   if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
 	  initCarMode();
@@ -458,6 +457,7 @@ static void MX_TIM3_Init(void)
   */
 static void MX_USART1_UART_Init(void)
 {
+
   /* USER CODE BEGIN USART1_Init 0 */
 
   /* USER CODE END USART1_Init 0 */
@@ -489,7 +489,6 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE END USART1_Init 2 */
 
 }
-
 
 /**
   * Enable DMA controller clock
@@ -559,6 +558,14 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /**
+ * @brief  Callback __weak que la HAL llamará cuando alcance 32 bytes TX.
+ */
+void HAL_UART_TxHalfCpltCallback(UART_HandleTypeDef *huart)
+{
+    USART1_DMA_TxHalfCpltHandler(huart);
+}
+
+/**
   * @brief  Callback que llama la HAL cuando el DMA de UART1 completa una transmisión.
   *         Necesario para que la librería maneje el “avance de índices” y, si hay datos
   *         pendientes, relance otro bloque DMA.
@@ -566,7 +573,6 @@ static void MX_GPIO_Init(void)
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     USART1_DMA_TxCpltHandler(huart);
-    __NOP();
 }
 
 void initUsartBufferHandler(){
@@ -588,6 +594,7 @@ void initCarMode(){
 	ledStatus.offTime = LED_IDLE_OFFTIME;
 	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
 	SET_FLAG(systemFlags, INIT_CAR);
+	USART1_PushTxString(&usart1Buf, "Bienvenido. UART1 + DMA listo.\r\n");
 }
 
 void initTCRTLib(void)
@@ -600,8 +607,10 @@ void initTCRTLib(void)
         //   2) Hacer un breve HAL_Delay(1), o sencillamente nada (espera ocupada).
         USART1_Update();
     }*/
-    USART1_PushTxString(&usart1Buf, ">> Entré en initTCRTLib()\r\n");
-    __NOP();
+	HAL_Delay(100);
+    if(USART1_PushTxString(&usart1Buf, ">> Entré en initTCRTLib()\r\n") != HAL_OK){
+    	__NOP();
+    }
     tcrtLight.port  = TCRT_LED_PORT;
     tcrtLight.pin   = TCRT_LED_PORT_PIN;
     tcrtLight.state = true;

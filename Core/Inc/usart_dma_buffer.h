@@ -141,6 +141,11 @@
 #include "types/usart_buffer_type.h"
 #include "stm32f1xx_hal.h"
 
+// Redefinimos flags internos:
+#define USART_FLAG_TX_BUSY   (1U << 0)  // bit0
+#define USART_FLAG_TX_FULL   (1U << 1)  // bit1
+#define USART_FLAG_RX_FULL   (1U << 2)  // bit2
+
 /*
  * Callbacks que el usuario debe proporcionar:
  *  - Tx: HAL_UART_Transmit_DMA(&huart1, pData, size);
@@ -206,6 +211,13 @@ void USART1_Update(void);
  * @param huart  Puntero al UART_HandleTypeDef que causó el callback (p.ej. &huart1).
  */
 void USART1_DMA_TxCpltHandler(UART_HandleTypeDef *huart);
+
+/**
+ * @brief  Se debe llamar desde HAL_UART_TxHalfCpltCallback( &huart1 )
+ *         ─ Si al enviar 32 bytes ya completamos el mensaje (≤32), lo detenemos.
+ *         ─ Si todavía hay más de 32 bytes, no detenemos; dejamos que siga.
+ */
+void USART1_DMA_TxHalfCpltHandler(UART_HandleTypeDef *huart);
 
 #endif /* INC_USART_DMA_BUFFER_H_ */
 
