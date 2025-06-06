@@ -181,18 +181,13 @@ int main(void)
   if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
 	  Error_Handler();
   }
-  /* Solo llamo initCarMode() una vez, antes del while */
+  //Solo llamo initCarMode() una vez, antes del while
   if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
 	  initCarMode();
   }
-
   initTCRTLib();
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
   HAL_TIM_Base_Start_IT(&htim3);
-  if (TCRT5000_StartCalibration(&tcrtTask, 50, 50) != HAL_OK) {
-	  USART1_PrintString("Error en la calibracion.\r\n");
-  }
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -205,26 +200,30 @@ int main(void)
 			procesar_flag = false; // ya procesó la transferencia
 		}
 		// Si pasó a READY, entonces podemos usar IsReady + Update para filtrar continuamente:
+		/* En tu bucle principal (por ejemplo, dentro de while(1)): */
 		if (TCRT5000_IsReady(&tcrtTask)) {
-			/*// Ya hay resultados listos en tcrtTask.results
-			// Leer banderas digitales:
-			bool too_left   = tcrtTask.results.flags.bitmap.bit0;
-			bool too_right  = tcrtTask.results.flags.bitmap.bit1;
-			bool obs_center = tcrtTask.results.flags.bitmap.bit4;
-			bool light_on   = tcrtTask.results.flags.bitmap.bit7;
+		    // Aquí han pasado 4000 bloques de 8 muestras en modo READY.
 
-			// Por ejemplo, controlar la luz:
-			if (tcrtTask.results.line_detected) {
-				TCRT5000_SetLight(&tcrtTask, false);
-			} else {
-				TCRT5000_SetLight(&tcrtTask, true);
+		    // 1) Leer las banderas digitales:
+		    bool too_left   = tcrtTask.results.flags.bitmap.bit0;
+		    bool too_right  = tcrtTask.results.flags.bitmap.bit1;
+		    bool obs_center = tcrtTask.results.flags.bitmap.bit4;
+		    bool light_on   = tcrtTask.results.flags.bitmap.bit7;
+
+		    // 2) Leer lecturas crudas si hace falta:
+		    uint16_t raw_center = tcrtTask.results.raw.channels.line;
+		    uint16_t raw_obs5   = tcrtTask.results.raw.channels.obs_center;
+
+		    uint16_t values[TCRT5000_NUM_SENSORS];
+			for (int i = 0; i < TCRT5000_NUM_SENSORS; i++) {
+				values[i] = tcrtTask.results.raw.array[i];
 			}
+		    __NOP();
+		    // ... aquí procesas esos 4000 bloques como prefieras ...
 
-			// Leer raws si hace falta:
-			uint16_t raw_center = tcrtTask.results.raw.channels.line;
-			uint16_t raw_obs5   = tcrtTask.results.raw.channels.obs_center;
-			*/
-			TCRT5000_ClearReady(&tcrtTask);
+		    // 3) Una vez consumidos, limpiar la bandera para empezar a contar
+		    //    otras 4000 muestras.
+		    TCRT5000_ClearReady(&tcrtTask);
 		}
 		//END TESTING ONLY
 		if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
@@ -478,13 +477,8 @@ static void MX_USART1_UART_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN USART1_Init 2 */
-  // ------------------- INSERTAR AQUÍ -------------------
-  // Vincular los handles DMA de TX y RX con huart1 para que HAL UART reciba
-  // el evento “Transfer Complete” del DMA.
-
   __HAL_LINKDMA(&huart1, hdmatx, hdma_usart1_tx);
   __HAL_LINKDMA(&huart1, hdmarx, hdma_usart1_rx);
-  // ------------------------------------------------------
 
   /* USER CODE END USART1_Init 2 */
 
@@ -558,14 +552,6 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /**
- * @brief  Callback __weak que la HAL llamará cuando alcance 32 bytes TX.
- */
-void HAL_UART_TxHalfCpltCallback(UART_HandleTypeDef *huart)
-{
-    USART1_DMA_TxHalfCpltHandler(huart);
-}
-
-/**
   * @brief  Callback que llama la HAL cuando el DMA de UART1 completa una transmisión.
   *         Necesario para que la librería maneje el “avance de índices” y, si hay datos
   *         pendientes, relance otro bloque DMA.
@@ -573,6 +559,7 @@ void HAL_UART_TxHalfCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     USART1_DMA_TxCpltHandler(huart);
+    __NOP();
 }
 
 void initUsartBufferHandler(){
@@ -594,40 +581,45 @@ void initCarMode(){
 	ledStatus.offTime = LED_IDLE_OFFTIME;
 	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
 	SET_FLAG(systemFlags, INIT_CAR);
-	USART1_PushTxString(&usart1Buf, "Bienvenido. UART1 + DMA listo.\r\n");
+	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
+	USART1_PrintString("Segundo envio\r\n");
 }
 
 void initTCRTLib(void)
 {
-    // Un mensaje rápido para verificar que llegamos aquí
-    /*while (USART1_PushTxString(&usart1Buf, ">> Entré en initTCRTLib()\r\n") != HAL_OK) {
-        // Aquí el buffer TX estaba ocupado → esperamos un poco y reintentamos
-        // Por ejemplo, podrías:
-        //   1) Llamar a USART1_Update() para procesar RX,
-        //   2) Hacer un breve HAL_Delay(1), o sencillamente nada (espera ocupada).
-        USART1_Update();
-    }*/
-    if(USART1_PushTxString(&usart1Buf, ">> Entré en initTCRTLib()\r\n") != HAL_OK){
-    	__NOP();
-    }
+    // 1) Configuro el LED (opcional). Si no tienes LED, pasa NULL en TCRT5000_Create.
     tcrtLight.port  = TCRT_LED_PORT;
     tcrtLight.pin   = TCRT_LED_PORT_PIN;
     tcrtLight.state = true;
 
-    /*HAL_StatusTypeDef st = TCRT5000_Create(
-        &tcrtTask,
-        &procesar_flag,
-        sensor_raw_data,
-        pull_cfg,
-        &tcrtLight,
-        USART1_PrintString
+    // 2) Creo la instancia del TCRT5000. Pasa USART1_PrintString (o NULL si no quieres debug).
+    HAL_StatusTypeDef st = TCRT5000_Create(
+        &tcrtTask,            // handler de la librería
+        &procesar_flag,       // bandera que marca “8 muestras ADC listas”
+        sensor_raw_data,      // arreglo uint16_t[8]
+        pull_cfg,             // arreglo bool[8]
+        &tcrtLight,           // LED opcional para iluminar sensores
+        USART1_PrintString    // callback de debug (puede ser NULL)
     );
+    // 3) Informo por UART si hubo éxito o error al crear la instancia.
     if (st != HAL_OK) {
         USART1_PrintString("TCRT5000_Create devolvió HAL_ERROR\r\n");
-    } else {
+        return;  // Salimos, no tiene sentido continuar si la creación falló.
+    }
+    else {
         USART1_PrintString("TCRT5000_Create devolvió HAL_OK\r\n");
-    }*/
+    }
+    // 4) Si la creación fue exitosa, inicio la calibración interna:
+    if (TCRT5000_StartCalibration(&tcrtTask, 50, 50) != HAL_OK) {
+        // Si falla la primera fase de calibración, lo informo:
+        USART1_PrintString("main - Error al iniciar calibración\r\n");
+    }
+    else {
+        // Si StartCalibration devolvió HAL_OK, quedó en modo CALIB_LINE_BLACK
+        USART1_PrintString("main - Calibración iniciada (50 muestras línea, 50 obst)\r\n");
+    }
 }
+
 
 /* USER CODE END 4 */
 
