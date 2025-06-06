@@ -138,11 +138,12 @@ HAL_StatusTypeDef USART1_PushTxString(USART_Buffer_t *buf, const char *str)
     }
     buf->flags.byte &= ~USART_FLAG_TX_FULL;  // despejamos TX_FULL porque ahora sí cabe
 
-    // 2) Actualizar cuántos bytes en cola (sólo informativo):
+    // 2) Actualizar cuántos bytes pendientes en total (entre tailTx y headTx):
+    //    (esto no es estrictamente necesario si usas HT/TC para vaciar, pero puede servir para debug).
     buf->txCount = (uint8_t)USART1_TxQueued(buf);
 
-    // 3) Preparar variables HT/TC: sólo enviaremos 'len' bytes reales
-    pendingBytes = (uint16_t)len;
+    // 3) Preparar variables HT/TC (sólo si era un envío “nuevo”):
+    pendingBytes = (uint16_t)buf->txCount;
     sentBytes    = 0;
     firstRound   = true;
 
@@ -201,21 +202,39 @@ void USART1_DMA_TxHalfCpltHandler(UART_HandleTypeDef *huart)
         return;
     }
 
-    /* Hemos transmitido la primera mitad del buffer (32 bytes) */
-    sentBytes += (USART1_BUFFER_SIZE / 2);
+    // 1) Ya se enviaron 32 bytes:
+    sentBytes += (USART1_BUFFER_SIZE / 2);  // 32
+    if (pendingBytes >= (USART1_BUFFER_SIZE / 2)) {
+        pendingBytes -= (USART1_BUFFER_SIZE / 2);
+    } else {
+        pendingBytes = 0;
+    }
 
-    if (firstRound && (sentBytes >= pendingBytes)) {
-        /* Todo el mensaje estaba en la primera mitad */
-        firstRound = false;
+    // 2) Avanzar tailTx en 32 (liberamos esos bytes):
+    for (int i = 0; i < (USART1_BUFFER_SIZE/2); i++) {
+        bufPtr->tailTx = (uint8_t)((bufPtr->tailTx + 1) % USART1_BUFFER_SIZE);
+    }
 
-        /* Marcar cola como vacía */
-        bufPtr->tailTx = bufPtr->headTx;
-        bufPtr->txCount = 0;
-        bufPtr->flags.byte &= ~(USART_FLAG_TX_BUSY | USART_FLAG_TX_FULL);
+    // 3) ¿Quedan bytes por enviar?
+    if (pendingBytes > 0) {
+        // Aún hay más data: relanzamos el DMA para los próximos 32→64
+        // (En circular, la segunda mitad corresponde a las siguientes direcciones).
+        if (txDmaCallback(&bufPtr->txBuffer[ bufPtr->tailTx ],
+                          (uint16_t)(USART1_BUFFER_SIZE / 2)) != HAL_OK)
+        {
+            // Si falla al relanzar, marcamos error y liberamos TX_BUSY:
+            bufPtr->flags.byte &= ~USART_FLAG_TX_BUSY;
+        }
+        // Atención: no limpiamos TX_BUSY hasta que se complete todo (HT + TC).
+    }
+    else {
+        // Ya no queda nada en cola → detenemos el DMA y limpiamos TX_BUSY:
+        bufPtr->flags.byte &= ~USART_FLAG_TX_BUSY;
 
         if (uartHandle != NULL) {
             CLEAR_BIT(uartHandle->Instance->CR3, USART_CR3_DMAT);
             HAL_UART_DMAStop(uartHandle);
+            // Restaurar estado HAL:
             uartHandle->gState = HAL_UART_STATE_READY;
             __HAL_UNLOCK(uartHandle);
         }
@@ -234,19 +253,37 @@ void USART1_DMA_TxCpltHandler(UART_HandleTypeDef *huart)
         return;
     }
 
-    /* Segunda mitad de la transferencia (otros 32 bytes) */
-    sentBytes += (USART1_BUFFER_SIZE / 2);
+    // 1) Se enviaron otros 32 bytes (segunda mitad de los 64):
+    sentBytes += (USART1_BUFFER_SIZE / 2);  // otro +32
+    if (pendingBytes >= (USART1_BUFFER_SIZE / 2)) {
+        pendingBytes -= (USART1_BUFFER_SIZE / 2);
+    } else {
+        pendingBytes = 0;
+    }
 
-    if (firstRound && (sentBytes >= pendingBytes)) {
-        firstRound = false;
+    // 2) Avanzar tailTx en 32 más:
+    for (int i = 0; i < (USART1_BUFFER_SIZE/2); i++) {
+        bufPtr->tailTx = (uint8_t)((bufPtr->tailTx + 1) % USART1_BUFFER_SIZE);
+    }
 
-        bufPtr->tailTx = bufPtr->headTx;
-        bufPtr->txCount = 0;
-        bufPtr->flags.byte &= ~(USART_FLAG_TX_BUSY | USART_FLAG_TX_FULL);
+    // 3) ¿Queda aún data tras los primeros 64? (caso futuro >64 bytes)
+    if (pendingBytes > 0) {
+        // Relanzar el DMA para la siguiente “mitad” de 64 (en modo circular):
+        if (txDmaCallback(&bufPtr->txBuffer[ bufPtr->tailTx ],
+                          (uint16_t)(USART1_BUFFER_SIZE / 2)) != HAL_OK)
+        {
+            bufPtr->flags.byte &= ~USART_FLAG_TX_BUSY;
+        }
+        // Quedará pendiente el TC final posterior.
+    }
+    else {
+        // Ya no quedan bytes por enviar → terminamos:
+        bufPtr->flags.byte &= ~USART_FLAG_TX_BUSY;
 
         if (uartHandle != NULL) {
             CLEAR_BIT(uartHandle->Instance->CR3, USART_CR3_DMAT);
             HAL_UART_DMAStop(uartHandle);
+            // Restaurar estado HAL:
             uartHandle->gState = HAL_UART_STATE_READY;
             __HAL_UNLOCK(uartHandle);
         }
