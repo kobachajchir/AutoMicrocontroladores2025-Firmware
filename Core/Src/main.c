@@ -29,6 +29,7 @@
 #include "utils/macros_utils.h"
 #include "types/usart_buffer_type.h"
 #include "usart_dma_buffer.h"
+#include "motor_control.h"
 
 /* USER CODE END Includes */
 
@@ -52,6 +53,7 @@ ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim4;
 
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_tx;
@@ -64,14 +66,16 @@ volatile ButtonState_t btnUser;
 volatile LedStatus_t ledStatus;
 volatile Byte_Flag_Struct systemFlags;
 volatile CarMode_t testMode;
-USART_Buffer_t usart1Buf;
 volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 TCRT_LightConfig_t tcrtLight;
-TCRTHandlerTask tcrtTask;
 volatile uint8_t cnt_adc_trigger = 0;
 volatile uint16_t cnt_10ms = 0;
 volatile uint32_t cnt_10us = 0;
 volatile uint32_t tcrt_calib_cnt_phase = 0;
+//Modificcar para hacer una sola struct de velocidades modo y direcciones
+static uint8_t motorBothSpeed = 100;
+static int8_t motorBothDirection = MOTOR_DIR_FORWARD;
+
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
     TCRT_PULL_UP,    // canal 1: línea lateral izq
@@ -82,6 +86,11 @@ bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_DOWN,  // canal 6: obstáculo frente der
     TCRT_PULL_DOWN   // canal 7: obstáculo diag der
 };
+
+/* --- Handlers de librerias --- */
+USART_Buffer_t usart1Buf;
+TCRTHandlerTask tcrtTask;
+MotorControl_Handle motorTask;
 
 /* --- Variables globales --- */
 
@@ -94,6 +103,7 @@ static void MX_DMA_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 void initCarMode();
 void UserBtn_MainTask();
@@ -102,6 +112,13 @@ void TCRT_MainTask();
 void initUsartBufferHandler();
 void USART1_PrintString(const char *msg);
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
+void InitMotorTask(void);
+void My_TimerCalcFunc(uint32_t target_freq_hz,
+                      uint32_t timer_clk_hz,
+                      uint16_t *prescaler_out,
+                      uint16_t *period_out);
+void Motor_MainTask(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -168,6 +185,7 @@ int main(void)
   MX_ADC1_Init();
   MX_USB_DEVICE_Init();
   MX_USART1_UART_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   if (USART1_RegisterHandle(&huart1) != HAL_OK){
 	 Error_Handler();
@@ -190,6 +208,7 @@ int main(void)
 	  initCarMode();
   }
   initTCRTLib();
+  InitMotorTask();
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
   HAL_TIM_Base_Start_IT(&htim3);
   /* USER CODE END 2 */
@@ -201,6 +220,7 @@ int main(void)
 		//TESTING ONLY
 		UserBtn_MainTask();
 		TCRT_MainTask();
+		Motor_MainTask();
 		// Si quieres saber cuántos sobrepasos de 1 s hubo (0..9):
 		//uint8_t num_overflows = NIBBLEH_GET_STATE(btnUser.flags);
 
@@ -411,6 +431,77 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 11;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 255;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
+  HAL_TIM_MspPostInit(&htim4);
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -553,6 +644,7 @@ void UserBtn_MainTask(){
 		}
 		if (IS_FLAG_SET(btnUser.flags, BTN_USER_LONG_PRESS)) { // Acción long
 			Handle_ModeChange_ByButton(&btnUser, &ledStatus);
+			motorBothSpeed+=20; //TEST ONLY!!
 			CLEAR_FLAG(btnUser.flags, BTN_USER_LONG_PRESS);
 		}
 	}
@@ -629,6 +721,57 @@ void TCRT_MainTask(){
 		//Procesar aca la data de los IR
 		CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
 	}
+}
+
+void My_TimerCalcFunc(uint32_t target_freq_hz,
+                      uint32_t timer_clk_hz,
+                      uint16_t *prescaler_out,
+                      uint16_t *period_out)
+{
+    const uint32_t desired_resolution = 256; // 8 bits
+
+    if (target_freq_hz == 0 || timer_clk_hz == 0 || !prescaler_out || !period_out) {
+        *prescaler_out = 0;
+        *period_out = 0;
+        return;
+    }
+
+    uint32_t prescaler = timer_clk_hz / (target_freq_hz * desired_resolution);
+    if (prescaler == 0) prescaler = 1;
+
+    *prescaler_out = (uint16_t)(prescaler - 1);
+    *period_out    = (uint16_t)(desired_resolution - 1);
+}
+
+void InitMotorTask(void)
+{
+    motorTask.htim = &htim4;
+    motorTask.desired_pwm_freq = 22700;
+    motorTask.compute_params = My_TimerCalcFunc;
+
+    motorTask.left_forward_channel  = TIM_CHANNEL_1;
+    motorTask.left_backward_channel = TIM_CHANNEL_2;
+    motorTask.right_forward_channel = TIM_CHANNEL_3;
+    motorTask.right_backward_channel = TIM_CHANNEL_4;
+
+    // 🟡 VINCULÁS EL MÉTODO init ANTES DE USARLO
+    Motor_AttachMethods(&motorTask);
+
+    if (motorTask.init(&motorTask) != HAL_OK)
+    {
+        USART1_PrintString("InitMotorTask devolvió HAL_ERROR\r\n");
+        Error_Handler();
+    }
+}
+
+
+void Motor_MainTask(void)
+{
+    if (motorTask.set_both != NULL) {
+        motorTask.set_both(&motorTask, MOTOR_DIR_FORWARD, motorBothSpeed);
+    } else {
+        // Opcional: breakpoint o log para debug
+    }
 }
 
 

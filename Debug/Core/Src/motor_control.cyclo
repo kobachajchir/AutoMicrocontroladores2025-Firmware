@@ -1,0 +1,10 @@
+../Core/Src/motor_control.c:23:6:Motor_AttachMethods	2
+../Core/Src/motor_control.c:37:26:Motor_Init	5
+../Core/Src/motor_control.c:66:26:Motor_SetLeftForward	8
+../Core/Src/motor_control.c:76:26:Motor_SetLeftBackward	8
+../Core/Src/motor_control.c:86:26:Motor_SetRightForward	8
+../Core/Src/motor_control.c:96:26:Motor_SetRightBackward	8
+../Core/Src/motor_control.c:106:26:Motor_StopLeft	8
+../Core/Src/motor_control.c:116:26:Motor_StopRight	8
+../Core/Src/motor_control.c:126:26:Motor_SetBoth	4
+../Core/Src/motor_control.c:146:19:Motor_SetSpeed	6

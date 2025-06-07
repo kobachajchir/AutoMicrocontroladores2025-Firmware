@@ -9,6 +9,7 @@
 #include "types/usart_buffer_type.h"
 #include "utils/macros_utils.h"
 #include "tcrt5000.h"
+#include "motor_control.h"
 
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
@@ -44,14 +45,16 @@ extern volatile ButtonState_t btnUser;
 extern volatile LedStatus_t ledStatus;
 extern volatile Byte_Flag_Struct systemFlags;
 extern volatile CarMode_t testMode;
-extern USART_Buffer_t usart1Buf;
 extern volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 extern TCRT_LightConfig_t myLight;
-extern TCRTHandlerTask tcrtTask;
 extern bool pull_cfg[ TCRT5000_NUM_SENSORS ];
 extern volatile uint8_t cnt_adc_trigger;
 extern volatile uint16_t cnt_10ms;
 extern volatile uint32_t cnt_10us;
 extern volatile uint32_t tcrt_calib_cnt_phase;  // contador de 10 µs para la fase actual
+
+extern USART_Buffer_t usart1Buf;
+extern TCRTHandlerTask tcrtTask;
+extern MotorControl_Handle motorTask;
 
 #endif // GLOBALS_H
