@@ -13,19 +13,29 @@
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
 // =============================================
+
+//Definicion de pines y puertos
 #define LED_PORT        GPIOC
 #define LED_PORT_PIN    GPIO_PIN_13
-
 #define TCRT_LED_PORT        GPIOB
 #define TCRT_LED_PORT_PIN    GPIO_PIN_0
 
-#define COUNT_IRDATA_TENMS 13 //Aprox 130ms es lo que le lleva al ADC leer 4K samples de 8 sensores
+//Defines de tiempos
+//#define COUNT_IRDATA_TENMS 13
+#define TICKS_250US_IN_3S      12000U
+#define TICKS_250US_IN_5S      20000U
+
+//Variables flag globales
 #define INIT_CAR BIT0_MASK
 #define PROCESS_IR_DATA BIT1_MASK
+#define TCRT_CALIB_BLACK_AND_WHITE_COMPLETE BIT2_MASK
+#define TCRT_CALIB_OBSTACLES_COMPLETE BIT3_MASK
 //#define A BIT2_MASK
 
+//Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
 
+//Variables globales
 extern volatile bool  procesar_flag;
 extern volatile bool  lanzar_ADC_trigger_flag;
 extern volatile uint16_t tim3_overflow_count;
@@ -41,5 +51,7 @@ extern TCRTHandlerTask tcrtTask;
 extern bool pull_cfg[ TCRT5000_NUM_SENSORS ];
 extern volatile uint8_t cnt_adc_trigger;
 extern volatile uint16_t cnt_10ms;
+extern volatile uint32_t cnt_10us;
+extern volatile uint32_t tcrt_calib_cnt_phase;  // contador de 10 µs para la fase actual
 
 #endif // GLOBALS_H

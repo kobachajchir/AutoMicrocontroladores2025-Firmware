@@ -70,6 +70,8 @@ TCRT_LightConfig_t tcrtLight;
 TCRTHandlerTask tcrtTask;
 volatile uint8_t cnt_adc_trigger = 0;
 volatile uint16_t cnt_10ms = 0;
+volatile uint32_t cnt_10us = 0;
+volatile uint32_t tcrt_calib_cnt_phase = 0;
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
     TCRT_PULL_UP,    // canal 1: línea lateral izq
@@ -94,8 +96,10 @@ static void MX_ADC1_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void initCarMode();
-void initUsartBufferHandler();
+void UserBtn_MainTask();
 void initTCRTLib();
+void TCRT_MainTask();
+void initUsartBufferHandler();
 void USART1_PrintString(const char *msg);
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
 /* USER CODE END PFP */
@@ -195,51 +199,8 @@ int main(void)
 	while (1) {
 		USART1_Update();
 		//TESTING ONLY
-		if (procesar_flag) {
-			TCRT5000_Update(&tcrtTask);
-			procesar_flag = false; // ya procesó la transferencia
-		}
-		// Si pasó a READY, entonces podemos usar IsReady + Update para filtrar continuamente:
-		/* En tu bucle principal (por ejemplo, dentro de while(1)): */
-		if (TCRT5000_IsReady(&tcrtTask)) {
-		    // Aquí han pasado 4000 bloques de 8 muestras en modo READY.
-
-		    // 1) Leer las banderas digitales:
-		    bool too_left   = tcrtTask.results.flags.bitmap.bit0;
-		    bool too_right  = tcrtTask.results.flags.bitmap.bit1;
-		    bool obs_center = tcrtTask.results.flags.bitmap.bit4;
-		    bool light_on   = tcrtTask.results.flags.bitmap.bit7;
-
-		    // 2) Leer lecturas crudas si hace falta:
-		    uint16_t raw_center = tcrtTask.results.raw.channels.line;
-		    uint16_t raw_obs5   = tcrtTask.results.raw.channels.obs_center;
-
-		    uint16_t values[TCRT5000_NUM_SENSORS];
-			for (int i = 0; i < TCRT5000_NUM_SENSORS; i++) {
-				values[i] = tcrtTask.results.raw.array[i];
-			}
-		    __NOP();
-		    // ... aquí procesas esos 4000 bloques como prefieras ...
-
-		    // 3) Una vez consumidos, limpiar la bandera para empezar a contar
-		    //    otras 4000 muestras.
-		    TCRT5000_ClearReady(&tcrtTask);
-		}
-		//END TESTING ONLY
-		if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
-			if (IS_FLAG_SET(btnUser.flags, BTN_USER_SHORT_PRESS)) { // Acción short
-
-				CLEAR_FLAG(btnUser.flags, BTN_USER_SHORT_PRESS);
-			}
-			if (IS_FLAG_SET(btnUser.flags, BTN_USER_LONG_PRESS)) { // Acción long
-				Handle_ModeChange_ByButton(&btnUser, &ledStatus);
-				CLEAR_FLAG(btnUser.flags, BTN_USER_LONG_PRESS);
-			}
-		}
-		if(IS_FLAG_SET(systemFlags, PROCESS_IR_DATA)){
-			//Procesar aca la data de los IR
-			CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
-		}
+		UserBtn_MainTask();
+		TCRT_MainTask();
 		// Si quieres saber cuántos sobrepasos de 1 s hubo (0..9):
 		//uint8_t num_overflows = NIBBLEH_GET_STATE(btnUser.flags);
 
@@ -582,7 +543,19 @@ void initCarMode(){
 	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
 	SET_FLAG(systemFlags, INIT_CAR);
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
-	USART1_PrintString("Segundo envio\r\n");
+}
+
+void UserBtn_MainTask(){
+	if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
+		if (IS_FLAG_SET(btnUser.flags, BTN_USER_SHORT_PRESS)) { // Acción short
+
+			CLEAR_FLAG(btnUser.flags, BTN_USER_SHORT_PRESS);
+		}
+		if (IS_FLAG_SET(btnUser.flags, BTN_USER_LONG_PRESS)) { // Acción long
+			Handle_ModeChange_ByButton(&btnUser, &ledStatus);
+			CLEAR_FLAG(btnUser.flags, BTN_USER_LONG_PRESS);
+		}
+	}
 }
 
 void initTCRTLib(void)
@@ -599,8 +572,9 @@ void initTCRTLib(void)
         sensor_raw_data,      // arreglo uint16_t[8]
         pull_cfg,             // arreglo bool[8]
         &tcrtLight,           // LED opcional para iluminar sensores
-        USART1_PrintString    // callback de debug (puede ser NULL)
+        NULL //USART1_PrintString    // callback de debug (puede ser NULL)
     );
+    TCRT5000_SetAutoModeAdvance(&tcrtTask, false);
     // 3) Informo por UART si hubo éxito o error al crear la instancia.
     if (st != HAL_OK) {
         USART1_PrintString("TCRT5000_Create devolvió HAL_ERROR\r\n");
@@ -618,6 +592,43 @@ void initTCRTLib(void)
         // Si StartCalibration devolvió HAL_OK, quedó en modo CALIB_LINE_BLACK
         USART1_PrintString("main - Calibración iniciada (50 muestras línea, 50 obst)\r\n");
     }
+}
+
+void TCRT_MainTask(){
+	if (procesar_flag) {
+		TCRT5000_Update(&tcrtTask);
+		procesar_flag = false; // ya procesó la transferencia
+	}
+	// Si pasó a READY, entonces podemos usar IsReady + Update para filtrar continuamente:
+	/* En tu bucle principal (por ejemplo, dentro de while(1)): */
+	if (TCRT5000_IsReady(&tcrtTask)) {
+	    // Aquí han pasado 4000 bloques de 8 muestras en modo READY.
+
+	    // 1) Leer las banderas digitales:
+	    bool too_left   = tcrtTask.results.flags.bitmap.bit0;
+	    bool too_right  = tcrtTask.results.flags.bitmap.bit1;
+	    bool obs_center = tcrtTask.results.flags.bitmap.bit4;
+	    bool light_on   = tcrtTask.results.flags.bitmap.bit7;
+
+	    // 2) Leer lecturas crudas si hace falta:
+	    uint16_t raw_center = tcrtTask.results.raw.channels.line;
+	    uint16_t raw_obs5   = tcrtTask.results.raw.channels.obs_center;
+
+	    uint16_t values[TCRT5000_NUM_SENSORS];
+		for (int i = 0; i < TCRT5000_NUM_SENSORS; i++) {
+			values[i] = tcrtTask.results.raw.array[i];
+		}
+	    __NOP();
+	    // ... aquí procesas esos 4000 bloques como prefieras ...
+
+	    // 3) Una vez consumidos, limpiar la bandera para empezar a contar
+	    //    otras 4000 muestras.
+	    TCRT5000_ClearReady(&tcrtTask);
+	}
+	if(IS_FLAG_SET(systemFlags, PROCESS_IR_DATA)){
+		//Procesar aca la data de los IR
+		CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
+	}
 }
 
 

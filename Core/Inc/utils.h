@@ -13,6 +13,11 @@
 #include "types/carmode_type.h"
 
 // ================== Prototipos ================== //
+/**
+ * @brief Tarea periódica.
+ *        Verifica el estado el task de los TCRT para ver si hay que calibrar por tiempo.
+ */
+void TCRTCalibCounter_Task(void);
 
 /**
  * @brief Tarea periódica cada 10 ms.

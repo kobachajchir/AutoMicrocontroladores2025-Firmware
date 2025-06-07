@@ -13,9 +13,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM3)
     {
+		//Según el modo actual de tcrt, contar o no hacer nada
+		TCRTCalibCounter_Task();
         // Cada vez que TIM3 desborda (250 µs), entramos aquí
-        cnt_10ms++;
-        if (cnt_10ms >= 40) {          // 40 × 250 µs = 10 000 µs = 10 ms
+        if (++cnt_10ms >= 40) {          // 40 × 250 µs = 10 000 µs = 10 ms
             cnt_10ms = 0;
             // Llamar a las rutinas de 10 ms
             Button_Task_10ms(&btnUser);
@@ -28,6 +29,36 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             //     tim3_overflow_count = 0;
             //     SET_FLAG(systemFlags, PROCESS_IR_DATA);
             // }
+        }
+    }
+}
+
+void TCRTCalibCounter_Task(void)
+{
+    // Solo contamos durante CALIB_LINE_BLACK / WHITE / OBSTACLES
+    if (tcrtTask.mode == TCRT_MODE_READY ||
+        tcrtTask.mode == TCRT_MODE_IDLE)
+    {
+        return;
+    }
+
+    tcrt_calib_cnt_phase++;
+
+    if (tcrtTask.mode == TCRT_MODE_CALIB_LINE_BLACK ||
+        tcrtTask.mode == TCRT_MODE_CALIB_LINE_WHITE)
+    {
+        // 3 s = 12 000 ticks de 250 µs
+        if (tcrt_calib_cnt_phase >= TICKS_250US_IN_3S) {
+        	tcrt_calib_cnt_phase = 0;
+        	TCRT5000_RequestModeChange(&tcrtTask);
+        }
+    }
+    else if (tcrtTask.mode == TCRT_MODE_CALIB_OBSTACLES)
+    {
+        // 5 s = 20 000 ticks de 250 µs
+        if (tcrt_calib_cnt_phase >= TICKS_250US_IN_5S) {
+        	tcrt_calib_cnt_phase = 0;
+        	TCRT5000_RequestModeChange(&tcrtTask);
         }
     }
 }
