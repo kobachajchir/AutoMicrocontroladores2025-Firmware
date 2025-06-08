@@ -1,0 +1,11 @@
+../Core/Src/i2c_manager.c:16:6:I2C_Manager_Init	24	static
+../Core/Src/i2c_manager.c:30:6:Init_I2C_Manager	16	static
+../Core/Src/i2c_manager.c:37:19:I2C_Manager_RegisterDevice	16	static
+../Core/Src/i2c_manager.c:41:19:I2C_Manager_RegisterDeviceWithPriority	24	static
+../Core/Src/i2c_manager.c:56:19:I2C_Manager_RequestAccess	32	static
+../Core/Src/i2c_manager.c:88:6:I2C_Manager_ReleaseBus	4	static
+../Core/Src/i2c_manager.c:93:6:I2C_Manager_OnDMAComplete	16	static
+../Core/Src/i2c_manager.c:102:9:I2C_Manager_GetAddress	24	static
+../Core/Src/i2c_manager.c:111:9:I2C_Manager_FindFreeSlot	16	static
+../Core/Src/i2c_manager.c:120:14:I2C_Manager_GetState	4	static
+../Core/Src/i2c_manager.c:124:6:I2C_Manager_ScanBus	16	static,ignoring_inline_asm

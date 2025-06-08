@@ -39,7 +39,7 @@ static HAL_StatusTypeDef Motor_Init(MotorControl_Handle *self)
     if (!self || !self->htim || !self->compute_params) return HAL_ERROR;
 
     uint16_t prescaler = 0, period = 0;
-    uint32_t timer_clk = HAL_RCC_GetPCLK1Freq();
+    uint32_t timer_clk = HAL_RCC_GetPCLK1Freq() * 2;
 
     self->compute_params(self->desired_pwm_freq, timer_clk, &prescaler, &period);
 

@@ -22,6 +22,7 @@ USB_DEVICE/Target/usbd_conf.o: ../USB_DEVICE/Target/usbd_conf.c \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_adc_ex.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash_ex.h \
+ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_i2c.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pwr.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h \
@@ -61,6 +62,7 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_adc_ex.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash_ex.h:
+C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_i2c.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pwr.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h:
