@@ -30,6 +30,7 @@
 #include "types/usart_buffer_type.h"
 #include "usart_dma_buffer.h"
 #include "motor_control.h"
+#include "i2c_manager.h"
 
 /* USER CODE END Includes */
 
@@ -79,6 +80,7 @@ volatile uint32_t tcrt_calib_cnt_phase = 0;
 //Modificcar para hacer una sola struct de velocidades modo y direcciones
 static uint8_t motorBothSpeed = 100;
 static int8_t motorBothDirection = MOTOR_DIR_FORWARD;
+volatile uint8_t i2c_tx_busy_flag;
 
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
@@ -123,6 +125,8 @@ void My_TimerCalcFunc(uint32_t target_freq_hz,
                       uint16_t *prescaler_out,
                       uint16_t *period_out);
 void Motor_MainTask(void);
+void i2cManager_MainTask(void);
+void MPU_MainTask(void);
 
 /* USER CODE END PFP */
 
@@ -153,6 +157,15 @@ static void MyRxHandler(uint8_t byte)
 void USART1_PrintString(const char *msg) {
     USART1_PushTxString(&usart1Buf, msg);
 }
+
+void OLED_DMA_COMPLETE_MOCKUP(void) {
+    USART1_PushTxString(&usart1Buf, "OLED COMPLETE MOCKUP");
+}
+
+void OLED_I2C_GRANTED_MOCKUP(void) {
+    USART1_PushTxString(&usart1Buf, "OLED GRANTED MOCKUP");
+}
+
 
 /* USER CODE END 0 */
 
@@ -217,7 +230,27 @@ int main(void)
   InitMotorTask();
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
   HAL_TIM_Base_Start_IT(&htim3);
-  Init_I2C_Manager(&hi2c1, USART1_PrintString);
+  I2C_Manager_Init(&hi2c1, &i2c_tx_busy_flag);
+  if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
+	  HAL_StatusTypeDef result = I2C_Manager_RegisterDevice(
+		  DEVICE_ID_OLED,
+		  I2C_ADDR_OLED,
+		  OLED_DMA_COMPLETE_MOCKUP,
+		  OLED_I2C_GRANTED_MOCKUP,
+		  1
+	  );
+	  __NOP();
+	  if (result == HAL_OK) {
+		  // Éxito: El OLED está presente y fue registrado
+		  USART1_PushTxString(&usart1Buf, "OLED Registrado");
+	  } else {
+		  // Falló al registrar (posiblemente sin espacio en la tabla)
+		  USART1_PushTxString(&usart1Buf, "OLED NO Registrado");
+	  }
+  } else {
+	  // El OLED no respondió en el bus
+	  USART1_PushTxString(&usart1Buf, "OLED no respondio");
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -227,6 +260,8 @@ int main(void)
 		UserBtn_MainTask();
 		TCRT_MainTask();
 		Motor_MainTask();
+		i2cManager_MainTask();
+		MPU_MainTask();
 		// Si quieres saber cuántos sobrepasos de 1 s hubo (0..9):
 		//uint8_t num_overflows = NIBBLEH_GET_STATE(btnUser.flags);
 
@@ -821,6 +856,16 @@ void Motor_MainTask(void)
     } else {
         // Opcional: breakpoint o log para debug
     }
+}
+
+void i2cManager_MainTask(){
+	I2C_Manager_Update();
+}
+
+void MPU_MainTask(){
+	if(IS_FLAG_SET(systemFlags, MPU_GET_DATA)){
+		CLEAR_FLAG(systemFlags, MPU_GET_DATA);
+	}
 }
 
 

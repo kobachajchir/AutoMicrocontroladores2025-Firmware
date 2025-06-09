@@ -13,22 +13,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM3)
     {
+    	cnt_10ms++;
+    	if((cnt_10ms % 4) == 0 && !IS_FLAG_SET(systemFlags, MPU_GET_DATA)){ //Multiplo de 4 y no pedi data del MPU
+    		SET_FLAG(systemFlags, MPU_GET_DATA);
+    	}
 		//Según el modo actual de tcrt, contar o no hacer nada
 		TCRTCalibCounter_Task();
         // Cada vez que TIM3 desborda (250 µs), entramos aquí
-        if (++cnt_10ms >= 40) {          // 40 × 250 µs = 10 000 µs = 10 ms
+        if (cnt_10ms >= 40) {          // 40 × 250 µs = 10 000 µs = 10 ms
             cnt_10ms = 0;
             // Llamar a las rutinas de 10 ms
             Button_Task_10ms(&btnUser);
             StateLED_Task_10ms(&ledStatus);
-
-            // Si deseas seguir con el conteo de ~130 ms para PROCESS_IR_DATA:
-            // static uint16_t tim3_overflow_count = 0;
-            // tim3_overflow_count++;
-            // if (tim3_overflow_count >= (130000 / 250)) {  // 130 ms / 250 µs ≈ 520
-            //     tim3_overflow_count = 0;
-            //     SET_FLAG(systemFlags, PROCESS_IR_DATA);
-            // }
         }
     }
 }

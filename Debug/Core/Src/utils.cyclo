@@ -1,6 +1,6 @@
-../Core/Src/utils.c:12:6:HAL_TIM_PeriodElapsedCallback	3
-../Core/Src/utils.c:36:6:TCRTCalibCounter_Task	8
-../Core/Src/utils.c:67:6:HAL_ADC_ConvCpltCallback	2
-../Core/Src/utils.c:80:6:StateLED_Task_10ms	8
-../Core/Src/utils.c:127:6:Button_Task_10ms	15
-../Core/Src/utils.c:173:6:Handle_ModeChange_ByButton	5
+../Core/Src/utils.c:12:6:HAL_TIM_PeriodElapsedCallback	5
+../Core/Src/utils.c:32:6:TCRTCalibCounter_Task	8
+../Core/Src/utils.c:63:6:HAL_ADC_ConvCpltCallback	2
+../Core/Src/utils.c:76:6:StateLED_Task_10ms	8
+../Core/Src/utils.c:123:6:Button_Task_10ms	15
+../Core/Src/utils.c:169:6:Handle_ModeChange_ByButton	5

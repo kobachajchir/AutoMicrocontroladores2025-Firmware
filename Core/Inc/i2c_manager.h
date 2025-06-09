@@ -8,66 +8,67 @@
 #ifndef INC_I2C_MANAGER_H_
 #define INC_I2C_MANAGER_H_
 
-#include "stm32f1xx_hal.h" // O el HAL correspondiente
+#include "stm32f1xx_hal.h"
 
-// Número máximo de periféricos registrados
-#define I2C_MANAGER_MAX_DEVICES 2
+#define I2C_MANAGER_MAX_DEVICES 4
 #define I2C_MANAGER_INVALID_SLOT 0xFF
-#define FAIRNESS_THRESHOLD 5
+
+typedef void (*I2C_Callback)(void);
+typedef void (*I2C_RequestApprovedCallback)(void);
 
 typedef enum {
     I2C_STATE_IDLE = 0,
-    I2C_STATE_BUSY,
-    I2C_STATE_WAITING
+    I2C_STATE_BUSY
 } I2C_BusState;
 
 typedef enum {
-    I2C_REQ_PENDING = 0,
-    I2C_REQ_GRANTED,
-    I2C_REQ_DENIED
-} I2C_RequestStatus;
+    DEVICE_ID_OLED = 0x01,
+    DEVICE_ID_MPU  = 0x02,
+} I2C_DeviceID;
 
-typedef uint8_t I2C_DeviceID;
-
-// Callback de transferencia terminada
-typedef void (*I2C_Callback)(void);
-
+// Estructura del tipo de dispositivo
 typedef struct {
     I2C_DeviceID id;
     uint8_t i2c_address;
-    I2C_Callback callback;
-    uint8_t active;
-    uint8_t priority;       // 0 (baja) a 3 (alta)
-    uint8_t retry_count;    // cuenta de intentos fallidos
+    uint8_t priority;
+    uint8_t enabled;
+} i2cDeviceType;
+
+// Estructura de la tabla de dispositivos
+typedef struct {
+    i2cDeviceType type;
+    I2C_Callback transfer_complete_cb;
+    I2C_Callback request_approved_cb;
+    uint8_t request_pending;
 } I2C_DeviceEntry;
 
+static I2C_HandleTypeDef *i2c_handle;
+static I2C_DeviceEntry device_table[I2C_MANAGER_MAX_DEVICES];
+static I2C_BusState bus_state;
+static int8_t last_active_index;
+static volatile uint8_t *external_tx_busy;
+
 // Funciones públicas
-typedef void (*i2cManager_DebugPrint_t)(const char *msg);  // <-- agregar también este tipo
-
-void Init_I2C_Manager(I2C_HandleTypeDef *hi2c, i2cManager_DebugPrint_t debug_print_fn);
-
-// Registra un periférico
-HAL_StatusTypeDef I2C_Manager_RegisterDeviceWithPriority(I2C_DeviceID id, uint8_t address, I2C_Callback callback, uint8_t priority);
-
-// Solicita acceso al bus
-I2C_RequestStatus I2C_Manager_RequestAccess(I2C_DeviceID id);
-
-// Libera el bus (llamada desde callback de periférico o DMA handler)
-void I2C_Manager_ReleaseBus(void);
-
-// Llamado desde el DMA complete handler
+void I2C_Manager_Init(I2C_HandleTypeDef *hi2c, volatile uint8_t *tx_busy_flag);
+HAL_StatusTypeDef I2C_Manager_RegisterDevice(
+    I2C_DeviceID id,
+    uint8_t address,
+    I2C_Callback dma_complete_cb,
+    I2C_RequestApprovedCallback request_granted_cb,
+    uint8_t priority
+);
+HAL_StatusTypeDef I2C_Manager_SetRequestPending(I2C_DeviceID id, uint8_t pending);
+HAL_StatusTypeDef I2C_Manager_RequestAccess(I2C_DeviceID id);
 void I2C_Manager_OnDMAComplete(void);
-
-// Obtiene dirección I2C de un ID registrado
+HAL_StatusTypeDef I2C_Manager_IsAddressReady(uint8_t i2c_address);
 uint8_t I2C_Manager_GetAddress(I2C_DeviceID id);
-
-// Verifica si hay slots disponibles
-uint8_t I2C_Manager_FindFreeSlot(void);
-
-// Consulta estado del bus
-I2C_BusState I2C_Manager_GetState(void);
-
 void I2C_Manager_ScanBus(void);
+void I2C_Manager_Update(void);
+
+static inline void I2C_Manager_ReleaseBus(void) {
+    bus_state = I2C_STATE_IDLE;
+    *external_tx_busy = 0;
+}
 
 
 #endif /* INC_I2C_MANAGER_H_ */

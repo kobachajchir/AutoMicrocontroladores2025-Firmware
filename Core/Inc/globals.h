@@ -31,10 +31,14 @@
 #define PROCESS_IR_DATA BIT1_MASK
 #define TCRT_CALIB_BLACK_AND_WHITE_COMPLETE BIT2_MASK
 #define TCRT_CALIB_OBSTACLES_COMPLETE BIT3_MASK
+#define MPU_GET_DATA BIT4_MASK
 //#define A BIT2_MASK
 
 //Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
+
+#define I2C_ADDR_OLED     0x3C
+#define I2C_ADDR_MPU6050  0x68
 
 //Variables globales
 extern volatile bool  procesar_flag;
@@ -52,6 +56,7 @@ extern volatile uint8_t cnt_adc_trigger;
 extern volatile uint16_t cnt_10ms;
 extern volatile uint32_t cnt_10us;
 extern volatile uint32_t tcrt_calib_cnt_phase;  // contador de 10 µs para la fase actual
+extern volatile uint8_t i2c_tx_busy_flag;
 
 extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;
