@@ -37,7 +37,8 @@ Core/Src/utils.o: ../Core/Src/utils.c ../Core/Inc/globals.h \
  ../Core/Inc/types/carmode_type.h ../Core/Inc/types/usart_buffer_type.h \
  ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
- ../Core/Inc/motor_control.h ../Core/Inc/utils.h
+ ../Core/Inc/motor_control.h ../Core/Inc/oled_ssd1306_dma.h \
+ ../Core/Inc/utils.h
 ../Core/Inc/globals.h:
 ../Core/Inc/types/button_state.h:
 ../Core/Inc/types/bitmap_type.h:
@@ -82,4 +83,5 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL
 ../Core/Inc/utils/macros_utils.h:
 C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h:
 ../Core/Inc/motor_control.h:
+../Core/Inc/oled_ssd1306_dma.h:
 ../Core/Inc/utils.h:

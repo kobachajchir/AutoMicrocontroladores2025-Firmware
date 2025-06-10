@@ -10,6 +10,7 @@
 #include "utils/macros_utils.h"
 #include "tcrt5000.h"
 #include "motor_control.h"
+#include "oled_ssd1306_dma.h"
 
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
@@ -61,5 +62,6 @@ extern volatile uint8_t i2c_tx_busy_flag;
 extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;
 extern MotorControl_Handle motorTask;
+extern OLED_HandleTypeDef *oled_handle_global;
 
 #endif // GLOBALS_H

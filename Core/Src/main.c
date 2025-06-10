@@ -31,6 +31,7 @@
 #include "usart_dma_buffer.h"
 #include "motor_control.h"
 #include "i2c_manager.h"
+#include "oled_ssd1306_dma.h"
 
 /* USER CODE END Includes */
 
@@ -97,6 +98,7 @@ bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
 USART_Buffer_t usart1Buf;
 TCRTHandlerTask tcrtTask;
 MotorControl_Handle motorTask;
+OLED_HandleTypeDef oled_handle_global;
 
 /* --- Variables globales --- */
 

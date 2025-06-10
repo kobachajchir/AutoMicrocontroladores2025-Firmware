@@ -1,15 +1,13 @@
 #include "oled_ssd1306_dma.h"
 #include <string.h>
 
-static OLED_HandleTypeDef *oled_handle_global = NULL;
-
 /**
  * @brief Inicia transferencia DMA de la siguiente página en cola
  */
 static void OLED_StartNextTransfer(void) {
     if (!oled_handle_global) return;
     /* Verificar DMA libre */
-    if (*(oled_handleTypeDef->dma_busy_flag)) return;
+    if (*(oled_handle_global->dma_busy_flag)) return;
     /* Verificar cola */
     if (oled_handle_global->queue_count == 0) return;
 
