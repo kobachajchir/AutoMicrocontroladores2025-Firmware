@@ -11,6 +11,7 @@
 #include "tcrt5000.h"
 #include "motor_control.h"
 #include "oled_ssd1306_dma.h"
+#include "types/menu_types.h"
 
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
@@ -64,5 +65,12 @@ extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;
 extern MotorControl_Handle motorTask;
 extern OLED_HandleTypeDef oledTask;
+
+extern MenuSystem menuSystem;
+extern SubMenu mainMenu;
+extern SubMenu submenu1;
+extern SubMenu submenu2;
+extern SubMenu submenu3;
+extern volatile uint8_t inside_menu_flag;
 
 #endif // GLOBALS_H

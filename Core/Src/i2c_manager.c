@@ -99,7 +99,7 @@ uint8_t I2C_Manager_GetAddress(I2C_DeviceID id) {
     return 0xFF;
 }
 
-static void I2C_Manager_ReleaseBus(void) {
+void I2C_Manager_ReleaseBus(void) {
 	 __NOP();
     bus_state = I2C_STATE_IDLE;
     *external_tx_busy = 0;

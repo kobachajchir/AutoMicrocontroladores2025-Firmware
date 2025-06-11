@@ -79,9 +79,9 @@ void Error_Handler(void);
 #define IR8_GPIO_Port GPIOA
 #define User_BTN_Pin GPIO_PIN_1
 #define User_BTN_GPIO_Port GPIOB
-#define I2C_SCL_Pin GPIO_PIN_6
+#define I2C_SCL_Pin GPIO_PIN_8
 #define I2C_SCL_GPIO_Port GPIOB
-#define I2C_SDA_Pin GPIO_PIN_7
+#define I2C_SDA_Pin GPIO_PIN_9
 #define I2C_SDA_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */

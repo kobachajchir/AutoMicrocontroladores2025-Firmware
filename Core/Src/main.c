@@ -33,6 +33,7 @@
 #include "i2c_manager.h"
 #include "oled_ssd1306_dma.h"
 #include "fonts.h"
+#include "menusystem.h"
 
 /* USER CODE END Includes */
 
@@ -59,8 +60,11 @@ I2C_HandleTypeDef hi2c1;
 DMA_HandleTypeDef hdma_i2c1_rx;
 DMA_HandleTypeDef hdma_i2c1_tx;
 
+SPI_HandleTypeDef hspi2;
+
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim4;
 
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_tx;
@@ -86,6 +90,7 @@ static int8_t motorBothDirection = MOTOR_DIR_FORWARD;
 volatile uint8_t i2c_tx_busy_flag = 0;
 // Bandera para la librería OLED (DMA ocupado)
 volatile uint8_t oled_dma_busy_flag = 0;
+volatile uint8_t inside_menu_flag;
 
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
@@ -106,6 +111,65 @@ OLED_HandleTypeDef oledTask;
 
 /* --- Variables globales --- */
 
+// Icono genérico para todos los ítems por ahora
+extern const uint8_t* generic_icon;
+
+// Sistema de menú
+MenuSystem menuSystem = {
+    .currentMenu = &mainMenu,
+    .clearScreen = clearScreenWrapper,
+    .drawItem = drawItemWrapper,
+    .renderFn = renderFnWrapper,
+    .insideMenuFlag = &insideMenu
+};
+
+// Ítems del menú principal
+MenuItem mainMenuItems[] = {
+    {"Modo", submenu1Fn, &submenu1, generic_icon},
+    {"Tiempos", submenu2Fn, &submenu2, generic_icon},
+    {"Configuración", submenu3Fn, &submenu3, generic_icon},
+    {"VOLVER", volver, NULL, generic_icon}
+};
+
+// Menú principal
+SubMenu mainMenu = {
+    "Main Menu", mainMenuItems, 4, 0, 0, NULL, generic_icon
+};
+
+// Ítems del submenu 1: MODO
+MenuItem submenu1Items[] = {
+    {"IDLE", NULL, NULL, generic_icon},
+    {"FOLLOW", NULL, NULL, generic_icon},
+    {"TEST", NULL, NULL, generic_icon},
+    {"VOLVER", volver, &mainMenu, generic_icon}
+};
+
+SubMenu submenu1 = {
+    "Modo", submenu1Items, 4, 0, 0, &mainMenu, generic_icon
+};
+
+// Submenú 2: Mockup
+MenuItem submenu2Items[] = {
+    {"Tiempo de espera", NULL, NULL, generic_icon},
+    {"Tiempo de tiro", NULL, NULL, generic_icon},
+    {"VOLVER", volver, &mainMenu, generic_icon}
+};
+
+SubMenu submenu2 = {
+    "Tiempos", submenu2Items, 3, 0, 0, &mainMenu, generic_icon
+};
+
+// Submenú 3: Mockup
+MenuItem submenu3Items[] = {
+    {"Option 1", NULL, NULL, generic_icon},
+    {"Option 2", NULL, NULL, generic_icon},
+    {"VOLVER", volver, &mainMenu, generic_icon}
+};
+
+SubMenu submenu3 = {
+    "Configuración", submenu3Items, 3, 0, 0, &mainMenu, generic_icon
+};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -117,6 +181,8 @@ static void MX_ADC1_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_SPI2_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 void initCarMode();
 void UserBtn_MainTask();
@@ -136,6 +202,10 @@ void MPU_MainTask(void);
 void OLED_MainTask(void);
 void OLED_DMA_Complete_I2CManager(void);
 void OLED_GrantAccess_I2CManager(void);
+void initMenuSystemTask(void);
+void clearScreenWrapper(void);
+void renderFnWrapper(void);
+void drawItemWrapper(const char *name, int y, bool selected);
 
 /* USER CODE END PFP */
 
@@ -150,6 +220,25 @@ static HAL_StatusTypeDef HAL_UART1_TxDMA_Wrapper(uint8_t *pData, uint16_t size)
 static HAL_StatusTypeDef HAL_UART1_RxDMA_Wrapper(uint8_t *pData, uint16_t size)
 {
     return HAL_UART_Receive_DMA(&huart1, pData, size);
+}
+
+void clearScreenWrapper(void) {
+    // Simula limpieza de pantalla
+
+}
+
+void drawItemWrapper(const char *name, int y, bool selected) {
+    // Simula el renderizado de un ítem
+    if (selected){
+
+    }else{
+
+    }
+}
+
+void renderFnWrapper(void) {
+    // Simula el envío al display
+
 }
 
 // Wrapper para I2C_Manager cuando termina el DMA
@@ -223,6 +312,8 @@ int main(void)
   MX_USART1_UART_Init();
   MX_I2C1_Init();
   MX_TIM2_Init();
+  MX_SPI2_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   if (USART1_RegisterHandle(&huart1) != HAL_OK){
 	 Error_Handler();
@@ -243,6 +334,7 @@ int main(void)
   //Solo llamo initCarMode() una vez, antes del while
   if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
 	  initCarMode();
+	  initMenuSystemTask();
   }
   initTCRTLib();
   InitMotorTask();
@@ -488,6 +580,44 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief SPI2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI2_Init(void)
+{
+
+  /* USER CODE BEGIN SPI2_Init 0 */
+
+  /* USER CODE END SPI2_Init 0 */
+
+  /* USER CODE BEGIN SPI2_Init 1 */
+
+  /* USER CODE END SPI2_Init 1 */
+  /* SPI2 parameter configuration*/
+  hspi2.Instance = SPI2;
+  hspi2.Init.Mode = SPI_MODE_MASTER;
+  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.NSS = SPI_NSS_SOFT;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi2.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI2_Init 2 */
+
+  /* USER CODE END SPI2_Init 2 */
+
+}
+
+/**
   * @brief TIM2 Initialization Function
   * @param None
   * @retval None
@@ -600,6 +730,55 @@ static void MX_TIM3_Init(void)
   /* USER CODE BEGIN TIM3_Init 2 */
 
   /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 0;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 65535;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 6;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 6;
+  if (HAL_TIM_Encoder_Init(&htim4, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
 
 }
 
@@ -907,6 +1086,15 @@ void OLED_MainTask(void) {
             OLED_SendBuffer(&oledTask);
         }
     }
+}
+
+void initMenuSystemTask(void){
+	initMenuSystem(&menuSystem);
+	MenuSystem_SetCallbacks(&menuSystem,
+			clearScreenWrapper,
+            drawItemWrapper,
+            renderFnWrapper,
+			inside_menu_flag);
 }
 
 

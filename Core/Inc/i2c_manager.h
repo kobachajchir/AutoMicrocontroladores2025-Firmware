@@ -58,7 +58,7 @@ HAL_StatusTypeDef I2C_Manager_RequestAccess(I2C_DeviceID id);
 void I2C_Manager_OnDMAComplete(void);
 HAL_StatusTypeDef I2C_Manager_IsAddressReady(uint8_t i2c_address);
 uint8_t I2C_Manager_GetAddress(I2C_DeviceID id);
-static void I2C_Manager_ReleaseBus(void);
+void I2C_Manager_ReleaseBus(void);
 void I2C_Manager_ScanBus(void);
 void I2C_Manager_Update(void);
 

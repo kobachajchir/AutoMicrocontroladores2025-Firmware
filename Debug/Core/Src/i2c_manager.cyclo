@@ -2,8 +2,9 @@
 ../Core/Src/i2c_manager.c:29:19:I2C_Manager_RegisterDevice	3
 ../Core/Src/i2c_manager.c:47:19:I2C_Manager_SetRequestPending	3
 ../Core/Src/i2c_manager.c:57:19:I2C_Manager_RequestAccess	7
-../Core/Src/i2c_manager.c:78:6:I2C_Manager_OnDMAComplete	3
 ../Core/Src/i2c_manager.c:93:9:I2C_Manager_GetAddress	3
+../Core/Src/i2c_manager.c:102:6:I2C_Manager_ReleaseBus	1
+../Core/Src/i2c_manager.c:78:6:I2C_Manager_OnDMAComplete	3
 ../Core/Src/i2c_manager.c:108:6:I2C_Manager_ScanBus	4
 ../Core/Src/i2c_manager.c:119:6:I2C_Manager_Update	9
 ../Core/Src/i2c_manager.c:145:19:I2C_Manager_IsAddressReady	2
