@@ -39,7 +39,7 @@ Core/Src/stm32f1xx_it.o: ../Core/Src/stm32f1xx_it.c ../Core/Inc/main.h \
  ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/oled_ssd1306_dma.h \
- ../Core/Inc/utils.h ../Core/Inc/usart_dma_buffer.h \
+ ../Core/Inc/fonts.h ../Core/Inc/utils.h ../Core/Inc/usart_dma_buffer.h \
  ../Core/Inc/i2c_manager.h
 ../Core/Inc/main.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
@@ -88,6 +88,7 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL
 C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h:
 ../Core/Inc/motor_control.h:
 ../Core/Inc/oled_ssd1306_dma.h:
+../Core/Inc/fonts.h:
 ../Core/Inc/utils.h:
 ../Core/Inc/usart_dma_buffer.h:
 ../Core/Inc/i2c_manager.h:

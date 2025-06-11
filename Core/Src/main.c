@@ -32,6 +32,7 @@
 #include "motor_control.h"
 #include "i2c_manager.h"
 #include "oled_ssd1306_dma.h"
+#include "fonts.h"
 
 /* USER CODE END Includes */
 
@@ -81,7 +82,10 @@ volatile uint32_t tcrt_calib_cnt_phase = 0;
 //Modificcar para hacer una sola struct de velocidades modo y direcciones
 static uint8_t motorBothSpeed = 100;
 static int8_t motorBothDirection = MOTOR_DIR_FORWARD;
-volatile uint8_t i2c_tx_busy_flag;
+// Bandera para I2C_Manager (bus ocupado)
+volatile uint8_t i2c_tx_busy_flag = 0;
+// Bandera para la librería OLED (DMA ocupado)
+volatile uint8_t oled_dma_busy_flag = 0;
 
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
@@ -98,7 +102,7 @@ bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
 USART_Buffer_t usart1Buf;
 TCRTHandlerTask tcrtTask;
 MotorControl_Handle motorTask;
-OLED_HandleTypeDef oled_handle_global;
+OLED_HandleTypeDef oledTask;
 
 /* --- Variables globales --- */
 
@@ -129,6 +133,9 @@ void My_TimerCalcFunc(uint32_t target_freq_hz,
 void Motor_MainTask(void);
 void i2cManager_MainTask(void);
 void MPU_MainTask(void);
+void OLED_MainTask(void);
+void OLED_DMA_Complete_I2CManager(void);
+void OLED_GrantAccess_I2CManager(void);
 
 /* USER CODE END PFP */
 
@@ -145,6 +152,23 @@ static HAL_StatusTypeDef HAL_UART1_RxDMA_Wrapper(uint8_t *pData, uint16_t size)
     return HAL_UART_Receive_DMA(&huart1, pData, size);
 }
 
+// Wrapper para I2C_Manager cuando termina el DMA
+void OLED_DMA_Complete_I2CManager(void) {
+    // aquí puedes poner un breakpoint o togglear un LED para debug
+    OLED_DMA_CompleteCallback(&oledTask);
+}
+
+// Wrapper para I2C_Manager cuando concede acceso al bus
+void OLED_GrantAccess_I2CManager(void) {
+    // breakpoint / LED toggle aquí si quieres
+    OLED_GrantAccessCallback(&oledTask);
+}
+
+void OLED_RequestBusUse_I2CManager(void) {
+    // Pide acceso inmediato al manager
+    I2C_Manager_RequestAccess(DEVICE_ID_OLED);
+}
+
 /* Callback que procesará cada byte recibido */
 static void MyRxHandler(uint8_t byte)
 {
@@ -158,14 +182,6 @@ static void MyRxHandler(uint8_t byte)
 
 void USART1_PrintString(const char *msg) {
     USART1_PushTxString(&usart1Buf, msg);
-}
-
-void OLED_DMA_COMPLETE_MOCKUP(void) {
-    USART1_PushTxString(&usart1Buf, "OLED COMPLETE MOCKUP");
-}
-
-void OLED_I2C_GRANTED_MOCKUP(void) {
-    USART1_PushTxString(&usart1Buf, "OLED GRANTED MOCKUP");
 }
 
 
@@ -237,14 +253,22 @@ int main(void)
 	  HAL_StatusTypeDef result = I2C_Manager_RegisterDevice(
 		  DEVICE_ID_OLED,
 		  I2C_ADDR_OLED,
-		  OLED_DMA_COMPLETE_MOCKUP,
-		  OLED_I2C_GRANTED_MOCKUP,
+		  OLED_DMA_Complete_I2CManager,
+		  OLED_GrantAccess_I2CManager,
 		  1
 	  );
-	  __NOP();
 	  if (result == HAL_OK) {
 		  // Éxito: El OLED está presente y fue registrado
 		  USART1_PushTxString(&usart1Buf, "OLED Registrado");
+		  OLED_Init(&oledTask,
+				   &hi2c1,
+				   I2C_ADDR_OLED,
+				   &oled_dma_busy_flag,    // ← pasa la bandera DMA
+				   OLED_RequestBusUse_I2CManager);
+		  OLED_SetFont(&oledTask, &Font_11x18);
+		  OLED_ClearBuffer(&oledTask, false);
+		  OLED_DrawStr(&oledTask, 0, 0, "Hola mundo");
+		  OLED_SendBuffer(&oledTask);
 	  } else {
 		  // Falló al registrar (posiblemente sin espacio en la tabla)
 		  USART1_PushTxString(&usart1Buf, "OLED NO Registrado");
@@ -263,6 +287,7 @@ int main(void)
 		TCRT_MainTask();
 		Motor_MainTask();
 		i2cManager_MainTask();
+		OLED_MainTask();
 		MPU_MainTask();
 		// Si quieres saber cuántos sobrepasos de 1 s hubo (0..9):
 		//uint8_t num_overflows = NIBBLEH_GET_STATE(btnUser.flags);
@@ -694,7 +719,6 @@ static void MX_GPIO_Init(void)
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     USART1_DMA_TxCpltHandler(huart);
-    __NOP();
 }
 
 void initUsartBufferHandler(){
@@ -793,7 +817,6 @@ void TCRT_MainTask(){
 		for (int i = 0; i < TCRT5000_NUM_SENSORS; i++) {
 			values[i] = tcrtTask.results.raw.array[i];
 		}
-	    __NOP();
 	    // ... aquí procesas esos 4000 bloques como prefieras ...
 
 	    // 3) Una vez consumidos, limpiar la bandera para empezar a contar
@@ -860,14 +883,30 @@ void Motor_MainTask(void)
     }
 }
 
-void i2cManager_MainTask(){
-	I2C_Manager_Update();
-}
-
 void MPU_MainTask(){
 	if(IS_FLAG_SET(systemFlags, MPU_GET_DATA)){
 		CLEAR_FLAG(systemFlags, MPU_GET_DATA);
 	}
+}
+
+void i2cManager_MainTask(){
+	I2C_Manager_Update();
+}
+
+
+void OLED_MainTask(void) {
+    /* Gestionar overlay timeout */
+    if (IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED) && oledTask.overlay_active) {
+        if (oledTask.overlay_timer_ms >= 10)
+        	oledTask.overlay_timer_ms -= 10;
+        else {
+        	oledTask.overlay_active = false;
+            for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
+            	oledTask.page_dirty[p] = true;
+            }
+            OLED_SendBuffer(&oledTask);
+        }
+    }
 }
 
 

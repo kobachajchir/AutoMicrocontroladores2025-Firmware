@@ -8,6 +8,12 @@
 #include "utils.h"
 #include "utils/macros_utils.h"
 #include "stm32f1xx_hal.h"  // para HAL_GPIO_ReadPin
+#include "i2c_manager.h"
+
+void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+  I2C_Manager_OnDMAComplete();
+}
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -22,6 +28,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         // Cada vez que TIM3 desborda (250 µs), entramos aquí
         if (cnt_10ms >= 40) {          // 40 × 250 µs = 10 000 µs = 10 ms
             cnt_10ms = 0;
+            if(!IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED)){
+            	SET_FLAG(systemFlags, OLED_TENMS_PASSED);
+            }
             // Llamar a las rutinas de 10 ms
             Button_Task_10ms(&btnUser);
             StateLED_Task_10ms(&ledStatus);

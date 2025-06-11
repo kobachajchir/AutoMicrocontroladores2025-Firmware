@@ -76,12 +76,19 @@ HAL_StatusTypeDef I2C_Manager_RequestAccess(I2C_DeviceID id) {
 }
 
 void I2C_Manager_OnDMAComplete(void) {
-    if (last_active_index >= 0 && device_table[last_active_index].transfer_complete_cb) {
-        device_table[last_active_index].transfer_complete_cb();
-    }
-
+    // 1) Libera el bus de I2C antes de invocar el callback
     I2C_Manager_ReleaseBus();
+
+    // 2) Llama al callback de transferencia completa
+    int idx = last_active_index;
+    void (*cb)(void) = device_table[idx].transfer_complete_cb;
+    __NOP();  // breakpoint opcional
+
+    if (idx >= 0 && cb) {
+        cb();  // aquí es donde el wrapper OLED_DMA_Complete_I2CManager vuelve a pedir el bus
+    }
 }
+
 
 uint8_t I2C_Manager_GetAddress(I2C_DeviceID id) {
     for (int i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
@@ -92,6 +99,11 @@ uint8_t I2C_Manager_GetAddress(I2C_DeviceID id) {
     return 0xFF;
 }
 
+static void I2C_Manager_ReleaseBus(void) {
+	 __NOP();
+    bus_state = I2C_STATE_IDLE;
+    *external_tx_busy = 0;
+}
 
 void I2C_Manager_ScanBus(void) {
     if (!i2c_handle) return;
@@ -105,8 +117,10 @@ void I2C_Manager_ScanBus(void) {
 }
 
 void I2C_Manager_Update(void) {
-    if (bus_state != I2C_STATE_IDLE || !external_tx_busy || *external_tx_busy)
+    if (bus_state != I2C_STATE_IDLE || !external_tx_busy || *external_tx_busy){
+    	__NOP();
         return;
+    }
 
     for (int i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
         if (i != last_active_index &&
@@ -118,6 +132,7 @@ void I2C_Manager_Update(void) {
             *external_tx_busy = 1;
             last_active_index = i;
 
+			__NOP();
             if (device_table[i].request_approved_cb) {
                 device_table[i].request_approved_cb();
             }

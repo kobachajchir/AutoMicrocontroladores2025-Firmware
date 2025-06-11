@@ -263,7 +263,6 @@ void DMA1_Channel6_IRQHandler(void)
   /* USER CODE END DMA1_Channel6_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_i2c1_tx);
   /* USER CODE BEGIN DMA1_Channel6_IRQn 1 */
-  I2C_Manager_OnDMAComplete();
 
   /* USER CODE END DMA1_Channel6_IRQn 1 */
 }

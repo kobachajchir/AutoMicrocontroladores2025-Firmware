@@ -13,6 +13,8 @@
 #define I2C_MANAGER_MAX_DEVICES 4
 #define I2C_MANAGER_INVALID_SLOT 0xFF
 
+#define MEMADD_SIZE_8BIT I2C_MEMADD_SIZE_8BIT
+
 typedef void (*I2C_Callback)(void);
 typedef void (*I2C_RequestApprovedCallback)(void);
 
@@ -42,12 +44,6 @@ typedef struct {
     uint8_t request_pending;
 } I2C_DeviceEntry;
 
-static I2C_HandleTypeDef *i2c_handle;
-static I2C_DeviceEntry device_table[I2C_MANAGER_MAX_DEVICES];
-static I2C_BusState bus_state;
-static int8_t last_active_index;
-static volatile uint8_t *external_tx_busy;
-
 // Funciones públicas
 void I2C_Manager_Init(I2C_HandleTypeDef *hi2c, volatile uint8_t *tx_busy_flag);
 HAL_StatusTypeDef I2C_Manager_RegisterDevice(
@@ -62,13 +58,9 @@ HAL_StatusTypeDef I2C_Manager_RequestAccess(I2C_DeviceID id);
 void I2C_Manager_OnDMAComplete(void);
 HAL_StatusTypeDef I2C_Manager_IsAddressReady(uint8_t i2c_address);
 uint8_t I2C_Manager_GetAddress(I2C_DeviceID id);
+static void I2C_Manager_ReleaseBus(void);
 void I2C_Manager_ScanBus(void);
 void I2C_Manager_Update(void);
-
-static inline void I2C_Manager_ReleaseBus(void) {
-    bus_state = I2C_STATE_IDLE;
-    *external_tx_busy = 0;
-}
 
 
 #endif /* INC_I2C_MANAGER_H_ */

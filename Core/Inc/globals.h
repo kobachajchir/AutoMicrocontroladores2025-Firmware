@@ -33,6 +33,7 @@
 #define TCRT_CALIB_BLACK_AND_WHITE_COMPLETE BIT2_MASK
 #define TCRT_CALIB_OBSTACLES_COMPLETE BIT3_MASK
 #define MPU_GET_DATA BIT4_MASK
+#define OLED_TENMS_PASSED BIT5_MASK
 //#define A BIT2_MASK
 
 //Definicion de tamanios
@@ -62,6 +63,6 @@ extern volatile uint8_t i2c_tx_busy_flag;
 extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;
 extern MotorControl_Handle motorTask;
-extern OLED_HandleTypeDef *oled_handle_global;
+extern OLED_HandleTypeDef oledTask;
 
 #endif // GLOBALS_H
