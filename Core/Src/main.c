@@ -1014,7 +1014,13 @@ void TCRT_MainTask(){
 			values[i] = tcrtTask.results.raw.array[i];
 		}
 	    // ... aquí procesas esos 4000 bloques como prefieras ...
-
+		__NOP();
+		if (USART1_PushTxU16Values(&usart1Buf, values, TCRT5000_NUM_SENSORS) != HAL_OK) {
+		    // manejar buffer lleno o error
+		}else{
+			__NOP();
+		}
+		__NOP();
 	    // 3) Una vez consumidos, limpiar la bandera para empezar a contar
 	    //    otras 4000 muestras.
 	    TCRT5000_ClearReady(&tcrtTask);

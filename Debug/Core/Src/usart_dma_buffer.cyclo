@@ -8,3 +8,4 @@
 ../Core/Src/usart_dma_buffer.c:182:13:HAL_UART_TxCpltCallback	1
 ../Core/Src/usart_dma_buffer.c:190:6:HAL_UART_RxHalfCpltCallback	4
 ../Core/Src/usart_dma_buffer.c:203:6:HAL_UART_RxCpltCallback	5
+../Core/Src/usart_dma_buffer.c:216:19:USART1_PushTxU16Values	11

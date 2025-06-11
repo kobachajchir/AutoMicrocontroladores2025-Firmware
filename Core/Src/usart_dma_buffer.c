@@ -213,3 +213,54 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     }
 }
 
+HAL_StatusTypeDef USART1_PushTxU16Values(USART_Buffer_t *buf,
+                                         const uint16_t *values,
+                                         uint16_t length)
+{
+    if (buf == NULL || txDmaCallback == NULL || values == NULL) {
+        return HAL_ERROR;
+    }
+    if (length == 0) {
+        return HAL_OK;
+    }
+    // Construimos la cadena entera aquí:
+    // Máximo 64 bytes de datos + 2 bytes de "\r\n" + '\0'
+    char tmp[USART1_BUFFER_SIZE+3];
+    int  pos = 0;
+
+    for (uint16_t i = 0; i < length; i++)
+    {
+        // 1) Formatear values[i]
+        int n = snprintf(tmp + pos,
+                         sizeof(tmp) - pos,
+                         "%u",
+                         (unsigned)values[i]);
+        if (n < 0 || n >= (int)(sizeof(tmp) - pos)) {
+            return HAL_BUSY;
+        }
+        pos += n;
+
+        // 2) Añadir ", " si no es el último
+        if (i + 1 < length) {
+            if (pos + 2 >= (int)sizeof(tmp)) {
+                return HAL_BUSY;
+            }
+            tmp[pos++] = ',';
+            tmp[pos++] = ' ';
+        }
+    }
+
+    // 3) Agregar salto de línea "\r\n"
+    if (pos + 2 >= (int)sizeof(tmp)) {
+        return HAL_BUSY;
+    }
+    tmp[pos++] = '\r';
+    tmp[pos++] = '\n';
+
+    // 4) Cerrar string
+    tmp[pos] = '\0';
+
+    // 5) Encolar todo de una vez
+    return USART1_PushTxString(buf, tmp);
+}
+

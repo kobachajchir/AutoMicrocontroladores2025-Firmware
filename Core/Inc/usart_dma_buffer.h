@@ -217,6 +217,23 @@ void USART1_DMA_TxCpltHandler(UART_HandleTypeDef *huart);
 
 void USART1_DMA_TxDMACpltHandler(DMA_HandleTypeDef *hdma);
 
+/**
+ * @brief  Encola un array de valores de 16 bits sin signo para transmitirlos vía USART1+DMA.
+ *         Formatea cada valor en base decimal sin signo, separado por comas y un espacio.
+ *
+ * @param  buf      Puntero al USART_Buffer_t (txBuffer[64]).
+ * @param  values   Puntero al array de uint16_t con los valores a imprimir.
+ * @param  length   Número de elementos en el array `values` (≤64 en total).
+ * @retval HAL_OK    Si pudo formatear y encolar todos los valores.
+ * @retval HAL_BUSY  Si TX_BUSY==1 o la cadena resultante excede 64 bytes.
+ * @retval HAL_ERROR En caso de error fatal (p.ej. buf==NULL).
+ */
+HAL_StatusTypeDef USART1_PushTxU16Values(USART_Buffer_t *buf,
+                                         const uint16_t *values,
+                                         uint16_t length);
+
+
+
 #endif /* INC_USART_DMA_BUFFER_H_ */
 
 
