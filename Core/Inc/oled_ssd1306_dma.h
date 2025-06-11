@@ -40,7 +40,8 @@ typedef struct {
 	bool           init_done;   // marca cuando la init terminó
     uint8_t frame_buffer_main[OLED_BUFFER_SIZE];    /**< Contenido principal */
     uint8_t frame_buffer_overlay[OLED_BUFFER_SIZE]; /**< Contenido temporal */
-    bool    page_dirty[OLED_MAX_PAGES];             /**< Flags de páginas modificadas */
+    bool    page_dirty_main[OLED_MAX_PAGES];             /**< Flags de páginas modificadas */
+    bool    page_dirty_overlay[OLED_MAX_PAGES];             /**< Flags de páginas modificadas */
     bool    overlay_active;      /**< Overlay activo */
     uint16_t overlay_timer_ms;   /**< Tiempo restante (ms) */
     /* Cola circular de requests de página */
@@ -53,27 +54,16 @@ typedef struct {
     volatile uint8_t  *dma_busy_flag;  /**< Puntero a flag externo */
     uint16_t oled_dev_address;
     I2C_Request_Bus_Use requestBusCb;
-    FontDef           *font;
+    // Fuentes y cursor
+	FontDef           *font;
+	uint8_t            cursor_x;
+	uint8_t            cursor_y;
 } OLED_HandleTypeDef;
 
 static const uint8_t ssd1306_init_seq[] = {
-  0xAE,
-  0xD5,0xF0,
-  0xA8,0x3F,
-  0xD3,0x00,
-  0x40,
-  0x8D,0x14,
-  0x20,0x00,
-  0xA1,
-  0xC8,
-  0xDA,0x12,
-  0x81,0xCF,
-  0xD9,0xF1,
-  0xDB,0x40,
-  0xA4,
-  0xA6,
-  0x2E,
-  0xAF
+    0xAE,0xD5,0xF0,0xA8,0x3F,0xD3,0x00,0x40,0x8D,0x14,
+    0x20,0x00,0xA1,0xC8,0xDA,0x12,0x81,0xCF,0xD9,0xF1,
+    0xDB,0x40,0xA4,0xA6,0x2E,0xAF
 };
 
 #define SSD1306_INIT_LEN  (sizeof(ssd1306_init_seq))
@@ -94,9 +84,7 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
 void OLED_ClearBuffer(OLED_HandleTypeDef *oled, bool clear_overlay);
 
 /** Dibuja texto en buffer activo y marca dirty de páginas */
-void OLED_DrawStr(OLED_HandleTypeDef *oled,
-                  uint8_t x, uint8_t y,
-                  const char *str);
+void OLED_DrawStr(OLED_HandleTypeDef *oled, const char *str, bool use_overlay);
 
 /** Dibuja bitmap en buffer activo y marca dirty de páginas */
 void OLED_DrawBitmap(OLED_HandleTypeDef *oled,
@@ -134,7 +122,7 @@ void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled);
  */
 void OLED_GrantAccessCallback(OLED_HandleTypeDef *oled);
 
-void OLED_SetFont(OLED_HandleTypeDef *oled, FontDef *f);
-
+void OLED_SetCursor(OLED_HandleTypeDef *oled, uint8_t x, uint8_t y);
+void OLED_SetFont(OLED_HandleTypeDef *oled, FontDef *font);
 
 #endif /* INC_OLED_SSD1306_DMA_H_ */

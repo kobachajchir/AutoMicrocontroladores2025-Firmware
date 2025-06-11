@@ -1,5 +1,9 @@
-Drivers/STM32F1xx_HAL_Driver/stm32f1xx_hal_dma.o: \
- C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_dma.c \
+Core/Src/menusystem.o: ../Core/Src/menusystem.c \
+ ../Core/Inc/types/menu_types.h ../Core/Inc/globals.h \
+ ../Core/Inc/types/button_state.h ../Core/Inc/types/bitmap_type.h \
+ ../Core/Inc/utils/macros_utils.h \
+ ../Core/Inc/utils/../types/bitmap_type.h \
+ ../Core/Inc/utils/../types/carmode_type.h ../Core/Inc/types/led_status.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h \
  ../Core/Inc/stm32f1xx_hal_conf.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h \
@@ -31,7 +35,20 @@ Drivers/STM32F1xx_HAL_Driver/stm32f1xx_hal_dma.o: \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_usb.h \
- C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd_ex.h
+ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd_ex.h \
+ ../Core/Inc/types/carmode_type.h ../Core/Inc/types/usart_buffer_type.h \
+ ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
+ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
+ ../Core/Inc/motor_control.h ../Core/Inc/oled_ssd1306_dma.h \
+ ../Core/Inc/fonts.h ../Core/Inc/menusystem.h ../Core/Inc/menusystem.h
+../Core/Inc/types/menu_types.h:
+../Core/Inc/globals.h:
+../Core/Inc/types/button_state.h:
+../Core/Inc/types/bitmap_type.h:
+../Core/Inc/utils/macros_utils.h:
+../Core/Inc/utils/../types/bitmap_type.h:
+../Core/Inc/utils/../types/carmode_type.h:
+../Core/Inc/types/led_status.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 ../Core/Inc/stm32f1xx_hal_conf.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h:
@@ -64,3 +81,13 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_usb.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd_ex.h:
+../Core/Inc/types/carmode_type.h:
+../Core/Inc/types/usart_buffer_type.h:
+../Core/Inc/types/bitmap_type.h:
+../Core/Inc/utils/macros_utils.h:
+C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h:
+../Core/Inc/motor_control.h:
+../Core/Inc/oled_ssd1306_dma.h:
+../Core/Inc/fonts.h:
+../Core/Inc/menusystem.h:
+../Core/Inc/menusystem.h:

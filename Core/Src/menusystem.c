@@ -6,6 +6,7 @@
  */
 
 #include "types/menu_types.h"
+#include "globals.h"
 #include "menusystem.h"
 
 #ifndef MAX_VISIBLE_ITEMS
@@ -13,16 +14,18 @@
 #endif
 
 void initMenuSystem(MenuSystem *system) {
-    system->currentMenu = &mainMenu;
-    system->currentMenu->currentItemIndex = 0;
-    system->currentMenu->firstVisibleItem = 0;
+    if (!system || !system->currentMenu) return;
+
+    SubMenu *menu = system->currentMenu;
+    menu->currentItemIndex = 0;
+    menu->firstVisibleItem = 0;
 }
 
 void MenuSystem_SetCallbacks(MenuSystem *system,
                              ClearFunction clear,
                              DrawItemFunction draw,
                              RenderFunction render,
-							 volatile uint8_t *insideFlag) {
+                             volatile uint8_t *insideFlag) {
     system->clearScreen = clear;
     system->drawItem = draw;
     system->renderFn = render;
@@ -77,13 +80,13 @@ void displayMenu(MenuSystem *system) {
     if (system->renderFn) system->renderFn();
 }
 
-void volver() {
-    if (menuSystem.currentMenu == &mainMenu) {
-        // En el menú principal podrías mostrar otra pantalla (dashboard)
+void volver(MenuSystem *system) {
+    if (!system) return;
+    if (system->currentMenu == &mainMenu) {
         return;
-    } else if (menuSystem.currentMenu->parent) {
-        menuSystem.currentMenu = menuSystem.currentMenu->parent;
-        displayMenu(&menuSystem);
+    } else if (system->currentMenu->parent) {
+        system->currentMenu = system->currentMenu->parent;
+        displayMenu(system);
     }
 }
 
@@ -93,36 +96,30 @@ void selectMenuItem(MenuSystem *system, int index) {
     }
 }
 
-void navigateToMainMenu() {
-    menuSystem.currentMenu = &mainMenu;
-    menuSystem.currentMenu->currentItemIndex = 0;
-    menuSystem.currentMenu->firstVisibleItem = 0;
-    displayMenu(&menuSystem);
+void navigateToMainMenu(MenuSystem *system) {
+    if (!system) return;
+    system->currentMenu = &mainMenu;
+    system->currentMenu->currentItemIndex = 0;
+    system->currentMenu->firstVisibleItem = 0;
+    displayMenu(system);
+    if (system->insideMenuFlag) *(system->insideMenuFlag) = 1;
 }
 
-void navigateBackInMenu() {
-    if (menuSystem.currentMenu->parent != NULL) {
-        menuSystem.currentMenu = menuSystem.currentMenu->parent;
-        displayMenu(&menuSystem);
+void navigateBackInMenu(MenuSystem *system) {
+    if (!system) return;
+    if (system->currentMenu->parent != NULL) {
+        system->currentMenu = system->currentMenu->parent;
+        displayMenu(system);
     } else {
-        INSIDE_MENU = 0;
-        menuSystem.currentMenu->currentItemIndex = 0;
-        if (menuSystem.clearScreen) menuSystem.clearScreen();
-        if (menuSystem.renderFn) menuSystem.renderFn();
+        if (system->insideMenuFlag) *(system->insideMenuFlag) = 0;
+        system->currentMenu->currentItemIndex = 0;
+        if (system->clearScreen) system->clearScreen();
+        if (system->renderFn) system->renderFn();
     }
 }
 
-void submenu1Fn() {
-    menuSystem.currentMenu = &submenu1;
-    displayMenu(&menuSystem);
+void submenuFn(MenuSystem *system, SubMenu *submenu) {
+    system->currentMenu = submenu;
+    displayMenu(system);
 }
 
-void submenu2Fn() {
-    menuSystem.currentMenu = &submenu2;
-    displayMenu(&menuSystem);
-}
-
-void submenu3Fn() {
-    menuSystem.currentMenu = &submenu3;
-    displayMenu(&menuSystem);
-}

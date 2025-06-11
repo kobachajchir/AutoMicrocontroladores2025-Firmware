@@ -71,12 +71,20 @@ DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
+
+extern void    clearScreenWrapper(void);
+extern void    drawItemWrapper(const char *name, int y, bool selected);
+extern void    renderFnWrapper(void);
+void submenu1_Open(void) { submenuFn(&menuSystem, &submenu1); }
+void submenu2_Open(void) { submenuFn(&menuSystem, &submenu2); }
+void submenu3_Open(void) { submenuFn(&menuSystem, &submenu3); }
+
 volatile bool procesar_flag = false;
 volatile bool lanzar_ADC_trigger_flag = false;
 volatile ButtonState_t btnUser;
 volatile LedStatus_t ledStatus;
 volatile Byte_Flag_Struct systemFlags;
-volatile CarMode_t testMode;
+volatile CarMode_t carMode;
 volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 TCRT_LightConfig_t tcrtLight;
 volatile uint8_t cnt_adc_trigger = 0;
@@ -111,65 +119,61 @@ OLED_HandleTypeDef oledTask;
 
 /* --- Variables globales --- */
 
-// Icono genérico para todos los ítems por ahora
-extern const uint8_t* generic_icon;
-
 // Sistema de menú
 MenuSystem menuSystem = {
     .currentMenu = &mainMenu,
     .clearScreen = clearScreenWrapper,
     .drawItem = drawItemWrapper,
     .renderFn = renderFnWrapper,
-    .insideMenuFlag = &insideMenu
+    .insideMenuFlag = &inside_menu_flag
 };
 
 // Ítems del menú principal
 MenuItem mainMenuItems[] = {
-    {"Modo", submenu1Fn, &submenu1, generic_icon},
-    {"Tiempos", submenu2Fn, &submenu2, generic_icon},
-    {"Configuración", submenu3Fn, &submenu3, generic_icon},
-    {"VOLVER", volver, NULL, generic_icon}
+    {"Modo",    submenu1_Open, NULL, NULL},
+    {"Tiempos", submenu2_Open, NULL, NULL},
+    {"Config.", submenu3_Open, NULL, NULL},
+    {"VOLVER",  volver,         NULL, NULL}
 };
 
 // Menú principal
 SubMenu mainMenu = {
-    "Main Menu", mainMenuItems, 4, 0, 0, NULL, generic_icon
+    "Main Menu", mainMenuItems, 4, 0, 0, NULL, NULL
 };
 
 // Ítems del submenu 1: MODO
 MenuItem submenu1Items[] = {
-    {"IDLE", NULL, NULL, generic_icon},
-    {"FOLLOW", NULL, NULL, generic_icon},
-    {"TEST", NULL, NULL, generic_icon},
-    {"VOLVER", volver, &mainMenu, generic_icon}
+    {"IDLE",   NULL, NULL, NULL},
+    {"FOLLOW", NULL, NULL, NULL},
+    {"TEST",   NULL, NULL, NULL},
+    {"VOLVER", volver, &mainMenu, NULL}
 };
 
 SubMenu submenu1 = {
-    "Modo", submenu1Items, 4, 0, 0, &mainMenu, generic_icon
+    "Modo", submenu1Items, 4, 0, 0, &mainMenu, NULL
 };
 
 // Submenú 2: Mockup
 MenuItem submenu2Items[] = {
-    {"Tiempo de espera", NULL, NULL, generic_icon},
-    {"Tiempo de tiro", NULL, NULL, generic_icon},
-    {"VOLVER", volver, &mainMenu, generic_icon}
+    {"Tiempo de espera", NULL, NULL, NULL},
+    {"Tiempo de tiro",   NULL, NULL, NULL},
+    {"VOLVER", volver, &mainMenu, NULL}
 };
 
 SubMenu submenu2 = {
-    "Tiempos", submenu2Items, 3, 0, 0, &mainMenu, generic_icon
+    "Tiempos", submenu2Items, 3, 0, 0, &mainMenu, NULL
 };
 
 // Submenú 3: Mockup
 MenuItem submenu3Items[] = {
-    {"Option 1", NULL, NULL, generic_icon},
-    {"Option 2", NULL, NULL, generic_icon},
-    {"VOLVER", volver, &mainMenu, generic_icon}
+    {"Option 1", NULL, NULL, NULL},
+    {"Option 2", NULL, NULL, NULL},
+    {"VOLVER", volver, &mainMenu, NULL}
 };
 
 SubMenu submenu3 = {
-    "Configuración", submenu3Items, 3, 0, 0, &mainMenu, generic_icon
+    "Configuración", submenu3Items, 3, 0, 0, &mainMenu, NULL
 };
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -220,6 +224,18 @@ static HAL_StatusTypeDef HAL_UART1_TxDMA_Wrapper(uint8_t *pData, uint16_t size)
 static HAL_StatusTypeDef HAL_UART1_RxDMA_Wrapper(uint8_t *pData, uint16_t size)
 {
     return HAL_UART_Receive_DMA(&huart1, pData, size);
+}
+
+void setMode_IDLE(void){
+	carMode = IDLE_MODE;
+}
+
+void setMode_FOLLOW(void){
+	carMode = FOLLOW_MODE;
+}
+
+void setMode_TEST(void){
+	carMode = TEST_MODE;
 }
 
 void clearScreenWrapper(void) {
@@ -359,7 +375,8 @@ int main(void)
 				   OLED_RequestBusUse_I2CManager);
 		  OLED_SetFont(&oledTask, &Font_11x18);
 		  OLED_ClearBuffer(&oledTask, false);
-		  OLED_DrawStr(&oledTask, 0, 0, "Hola mundo");
+		  OLED_SetCursor(&oledTask, 0, 0);
+		  OLED_DrawStr(&oledTask, "HOLA MUNDO", false);
 		  OLED_SendBuffer(&oledTask);
 	  } else {
 		  // Falló al registrar (posiblemente sin espacio en la tabla)
@@ -910,7 +927,7 @@ void initUsartBufferHandler(){
 
 void initCarMode(){
 	NIBBLEH_SET_STATE(systemFlags, IDLE_MODE);
-	testMode = GET_CAR_MODE();
+	carMode = GET_CAR_MODE();
 	ledStatus.gpio_port = LED_PORT;
 	ledStatus.gpio_pin = LED_PORT_PIN;
 	ledStatus.flags.byte = 0;
@@ -1074,27 +1091,33 @@ void i2cManager_MainTask(){
 
 
 void OLED_MainTask(void) {
-    /* Gestionar overlay timeout */
-    if (IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED) && oledTask.overlay_active) {
-        if (oledTask.overlay_timer_ms >= 10)
-        	oledTask.overlay_timer_ms -= 10;
-        else {
-        	oledTask.overlay_active = false;
-            for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
-            	oledTask.page_dirty[p] = true;
-            }
-            OLED_SendBuffer(&oledTask);
+    // Verificar si pasó el tiempo de 10 ms y hay overlay activo
+    if (!IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED) || !oledTask.overlay_active)
+        return;
+
+    // Decrementar el temporizador del overlay
+    if (oledTask.overlay_timer_ms >= 10) {
+        oledTask.overlay_timer_ms -= 10;
+    } else {
+        // Tiempo agotado, desactivar overlay y marcar todas las páginas como sucias
+        oledTask.overlay_active = false;
+
+        for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
+            oledTask.frame_buffer_main[p] = true;
         }
+
+        OLED_SendBuffer(&oledTask);
     }
 }
 
-void initMenuSystemTask(void){
-	initMenuSystem(&menuSystem);
-	MenuSystem_SetCallbacks(&menuSystem,
-			clearScreenWrapper,
-            drawItemWrapper,
-            renderFnWrapper,
-			inside_menu_flag);
+
+void initMenuSystemTask(void) {
+    initMenuSystem(&menuSystem);
+    MenuSystem_SetCallbacks(&menuSystem,
+        clearScreenWrapper,
+        drawItemWrapper,
+        renderFnWrapper,
+        &inside_menu_flag);
 }
 
 

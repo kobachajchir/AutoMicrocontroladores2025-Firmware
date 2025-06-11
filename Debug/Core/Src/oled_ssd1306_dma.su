@@ -1,9 +1,10 @@
 ../Core/Src/oled_ssd1306_dma.c:12:13:OLED_StartNextTransfer	24	static,ignoring_inline_asm
 ../Core/Src/oled_ssd1306_dma.c:76:6:OLED_GrantAccessCallback	32	static,ignoring_inline_asm
 ../Core/Src/oled_ssd1306_dma.c:97:19:OLED_Init	8	static
-../Core/Src/oled_ssd1306_dma.c:124:6:OLED_ClearBuffer	8	static
+../Core/Src/oled_ssd1306_dma.c:127:6:OLED_ClearBuffer	8	static
 ../Core/Src/oled_ssd1306_dma.c:52:6:OLED_DMA_CompleteCallback	8	static,ignoring_inline_asm
-../Core/Src/oled_ssd1306_dma.c:134:6:OLED_DrawStr	64	static
-../Core/Src/oled_ssd1306_dma.c:163:19:OLED_SendBuffer	24	static,ignoring_inline_asm
-../Core/Src/oled_ssd1306_dma.c:188:6:OLED_ActivateOverlay	24	static
-../Core/Src/oled_ssd1306_dma.c:208:6:OLED_SetFont	0	static
+../Core/Src/oled_ssd1306_dma.c:141:6:OLED_SetCursor	0	static
+../Core/Src/oled_ssd1306_dma.c:147:6:OLED_SetFont	0	static
+../Core/Src/oled_ssd1306_dma.c:152:6:OLED_DrawStr	72	static
+../Core/Src/oled_ssd1306_dma.c:187:19:OLED_SendBuffer	24	static,ignoring_inline_asm
+../Core/Src/oled_ssd1306_dma.c:229:6:OLED_ActivateOverlay	24	static

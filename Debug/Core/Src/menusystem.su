@@ -1,0 +1,11 @@
+../Core/Src/menusystem.c:16:6:initMenuSystem	0	static
+../Core/Src/menusystem.c:24:6:MenuSystem_SetCallbacks	0	static
+../Core/Src/menusystem.c:35:6:moveCursorUp	0	static
+../Core/Src/menusystem.c:45:6:moveCursorDown	0	static
+../Core/Src/menusystem.c:55:6:selectCurrentItem	0	static
+../Core/Src/menusystem.c:63:6:displayMenu	24	static
+../Core/Src/menusystem.c:83:6:volver	0	static
+../Core/Src/menusystem.c:93:6:selectMenuItem	0	static
+../Core/Src/menusystem.c:99:6:navigateToMainMenu	8	static
+../Core/Src/menusystem.c:108:6:navigateBackInMenu	8	static
+../Core/Src/menusystem.c:121:6:submenuFn	0	static

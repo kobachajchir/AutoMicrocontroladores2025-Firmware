@@ -105,9 +105,10 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
     oled->requestBusCb = requestBusCbFn;
 
     /* Inicializar flags y cola */
-    for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
-        oled->page_dirty[p] = true;
-    }
+	for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
+		oled->page_dirty_main[p]    = true;
+		oled->page_dirty_overlay[p] = false;
+	}
     oled->queue_head = oled->queue_tail = oled->queue_count = 0;
     oled->overlay_active = false;
     *(oled->dma_busy_flag) = 0;
@@ -117,27 +118,44 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
     oled->init_idx  = 0;
     oled->init_done = false;
     oled->font = &Font_7x10;
+    oled->cursor_x = 0;
+    oled->cursor_y = 0;
 
     return HAL_OK;
 }
 
 void OLED_ClearBuffer(OLED_HandleTypeDef *oled, bool clear_overlay) {
-    if (clear_overlay)
-        memset(oled->frame_buffer_overlay, 0, OLED_BUFFER_SIZE);
-    else
-        memset(oled->frame_buffer_main,  0, OLED_BUFFER_SIZE);
-    for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
-        oled->page_dirty[p] = true;
-    }
+	if (clear_overlay) {
+		memset(oled->frame_buffer_overlay, 0, OLED_BUFFER_SIZE);
+		for (uint8_t p = 0; p < OLED_MAX_PAGES; p++){
+			oled->page_dirty_overlay[p] = true;
+		}
+	} else {
+		memset(oled->frame_buffer_main, 0, OLED_BUFFER_SIZE);
+		for (uint8_t p = 0; p < OLED_MAX_PAGES; p++){
+			oled->page_dirty_main[p] = true;
+		}
+	}
 }
 
-void OLED_DrawStr(OLED_HandleTypeDef *oled, uint8_t x, uint8_t y, const char *str) {
+void OLED_SetCursor(OLED_HandleTypeDef *oled, uint8_t x, uint8_t y) {
+    if (!oled) return;
+    oled->cursor_x = x;
+    oled->cursor_y = y;
+}
+
+void OLED_SetFont(OLED_HandleTypeDef *oled, FontDef *f) {
+    if (!oled || !f) return;
+    oled->font = f;
+}
+
+void OLED_DrawStr(OLED_HandleTypeDef *oled, const char *str, bool use_overlay){
     if (!oled || !str || !oled->font) return;
     FontDef *f = oled->font;
-    uint8_t cx = x, cy = y;
-
+    uint8_t cx = oled->cursor_x;
+    uint8_t cy = oled->cursor_y;
     while (*str) {
-        uint8_t c = (uint8_t)(*str);
+        uint8_t c = (uint8_t)(*str++);
         if (c < 32 || c > 126) c = '?';
         const uint16_t *glyph = &f->data[(c - 32) * f->FontHeight];
         for (uint8_t row = 0; row < f->FontHeight; row++) {
@@ -147,15 +165,21 @@ void OLED_DrawStr(OLED_HandleTypeDef *oled, uint8_t x, uint8_t y, const char *st
                     uint8_t px = cx + col;
                     uint8_t py = cy + row;
                     if (px < OLED_WIDTH && py < OLED_HEIGHT) {
-                        uint16_t idx = (py >> 3) * OLED_WIDTH + px;
-                        oled->frame_buffer_main[idx] |= (1 << (py & 7));
-                        oled->page_dirty[py >> 3] = true;
+                    	uint16_t idx = (py >> 3) * OLED_WIDTH + px;
+                    	uint8_t *buf = use_overlay ? oled->frame_buffer_overlay : oled->frame_buffer_main;
+                    	buf[idx] |= (1 << (py & 7));
+                    	if (use_overlay){
+                    		oled->page_dirty_overlay[py >> 3] = true;
+                    	}
+                    	else{
+                    		oled->page_dirty_main[py >> 3] = true;
+                    	}
                     }
                 }
             }
         }
         cx += f->FontWidth;
-        str++;
+        oled->cursor_x = cx;
         if (cx + f->FontWidth > OLED_WIDTH) break;
     }
 }
@@ -163,18 +187,35 @@ void OLED_DrawStr(OLED_HandleTypeDef *oled, uint8_t x, uint8_t y, const char *st
 HAL_StatusTypeDef OLED_SendBuffer(OLED_HandleTypeDef *oled) {
 	__NOP();
     bool any = false;
+    // Primero páginas main
     for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
-        if (oled->page_dirty[p]) {
+        if (oled->page_dirty_main[p]) {
             if (oled->queue_count >= OLED_QUEUE_DEPTH) return HAL_BUSY;
             oled->page_queue[oled->queue_tail++] = (OLED_Page_t){
                 .page         = p,
                 .column_start = 0,
                 .length       = OLED_WIDTH,
-                .use_overlay  = oled->overlay_active
+                .use_overlay  = false
             };
             oled->queue_tail %= OLED_QUEUE_DEPTH;
             oled->queue_count++;
-            oled->page_dirty[p] = false;
+            oled->page_dirty_main[p] = false;
+            any = true;
+        }
+    }
+    // Luego páginas overlay
+    for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
+        if (oled->page_dirty_overlay[p]) {
+            if (oled->queue_count >= OLED_QUEUE_DEPTH) return HAL_BUSY;
+            oled->page_queue[oled->queue_tail++] = (OLED_Page_t){
+                .page         = p,
+                .column_start = 0,
+                .length       = OLED_WIDTH,
+                .use_overlay  = true
+            };
+            oled->queue_tail %= OLED_QUEUE_DEPTH;
+            oled->queue_count++;
+            oled->page_dirty_overlay[p] = false;
             any = true;
         }
     }
@@ -205,9 +246,4 @@ void OLED_ActivateOverlay(OLED_HandleTypeDef *oled,
     OLED_StartNextTransfer(oled);
 }
 
-void OLED_SetFont(OLED_HandleTypeDef *oled, FontDef *f) {
-    if (oled && f) {
-        oled->font = f;
-    }
-}
 /* ============================================================================ */

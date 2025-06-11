@@ -11,7 +11,7 @@
 #include "tcrt5000.h"
 #include "motor_control.h"
 #include "oled_ssd1306_dma.h"
-#include "types/menu_types.h"
+#include "menusystem.h"
 
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
@@ -43,6 +43,8 @@
 #define I2C_ADDR_OLED     0x3C
 #define I2C_ADDR_MPU6050  0x68
 
+#define INSIDE_MENU (inside_menu_flag)
+
 //Variables globales
 extern volatile bool  procesar_flag;
 extern volatile bool  lanzar_ADC_trigger_flag;
@@ -51,7 +53,7 @@ extern volatile uint32_t contador;
 extern volatile ButtonState_t btnUser;
 extern volatile LedStatus_t ledStatus;
 extern volatile Byte_Flag_Struct systemFlags;
-extern volatile CarMode_t testMode;
+extern volatile CarMode_t carMode;
 extern volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 extern TCRT_LightConfig_t myLight;
 extern bool pull_cfg[ TCRT5000_NUM_SENSORS ];
@@ -66,11 +68,10 @@ extern TCRTHandlerTask tcrtTask;
 extern MotorControl_Handle motorTask;
 extern OLED_HandleTypeDef oledTask;
 
-extern MenuSystem menuSystem;
-extern SubMenu mainMenu;
-extern SubMenu submenu1;
-extern SubMenu submenu2;
-extern SubMenu submenu3;
+extern MenuSystem    menuSystem;
+extern SubMenu       mainMenu, submenu1, submenu2, submenu3;
+extern MenuItem      mainMenuItems[], submenu1Items[], submenu2Items[], submenu3Items[];
 extern volatile uint8_t inside_menu_flag;
+extern const uint8_t* generic_icon;
 
 #endif // GLOBALS_H
