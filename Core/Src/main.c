@@ -92,7 +92,7 @@ volatile uint16_t cnt_10ms = 0;
 volatile uint32_t cnt_10us = 0;
 volatile uint32_t tcrt_calib_cnt_phase = 0;
 //Modificcar para hacer una sola struct de velocidades modo y direcciones
-static uint8_t motorBothSpeed = 100;
+static uint8_t motorBothSpeed = 50;
 static int8_t motorBothDirection = MOTOR_DIR_FORWARD;
 // Bandera para I2C_Manager (bus ocupado)
 volatile uint8_t i2c_tx_busy_flag = 0;
@@ -654,7 +654,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 11;
+  htim2.Init.Prescaler = 2812;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 255;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -1014,13 +1014,12 @@ void TCRT_MainTask(){
 			values[i] = tcrtTask.results.raw.array[i];
 		}
 	    // ... aquí procesas esos 4000 bloques como prefieras ...
-		__NOP();
+		/*
 		if (USART1_PushTxU16Values(&usart1Buf, values, TCRT5000_NUM_SENSORS) != HAL_OK) {
 		    // manejar buffer lleno o error
 		}else{
-			__NOP();
-		}
-		__NOP();
+
+		}*/
 	    // 3) Una vez consumidos, limpiar la bandera para empezar a contar
 	    //    otras 4000 muestras.
 	    TCRT5000_ClearReady(&tcrtTask);
@@ -1036,28 +1035,26 @@ void My_TimerCalcFunc(uint32_t target_freq_hz,
                       uint16_t *prescaler_out,
                       uint16_t *period_out)
 {
-    const uint32_t desired_resolution = 256; // 8 bits
-
     if (target_freq_hz == 0 || timer_clk_hz == 0 || !prescaler_out || !period_out) {
         *prescaler_out = 0;
         *period_out = 0;
         return;
     }
 
-    // ← Asegurate de pasar timer_clk_hz = HAL_RCC_GetPCLK1Freq() * 2
-
-    uint32_t prescaler = timer_clk_hz / (target_freq_hz * desired_resolution);
+    const uint32_t period = 255;
+    uint32_t prescaler = timer_clk_hz / (target_freq_hz * (period + 1));
     if (prescaler == 0) prescaler = 1;
 
     *prescaler_out = (uint16_t)(prescaler - 1);
-    *period_out    = (uint16_t)(desired_resolution - 1);
+    *period_out    = (uint16_t)period;
 }
+
 
 
 void InitMotorTask(void)
 {
     motorTask.htim = &htim2;
-    motorTask.desired_pwm_freq = 22700;
+    motorTask.desired_pwm_freq = 100;
     motorTask.compute_params = My_TimerCalcFunc;
 
     motorTask.left_forward_channel  = TIM_CHANNEL_1;
@@ -1072,6 +1069,8 @@ void InitMotorTask(void)
     {
         USART1_PrintString("InitMotorTask devolvió HAL_ERROR\r\n");
         Error_Handler();
+    }else{
+    	USART1_PrintString("Motores lib OK\r\n");
     }
 }
 

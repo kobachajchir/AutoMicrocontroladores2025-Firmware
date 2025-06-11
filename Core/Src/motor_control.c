@@ -51,15 +51,6 @@ static HAL_StatusTypeDef Motor_Init(MotorControl_Handle *self)
     if (HAL_TIM_PWM_Init(self->htim) != HAL_OK)
         return HAL_ERROR;
 
-    self->init               = Motor_Init;
-    self->set_left_forward   = Motor_SetLeftForward;
-    self->set_left_backward  = Motor_SetLeftBackward;
-    self->set_right_forward  = Motor_SetRightForward;
-    self->set_right_backward = Motor_SetRightBackward;
-    self->stop_left          = Motor_StopLeft;
-    self->stop_right         = Motor_StopRight;
-    self->set_both           = Motor_SetBoth;
-
     return HAL_OK;
 }
 
@@ -68,6 +59,7 @@ static HAL_StatusTypeDef Motor_SetLeftForward(MotorControl_Handle *self, uint8_t
     if (!self || speed > 255) return HAL_ERROR;
     HAL_TIM_PWM_Stop(self->htim, self->left_backward_channel);
     __HAL_TIM_SET_COMPARE(self->htim, self->left_backward_channel, 0);
+
     uint16_t duty = ((self->htim->Init.Period + 1) * speed) / 255;
     __HAL_TIM_SET_COMPARE(self->htim, self->left_forward_channel, duty);
     return HAL_TIM_PWM_Start(self->htim, self->left_forward_channel);
@@ -78,6 +70,7 @@ static HAL_StatusTypeDef Motor_SetLeftBackward(MotorControl_Handle *self, uint8_
     if (!self || speed > 255) return HAL_ERROR;
     HAL_TIM_PWM_Stop(self->htim, self->left_forward_channel);
     __HAL_TIM_SET_COMPARE(self->htim, self->left_forward_channel, 0);
+
     uint16_t duty = ((self->htim->Init.Period + 1) * speed) / 255;
     __HAL_TIM_SET_COMPARE(self->htim, self->left_backward_channel, duty);
     return HAL_TIM_PWM_Start(self->htim, self->left_backward_channel);
@@ -88,6 +81,7 @@ static HAL_StatusTypeDef Motor_SetRightForward(MotorControl_Handle *self, uint8_
     if (!self || speed > 255) return HAL_ERROR;
     HAL_TIM_PWM_Stop(self->htim, self->right_backward_channel);
     __HAL_TIM_SET_COMPARE(self->htim, self->right_backward_channel, 0);
+
     uint16_t duty = ((self->htim->Init.Period + 1) * speed) / 255;
     __HAL_TIM_SET_COMPARE(self->htim, self->right_forward_channel, duty);
     return HAL_TIM_PWM_Start(self->htim, self->right_forward_channel);
@@ -98,6 +92,7 @@ static HAL_StatusTypeDef Motor_SetRightBackward(MotorControl_Handle *self, uint8
     if (!self || speed > 255) return HAL_ERROR;
     HAL_TIM_PWM_Stop(self->htim, self->right_forward_channel);
     __HAL_TIM_SET_COMPARE(self->htim, self->right_forward_channel, 0);
+
     uint16_t duty = ((self->htim->Init.Period + 1) * speed) / 255;
     __HAL_TIM_SET_COMPARE(self->htim, self->right_backward_channel, duty);
     return HAL_TIM_PWM_Start(self->htim, self->right_backward_channel);
