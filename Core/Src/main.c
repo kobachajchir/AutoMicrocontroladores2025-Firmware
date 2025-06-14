@@ -24,8 +24,6 @@
 /* USER CODE BEGIN Includes */
 #include "globals.h"
 #include "utils.h"
-#include "types/bitmap_type.h"
-#include "types/button_state.h"
 #include "utils/macros_utils.h"
 #include "types/usart_buffer_type.h"
 #include "usart_dma_buffer.h"
@@ -72,16 +70,8 @@ DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
 
-extern void    clearScreenWrapper(void);
-extern void    drawItemWrapper(const char *name, int y, bool selected);
-extern void    renderFnWrapper(void);
-void submenu1_Open(void) { submenuFn(&menuSystem, &submenu1); }
-void submenu2_Open(void) { submenuFn(&menuSystem, &submenu2); }
-void submenu3_Open(void) { submenuFn(&menuSystem, &submenu3); }
-
 volatile bool procesar_flag = false;
 volatile bool lanzar_ADC_trigger_flag = false;
-volatile ButtonState_t btnUser;
 volatile LedStatus_t ledStatus;
 volatile Byte_Flag_Struct systemFlags;
 volatile CarMode_t carMode;
@@ -99,6 +89,7 @@ volatile uint8_t i2c_tx_busy_flag = 0;
 // Bandera para la librería OLED (DMA ocupado)
 volatile uint8_t oled_dma_busy_flag = 0;
 volatile uint8_t inside_menu_flag;
+volatile uint16_t encoderValue;
 
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
@@ -116,7 +107,42 @@ USART_Buffer_t usart1Buf;
 TCRTHandlerTask tcrtTask;
 MotorControl_Handle motorTask;
 OLED_HandleTypeDef oledTask;
+ButtonState_t btnUser;
+ENC_Handle_t encoder;
 
+void USART1_PrintString(const char *msg) {
+    USART1_PushTxString(&usart1Buf, msg);
+}
+
+extern void    clearScreenWrapper(void);
+extern void    drawItemWrapper(const char *name, int y, bool selected);
+extern void    renderFnWrapper(void);
+void submenu1_Open(void) {
+	submenuFn(&menuSystem, &submenu1);
+	USART1_PrintString("Submenu1");
+}
+void submenu2_Open(void) {
+	submenuFn(&menuSystem, &submenu2);
+	USART1_PrintString("Submenu2");
+}
+void submenu3_Open(void) {
+	submenuFn(&menuSystem, &submenu3);
+	USART1_PrintString("Submenu3");
+}
+void setMode_IDLE(void){
+	carMode = IDLE_MODE;
+	USART1_PrintString("IDLE");
+}
+
+void setMode_FOLLOW(void){
+	carMode = FOLLOW_MODE;
+	USART1_PrintString("FOLLOW");
+}
+
+void setMode_TEST(void){
+	carMode = TEST_MODE;
+	USART1_PrintString("TEST");
+}
 /* --- Variables globales --- */
 
 // Sistema de menú
@@ -143,9 +169,9 @@ SubMenu mainMenu = {
 
 // Ítems del submenu 1: MODO
 MenuItem submenu1Items[] = {
-    {"IDLE",   NULL, NULL, NULL},
-    {"FOLLOW", NULL, NULL, NULL},
-    {"TEST",   NULL, NULL, NULL},
+    {"IDLE",   setMode_IDLE, NULL, NULL},
+    {"FOLLOW", setMode_FOLLOW, NULL, NULL},
+    {"TEST",   setMode_TEST, NULL, NULL},
     {"VOLVER", volver, &mainMenu, NULL}
 };
 
@@ -189,7 +215,7 @@ static void MX_SPI2_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 void initCarMode();
-void UserBtn_MainTask();
+void UserBtn_MainTask(ButtonState_t *h);
 void initTCRTLib();
 void TCRT_MainTask();
 void initUsartBufferHandler();
@@ -206,6 +232,11 @@ void MPU_MainTask(void);
 void OLED_MainTask(void);
 void OLED_DMA_Complete_I2CManager(void);
 void OLED_GrantAccess_I2CManager(void);
+/**
+ * @brief Tarea principal del encoder (main loop)
+ *        Maneja eventos de botón corto/largo
+ */
+void Encoder_MainTask(ENC_Handle_t *h);
 void initMenuSystemTask(void);
 void clearScreenWrapper(void);
 void renderFnWrapper(void);
@@ -224,18 +255,6 @@ static HAL_StatusTypeDef HAL_UART1_TxDMA_Wrapper(uint8_t *pData, uint16_t size)
 static HAL_StatusTypeDef HAL_UART1_RxDMA_Wrapper(uint8_t *pData, uint16_t size)
 {
     return HAL_UART_Receive_DMA(&huart1, pData, size);
-}
-
-void setMode_IDLE(void){
-	carMode = IDLE_MODE;
-}
-
-void setMode_FOLLOW(void){
-	carMode = FOLLOW_MODE;
-}
-
-void setMode_TEST(void){
-	carMode = TEST_MODE;
 }
 
 void clearScreenWrapper(void) {
@@ -283,10 +302,6 @@ static void MyRxHandler(uint8_t byte)
     }
     char eco[4] = { (char)byte, '\r', '\n', '\0' };
     USART1_PushTxString(&usart1Buf, eco);
-}
-
-void USART1_PrintString(const char *msg) {
-    USART1_PushTxString(&usart1Buf, msg);
 }
 
 
@@ -392,7 +407,10 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 	while (1) {
 		USART1_Update();
-		UserBtn_MainTask();
+		if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
+			UserBtn_MainTask(&btnUser);
+			Encoder_MainTask(&encoder);
+		}
 		TCRT_MainTask();
 		Motor_MainTask();
 		i2cManager_MainTask();
@@ -774,15 +792,15 @@ static void MX_TIM4_Init(void)
   htim4.Init.Period = 65535;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI2;
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 6;
+  sConfig.IC1Filter = 0;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 6;
+  sConfig.IC2Filter = 9;
   if (HAL_TIM_Encoder_Init(&htim4, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -884,7 +902,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(nRF24_CSN_GPIO_Port, nRF24_CSN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, IR_LED_Pin|nRF24_CSN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(ESP_ENABLE_GPIO_Port, ESP_ENABLE_Pin, GPIO_PIN_RESET);
@@ -896,18 +914,24 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : EncoderSW_Pin User_BTN_Pin */
-  GPIO_InitStruct.Pin = EncoderSW_Pin|User_BTN_Pin;
+  /*Configure GPIO pin : EncoderSW_Pin */
+  GPIO_InitStruct.Pin = EncoderSW_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(EncoderSW_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : User_BTN_Pin */
+  GPIO_InitStruct.Pin = User_BTN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(User_BTN_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : nRF24_CSN_Pin */
-  GPIO_InitStruct.Pin = nRF24_CSN_Pin;
+  /*Configure GPIO pins : IR_LED_Pin nRF24_CSN_Pin */
+  GPIO_InitStruct.Pin = IR_LED_Pin|nRF24_CSN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(nRF24_CSN_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : ESP_ENABLE_Pin */
   GPIO_InitStruct.Pin = ESP_ENABLE_Pin;
@@ -948,36 +972,83 @@ void initUsartBufferHandler(){
 void initCarMode(){
 	NIBBLEH_SET_STATE(systemFlags, IDLE_MODE);
 	carMode = GET_CAR_MODE();
-	ledStatus.gpio_port = LED_PORT;
-	ledStatus.gpio_pin = LED_PORT_PIN;
+	ledStatus.gpio_port = LED_GPIO_Port;
+	ledStatus.gpio_pin = LED_Pin;
 	ledStatus.flags.byte = 0;
 	ledStatus.counter = 0;
 	ledStatus.onTime = LED_IDLE_ONTIME;
 	ledStatus.offTime = LED_IDLE_OFFTIME;
 	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
 	SET_FLAG(systemFlags, INIT_CAR);
+	btnUser.flags.byte = 0;
+	btnUser.counter = 0;
+	btnUser.port = User_BTN_GPIO_Port;
+	btnUser.pin = User_BTN_Pin;
+	ENC_Init(&encoder, &htim4, 1, 2,EncoderSW_GPIO_Port, EncoderSW_Pin);
+	ENC_Start(&encoder);
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
 }
 
-void UserBtn_MainTask(){
-	if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
-		if (IS_FLAG_SET(btnUser.flags, BTN_USER_SHORT_PRESS)) { // Acción short
+void UserBtn_MainTask(ButtonState_t *h){
+	if (IS_FLAG_SET(h->flags, BTN_USER_SHORT_PRESS)) { // Acción short
 
-			CLEAR_FLAG(btnUser.flags, BTN_USER_SHORT_PRESS);
-		}
-		if (IS_FLAG_SET(btnUser.flags, BTN_USER_LONG_PRESS)) { // Acción long
-			Handle_ModeChange_ByButton(&btnUser, &ledStatus);
-			motorBothSpeed+=20; //TEST ONLY!!
-			CLEAR_FLAG(btnUser.flags, BTN_USER_LONG_PRESS);
-		}
+		CLEAR_FLAG(h->flags, BTN_USER_SHORT_PRESS);
 	}
+	if (IS_FLAG_SET(h->flags, BTN_USER_LONG_PRESS)) { // Acción long
+		Handle_ModeChange_ByButton(h, &ledStatus);
+		CLEAR_FLAG(h->flags, BTN_USER_LONG_PRESS);
+	}
+}
+
+void Encoder_MainTask(ENC_Handle_t *h)
+{
+    // ROTARY: si hubo giro, avanzamos o retrocedemos en el menú
+    if (IS_FLAG_SET(h->flags, ENC_FLAG_UPDATED)) {
+        CLEAR_FLAG(h->flags, ENC_FLAG_UPDATED);
+        if (INSIDE_MENU) {
+            if (h->dir == ENC_DIR_CW) {
+                moveCursorDown(&menuSystem);
+            }
+            else if (h->dir == ENC_DIR_CCW) {
+                moveCursorUp(&menuSystem);
+            }
+            // Imprimir el nombre
+            const char *name = menuSystem.currentMenu->items[menuSystem.currentMenu->currentItemIndex].name;
+            char buf[64];
+            sprintf(buf, "Current item: %s\r\n", name);
+            USART1_PrintString(buf);
+        } else {
+            // fuera del menú, podrías usar el encoder para otra cosa
+        }
+    }
+
+    // SHORT PRESS: dentro del menú ejecuta acción; fuera no hace nada
+    if (IS_FLAG_SET(h->btnState.flags, ENC_BTN_SHORT_PRESS)) {
+        CLEAR_FLAG(h->btnState.flags, ENC_BTN_SHORT_PRESS);
+        if (INSIDE_MENU) {
+        	selectCurrentItem(&menuSystem);
+        }else{
+
+        }
+    }
+
+    // LONG PRESS: dentro vuelve al main menu; fuera entra al menú
+    if (IS_FLAG_SET(h->btnState.flags, ENC_BTN_LONG_PRESS)) {
+        CLEAR_FLAG(h->btnState.flags, ENC_BTN_LONG_PRESS);
+        if (INSIDE_MENU) {
+            navigateBackInMenu(&menuSystem);
+        } else {
+            navigateToMainMenu(&menuSystem);
+            USART1_PrintString("Entered menu system\r\n");
+        }
+    }
 }
 
 void initTCRTLib(void)
 {
     // 1) Configuro el LED (opcional). Si no tienes LED, pasa NULL en TCRT5000_Create.
-    tcrtLight.port  = TCRT_LED_PORT;
-    tcrtLight.pin   = TCRT_LED_PORT_PIN;
+    tcrtLight.port  = IR_LED_GPIO_Port;
+    tcrtLight.pin   = IR_LED_Pin;
     tcrtLight.state = true;
 
     // 2) Creo la instancia del TCRT5000. Pasa USART1_PrintString (o NULL si no quieres debug).

@@ -1,3 +1,4 @@
+"./Core/Src/encoder.o"
 "./Core/Src/fonts.o"
 "./Core/Src/i2c_manager.o"
 "./Core/Src/main.o"

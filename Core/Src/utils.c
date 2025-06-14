@@ -34,6 +34,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             // Llamar a las rutinas de 10 ms
             Button_Task_10ms(&btnUser);
             StateLED_Task_10ms(&ledStatus);
+            ENC_Task_N10ms(&encoder);
         }
     }
 }

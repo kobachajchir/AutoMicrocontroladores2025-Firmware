@@ -1,0 +1,7 @@
+../Core/Src/encoder.c:12:6:ENC_Init	1
+../Core/Src/encoder.c:30:6:ENC_Start	1
+../Core/Src/encoder.c:43:6:ENC_Button_Task_10ms	10
+../Core/Src/encoder.c:88:6:ENC_Task_N10ms	4
+../Core/Src/encoder.c:125:17:ENC_GetDirection	1
+../Core/Src/encoder.c:130:10:ENC_GetVelocity	1
+../Core/Src/encoder.c:135:10:ENC_GetAcceleration	1

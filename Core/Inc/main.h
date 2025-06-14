@@ -81,6 +81,8 @@ void Error_Handler(void);
 #define EncoderSW_GPIO_Port GPIOB
 #define User_BTN_Pin GPIO_PIN_1
 #define User_BTN_GPIO_Port GPIOB
+#define IR_LED_Pin GPIO_PIN_2
+#define IR_LED_GPIO_Port GPIOB
 #define MOTORR_F_Pin GPIO_PIN_10
 #define MOTORR_F_GPIO_Port GPIOB
 #define MOTORR_B_Pin GPIO_PIN_11

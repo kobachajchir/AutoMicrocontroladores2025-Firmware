@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include "types/button_state.h"
+#include "encoder.h"
 #include "types/led_status.h"
 #include "types/carmode_type.h"
 #include "types/usart_buffer_type.h"
@@ -16,12 +17,6 @@
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
 // =============================================
-
-//Definicion de pines y puertos
-#define LED_PORT        GPIOC
-#define LED_PORT_PIN    GPIO_PIN_13
-#define TCRT_LED_PORT        GPIOB
-#define TCRT_LED_PORT_PIN    GPIO_PIN_0
 
 //Defines de tiempos
 //#define COUNT_IRDATA_TENMS 13
@@ -50,7 +45,6 @@ extern volatile bool  procesar_flag;
 extern volatile bool  lanzar_ADC_trigger_flag;
 extern volatile uint16_t tim3_overflow_count;
 extern volatile uint32_t contador;
-extern volatile ButtonState_t btnUser;
 extern volatile LedStatus_t ledStatus;
 extern volatile Byte_Flag_Struct systemFlags;
 extern volatile CarMode_t carMode;
@@ -67,6 +61,8 @@ extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;
 extern MotorControl_Handle motorTask;
 extern OLED_HandleTypeDef oledTask;
+extern ButtonState_t btnUser;
+extern ENC_Handle_t encoder;
 
 extern MenuSystem    menuSystem;
 extern SubMenu       mainMenu, submenu1, submenu2, submenu3;

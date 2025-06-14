@@ -1,0 +1,7 @@
+../Core/Src/encoder.c:12:6:ENC_Init	0	static
+../Core/Src/encoder.c:30:6:ENC_Start	8	static
+../Core/Src/encoder.c:43:6:ENC_Button_Task_10ms	8	static,ignoring_inline_asm
+../Core/Src/encoder.c:88:6:ENC_Task_N10ms	8	static
+../Core/Src/encoder.c:125:17:ENC_GetDirection	0	static
+../Core/Src/encoder.c:130:10:ENC_GetVelocity	0	static
+../Core/Src/encoder.c:135:10:ENC_GetAcceleration	0	static
