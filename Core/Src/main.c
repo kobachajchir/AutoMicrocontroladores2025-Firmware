@@ -362,11 +362,6 @@ int main(void)
   if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
 	  Error_Handler();
   }
-  //Solo llamo initCarMode() una vez, antes del while
-  if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
-	  initCarMode();
-	  initMenuSystemTask();
-  }
   initTCRTLib();
   InitMotorTask();
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
@@ -388,11 +383,6 @@ int main(void)
 				   I2C_ADDR_OLED,
 				   &oled_dma_busy_flag,    // ← pasa la bandera DMA
 				   OLED_RequestBusUse_I2CManager);
-		  OLED_SetFont(&oledTask, &Font_11x18);
-		  OLED_ClearBuffer(&oledTask, false);
-		  OLED_SetCursor(&oledTask, 0, 0);
-		  OLED_DrawStr(&oledTask, "HOLA MUNDO", false);
-		  OLED_SendBuffer(&oledTask);
 	  } else {
 		  // Falló al registrar (posiblemente sin espacio en la tabla)
 		  USART1_PushTxString(&usart1Buf, "OLED NO Registrado");
@@ -400,6 +390,11 @@ int main(void)
   } else {
 	  // El OLED no respondió en el bus
 	  USART1_PushTxString(&usart1Buf, "OLED no respondio");
+  }
+  //Solo llamo initCarMode() una vez, antes del while
+  if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
+	  initCarMode();
+	  initMenuSystemTask();
   }
   /* USER CODE END 2 */
 
@@ -986,6 +981,14 @@ void initCarMode(){
 	btnUser.pin = User_BTN_Pin;
 	ENC_Init(&encoder, &htim4, 1, 2,EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
+	if(OLED_Is_Ready(&oledTask)){
+	  OLED_SetFont(&oledTask, &Font_11x18);
+	  OLED_ClearBuffer(&oledTask, false);
+	  OLED_SetCursor(&oledTask, 0, 0);
+	  OLED_DrawStr(&oledTask, "HOLA MUNDO", false);
+	  OLED_SendBuffer(&oledTask);
+	  USART1_PrintString("OLED read\r\n");
+	}
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
 }
 
@@ -1188,22 +1191,24 @@ void i2cManager_MainTask(){
 
 void OLED_MainTask(void) {
     // Verificar si pasó el tiempo de 10 ms y hay overlay activo
-    if (!IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED) || !oledTask.overlay_active)
+    if (!IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED) || !oledTask.overlay_active){
         return;
+    }else{
+		// Decrementar el temporizador del overlay
+		if (oledTask.overlay_timer_ms >= 10) {
+			oledTask.overlay_timer_ms -= 10;
+		} else {
+			// Tiempo agotado, desactivar overlay y marcar todas las páginas como sucias
+			oledTask.overlay_active = false;
 
-    // Decrementar el temporizador del overlay
-    if (oledTask.overlay_timer_ms >= 10) {
-        oledTask.overlay_timer_ms -= 10;
-    } else {
-        // Tiempo agotado, desactivar overlay y marcar todas las páginas como sucias
-        oledTask.overlay_active = false;
+			for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
+				oledTask.frame_buffer_main[p] = true;
+			}
 
-        for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
-            oledTask.frame_buffer_main[p] = true;
-        }
-
-        OLED_SendBuffer(&oledTask);
+			OLED_SendBuffer(&oledTask);
+		}
     }
+
 }
 
 

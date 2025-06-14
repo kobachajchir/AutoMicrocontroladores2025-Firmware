@@ -46,6 +46,10 @@ static void OLED_DequeuePage(OLED_HandleTypeDef *oled) {
     oled->queue_count--;
 }
 
+void OLED_Is_Ready(OLED_HandleTypeDef *oled){
+	return oled->init_done;
+}
+
 /**
  * @brief Callback para HAL-DMA (I2C_TX) cuando completa
  */
@@ -53,16 +57,15 @@ void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled) {
     *(oled->dma_busy_flag) = 0;
 
     if (!oled->init_done) {
-    	__NOP();
         if (oled->init_idx < oled->init_len) {
             // más comandos de init
             oled->requestBusCb();
-            __NOP();
+
         } else {
             // init terminada
             oled->init_done = true;
+            __NOP();
             // refresco inicial del buffer de datos
-            OLED_ClearBuffer(oled, false);
             oled->requestBusCb();
         }
     }
@@ -149,40 +152,59 @@ void OLED_SetFont(OLED_HandleTypeDef *oled, FontDef *f) {
     oled->font = f;
 }
 
-void OLED_DrawStr(OLED_HandleTypeDef *oled, const char *str, bool use_overlay){
+void OLED_DrawStr(OLED_HandleTypeDef *oled,
+                  const char *str,
+                  bool use_overlay)
+{
     if (!oled || !str || !oled->font) return;
     FontDef *f = oled->font;
     uint8_t cx = oled->cursor_x;
     uint8_t cy = oled->cursor_y;
+
     while (*str) {
         uint8_t c = (uint8_t)(*str++);
         if (c < 32 || c > 126) c = '?';
+
+        // Apunta al inicio del glifo de 'c'
         const uint16_t *glyph = &f->data[(c - 32) * f->FontHeight];
+
+        // Para cada fila del glifo…
         for (uint8_t row = 0; row < f->FontHeight; row++) {
             uint16_t bits = glyph[row];
+            // Máscara que parte del bit alto de la palabra
+            uint16_t mask = 0x8000;
+
+            // Para cada columna del glifo…
             for (uint8_t col = 0; col < f->FontWidth; col++) {
-                if (bits & (1 << (f->FontWidth - 1 - col))) {
+                if (bits & (mask >> col)) {
                     uint8_t px = cx + col;
                     uint8_t py = cy + row;
                     if (px < OLED_WIDTH && py < OLED_HEIGHT) {
-                    	uint16_t idx = (py >> 3) * OLED_WIDTH + px;
-                    	uint8_t *buf = use_overlay ? oled->frame_buffer_overlay : oled->frame_buffer_main;
-                    	buf[idx] |= (1 << (py & 7));
-                    	if (use_overlay){
-                    		oled->page_dirty_overlay[py >> 3] = true;
-                    	}
-                    	else{
-                    		oled->page_dirty_main[py >> 3] = true;
-                    	}
+                        // Índice dentro del buffer (byte = página*width + x)
+                        uint16_t idx = (py >> 3) * OLED_WIDTH + px;
+                        // Elegimos buffer y dirty flags según overlay/main
+                        uint8_t *buf = use_overlay
+                            ? oled->frame_buffer_overlay
+                            : oled->frame_buffer_main;
+                        buf[idx] |= (1 << (py & 7));
+
+                        if (use_overlay) {
+                            oled->page_dirty_overlay[py >> 3] = true;
+                        } else {
+                            oled->page_dirty_main[py >> 3] = true;
+                        }
                     }
                 }
             }
         }
+
+        // Avanzamos cursor horizontal
         cx += f->FontWidth;
         oled->cursor_x = cx;
         if (cx + f->FontWidth > OLED_WIDTH) break;
     }
 }
+
 
 HAL_StatusTypeDef OLED_SendBuffer(OLED_HandleTypeDef *oled) {
 	__NOP();
