@@ -389,9 +389,8 @@ int main(void)
   }
   initTCRTLib();
   InitMotorTask();
-  initMenuSystemTask();
   I2C_Manager_Init(&hi2c1, &i2c_tx_busy_flag);
-  if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
+	if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
 	  HAL_StatusTypeDef result = I2C_Manager_RegisterDevice(
 		  DEVICE_ID_OLED,
 		  I2C_ADDR_OLED,
@@ -401,24 +400,24 @@ int main(void)
 	  );
 	  if (result == HAL_OK) {
 		  // Éxito: El OLED está presente y fue registrado
-		  //USART1_PushTxString(&usart1Buf, "OLED Registrado");
+		  USART1_PushTxString(&usart1Buf, "OLED Registrado");
 		  OLED_Init(&oledTask,
 				   &hi2c1,
 				   I2C_ADDR_OLED,
 				   &oled_dma_busy_flag,    // ← pasa la bandera DMA
 				   OLED_RequestBusUse_I2CManager);
-		menuSystem.renderFn = renderDashboard_Wrapper;
-		menuSystem.renderFlag = true;
+		  __NOP();
 	  } else {
 		  // Falló al registrar (posiblemente sin espacio en la tabla)
 		  USART1_PushTxString(&usart1Buf, "OLED NO Registrado");
 	  }
-  } else {
+	} else {
 	  // El OLED no respondió en el bus
 	  USART1_PushTxString(&usart1Buf, "OLED no respondio");
-  }
+	}
   if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
   	  initCarMode();
+  	  initMenuSystemTask();
   }
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
   HAL_TIM_Base_Start_IT(&htim3);
@@ -436,6 +435,7 @@ int main(void)
 			Encoder_MainTask(&encoder);
 		}
 		if(IS_FLAG_SET(systemFlags, OLED_READY)){ //Inicializado completamente
+			__NOP();
 			OLED_MainTask();
 		}
 		MPU_MainTask();
@@ -1003,14 +1003,22 @@ void initCarMode(){
 	ledStatus.onTime = LED_IDLE_ONTIME;
 	ledStatus.offTime = LED_IDLE_OFFTIME;
 	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
+	SET_FLAG(systemFlags, INIT_CAR);
 	btnUser.flags.byte = 0;
 	btnUser.counter = 0;
 	btnUser.port = User_BTN_GPIO_Port;
 	btnUser.pin = User_BTN_Pin;
 	ENC_Init(&encoder, &htim4, 1, 2,EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
+	if(OLED_Is_Ready(&oledTask)){
+	  OLED_SetFont(&oledTask, &Font_11x18);
+	  OLED_ClearBuffer(&oledTask, false);
+	  OLED_SetCursor(&oledTask, 0, 0);
+	  OLED_DrawStr(&oledTask, "HOLA MUNDO", false);
+	  OLED_SendBuffer(&oledTask);
+	  USART1_PrintString("OLED read\r\n");
+	}
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
-	SET_FLAG(systemFlags, INIT_CAR);
 }
 
 void UserBtn_MainTask(ButtonState_t *h){
@@ -1020,12 +1028,14 @@ void UserBtn_MainTask(ButtonState_t *h){
 	}
 	if (IS_FLAG_SET(h->flags, BTN_USER_LONG_PRESS)) { // Acción long, entra y sale del menu
 		//Handle_ModeChange_ByButton(h, &ledStatus);
-		INSIDE_MENU = !INSIDE_MENU;
 		if(INSIDE_MENU){
-			USART1_PrintString("Entered menu system\r\n");
-		}else{
 			USART1_PrintString("Exited menu system\r\n");
+			inside_menu_flag = 0;
+		}else{
+			USART1_PrintString("Entered menu system\r\n");
+			inside_menu_flag = 1;
 		}
+		__NOP();
 		CLEAR_FLAG(h->flags, BTN_USER_LONG_PRESS);
 	}
 }

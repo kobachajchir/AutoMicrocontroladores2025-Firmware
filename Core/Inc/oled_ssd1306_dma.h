@@ -87,8 +87,6 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
 							uint16_t oled_dev_address,
                             volatile uint8_t  *dma_busy_flag, I2C_Request_Bus_Use requestBusCbFn);
 
-bool OLED_Is_Ready(OLED_HandleTypeDef *oled);
-
 /** Borra buffer principal u overlay y marca páginas dirty */
 void OLED_ClearBuffer(OLED_HandleTypeDef *oled, bool clear_overlay);
 

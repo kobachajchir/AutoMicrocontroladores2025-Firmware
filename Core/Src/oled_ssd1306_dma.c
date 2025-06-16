@@ -5,10 +5,7 @@
 #include "fonts.h"
 #include "globals.h"
 #include <string.h>
-
-#ifndef M_PI_d
-#define M_PI_d 3.14159265358979323846f
-#endif
+#include "math.h"
 
 /**
  * @brief Inicia transferencia DMA de la siguiente página en cola
@@ -55,7 +52,7 @@ static void OLED_DequeuePage(OLED_HandleTypeDef *oled) {
     __NOP();
 }
 
-bool OLED_Is_Ready(OLED_HandleTypeDef *oled){
+void OLED_Is_Ready(OLED_HandleTypeDef *oled){
 	return oled->init_done;
 }
 
@@ -139,10 +136,6 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
     oled->bitmap_opaque= true;
     oled->font_normal  = true;
 
-    // ───> ¡Arrancamos la primera transferencia de INIT!
-    *oled->dma_busy_flag = 1;       // marcamos busy
-    oled->requestBusCb();           // pedimos el bus (I2C_Manager_RequestAccess)
-
     return HAL_OK;
 }
 
@@ -178,10 +171,13 @@ static void _setPixel(OLED_HandleTypeDef *oled,
 {
     uint8_t page = y >> 3;
     uint8_t bit  = 1 << (y & 0x07);
-    uint8_t *buf = use_overlay ? oled->frame_buffer_overlay : oled->frame_buffer_main;
-    buf[page * OLED_WIDTH + x] ^= bit;
-    if (use_overlay) oled->page_dirty_overlay[page] = true;
-    else            oled->page_dirty_main[page]    = true;
+    uint8_t *buf = use_overlay ? oled->frame_buffer_overlay
+                               : oled->frame_buffer_main;
+    buf[page * OLED_WIDTH + x] |= bit;   // <— antes era ^= bit;
+    if (use_overlay)
+        oled->page_dirty_overlay[page] = true;
+    else
+        oled->page_dirty_main[page]    = true;
 }
 
 void OLED_DrawPixel(OLED_HandleTypeDef *oled,
@@ -328,8 +324,8 @@ void OLED_DrawArc(OLED_HandleTypeDef *oled,
                   uint8_t start, uint8_t end,
                   bool use_overlay)
 {
-    float a0 = (start / 256.0f) * 2 * M_PI_d;
-    float a1 = (end   / 256.0f) * 2 * M_PI_d;
+    float a0 = (start / 256.0f) * 2 * M_PI;
+    float a1 = (end   / 256.0f) * 2 * M_PI;
     for (float a = a0; a <= a1; a += 0.01f) {
         int16_t x = x0 + (int16_t)(rad * cosf(a));
         int16_t y = y0 + (int16_t)(rad * sinf(a));
@@ -343,7 +339,7 @@ void OLED_DrawEllipse(OLED_HandleTypeDef *oled,
                       bool use_overlay)
 {
     for (int16_t deg = 0; deg < 360; deg++) {
-        float radang = deg * (M_PI_d / 180.0f);
+        float radang = deg * (M_PI / 180.0f);
         int16_t x = x0 + (int16_t)(rx * cosf(radang));
         int16_t y = y0 + (int16_t)(ry * sinf(radang));
         _setPixel(oled, x, y, use_overlay);
@@ -410,11 +406,15 @@ void OLED_DrawStr(OLED_HandleTypeDef *oled,
         uint8_t c = (uint8_t)(*str++);
         if (c < 32 || c > 126) c = '?';
 
+        // Cada glifo apunta a f->FontHeight palabras de 16 bits
         const uint16_t *glyph = &f->data[(c - 32) * f->FontHeight];
+
         for (uint8_t row = 0; row < f->FontHeight; row++) {
             uint16_t bits = glyph[row];
+            // Empezamos siempre por el bit 15 (MSB) y vamos desplazando
+            uint16_t mask = 0x8000;
             for (uint8_t col = 0; col < f->FontWidth; col++) {
-                if (bits & (1 << (f->FontWidth - 1 - col))) {
+                if (bits & (mask >> col)) {
                     uint8_t px = cx + col;
                     uint8_t py = cy + row;
                     if (px < OLED_WIDTH && py < OLED_HEIGHT) {
@@ -426,12 +426,13 @@ void OLED_DrawStr(OLED_HandleTypeDef *oled,
                         if (use_overlay)
                             oled->page_dirty_overlay[py >> 3] = true;
                         else
-                            oled->page_dirty_main[py >> 3]    = true;
+                            oled->page_dirty_main[py >> 3] = true;
                     }
                 }
             }
         }
 
+        // Avanzamos cursor
         cx += f->FontWidth;
         oled->cursor_x = cx;
         if (cx + f->FontWidth > OLED_WIDTH) break;
