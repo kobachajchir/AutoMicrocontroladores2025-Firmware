@@ -337,90 +337,91 @@ static void MyRxHandler(uint8_t byte)
   * @retval int
   */
 int main(void)
-{
+	{
 
-  /* USER CODE BEGIN 1 */
+	 /* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
+	 /* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
+	 /* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	 /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	 HAL_Init();
 
-  /* USER CODE BEGIN Init */
+	 /* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+	 /* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	 /* Configure the system clock */
+	 SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+	 /* USER CODE BEGIN SysInit */
 
-  /* USER CODE END SysInit */
+	 /* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_DMA_Init();
-  MX_TIM3_Init();
-  MX_ADC1_Init();
-  MX_USB_DEVICE_Init();
-  MX_USART1_UART_Init();
-  MX_I2C1_Init();
-  MX_TIM2_Init();
-  MX_SPI2_Init();
-  MX_TIM4_Init();
-  /* USER CODE BEGIN 2 */
-  if (USART1_RegisterHandle(&huart1) != HAL_OK){
-	 Error_Handler();
-  }
-  if (USART1_SetDMACallbacks(HAL_UART1_TxDMA_Wrapper,
-							 HAL_UART1_RxDMA_Wrapper) != HAL_OK)
-  {
-	  Error_Handler();
-  }
+	 /* Initialize all configured peripherals */
+	 MX_GPIO_Init();
+	 MX_DMA_Init();
+	 MX_TIM3_Init();
+	 MX_ADC1_Init();
+	 MX_USB_DEVICE_Init();
+	 MX_USART1_UART_Init();
+	 MX_I2C1_Init();
+	 MX_TIM2_Init();
+	 MX_SPI2_Init();
+	 MX_TIM4_Init();
+	 /* USER CODE BEGIN 2 */
+	 if (USART1_RegisterHandle(&huart1) != HAL_OK){
+		 Error_Handler();
+	 }
+	 if (USART1_SetDMACallbacks(HAL_UART1_TxDMA_Wrapper,
+								 HAL_UART1_RxDMA_Wrapper) != HAL_OK)
+	 {
+		  Error_Handler();
+	 }
 
-  if (USART1_DMA_Init(&usart1Buf) != HAL_OK) {
-	  Error_Handler();
-  }
+	 if (USART1_DMA_Init(&usart1Buf) != HAL_OK) {
+		  Error_Handler();
+	 }
 
-  if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
-	  Error_Handler();
-  }
-  initTCRTLib();
-  InitMotorTask();
-  I2C_Manager_Init(&hi2c1, &i2c_tx_busy_flag);
-	if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
-	  HAL_StatusTypeDef result = I2C_Manager_RegisterDevice(
-		  DEVICE_ID_OLED,
-		  I2C_ADDR_OLED,
-		  OLED_DMA_Complete_I2CManager,
-		  OLED_GrantAccess_I2CManager,
-		  1
-	  );
-	  if (result == HAL_OK) {
-		  // Éxito: El OLED está presente y fue registrado
-		  USART1_PushTxString(&usart1Buf, "OLED Registrado");
-		  OLED_Init(&oledTask,
-				   &hi2c1,
-				   I2C_ADDR_OLED,
-				   &oled_dma_busy_flag,    // ← pasa la bandera DMA
-				   OLED_RequestBusUse_I2CManager);
-		  __NOP();
-	  } else {
-		  // Falló al registrar (posiblemente sin espacio en la tabla)
-		  USART1_PushTxString(&usart1Buf, "OLED NO Registrado");
-	  }
-	} else {
-	  // El OLED no respondió en el bus
-	  USART1_PushTxString(&usart1Buf, "OLED no respondio");
-	}
-  if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
-  	  initCarMode();
-  	  initMenuSystemTask();
-  }
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
-  HAL_TIM_Base_Start_IT(&htim3);
+	 if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
+		  Error_Handler();
+	 }
+	 initTCRTLib();
+	 InitMotorTask();
+	 HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
+	 HAL_TIM_Base_Start_IT(&htim3);
+	 I2C_Manager_Init(&hi2c1, &i2c_tx_busy_flag);
+	 if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
+		  HAL_StatusTypeDef result = I2C_Manager_RegisterDevice(
+			  DEVICE_ID_OLED,
+			  I2C_ADDR_OLED,
+			  OLED_DMA_Complete_I2CManager,
+			  OLED_GrantAccess_I2CManager,
+			  1
+		  );
+		  if (result == HAL_OK) {
+			  // Éxito: El OLED está presente y fue registrado
+			  USART1_PushTxString(&usart1Buf, "OLED Registrado");
+			  OLED_Init(&oledTask,
+					   &hi2c1,
+					   I2C_ADDR_OLED,
+					   &oled_dma_busy_flag,    // ← pasa la bandera DMA
+					   OLED_RequestBusUse_I2CManager);
+		  } else {
+			  // Falló al registrar (posiblemente sin espacio en la tabla)
+			  USART1_PushTxString(&usart1Buf, "OLED NO Registrado");
+		  }
+	 } else {
+		  // El OLED no respondió en el bus
+		  USART1_PushTxString(&usart1Buf, "OLED no respondio");
+	 }
+	 //Solo llamo initCarMode() una vez, antes del while
+	 if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
+		  initCarMode();
+		  initMenuSystemTask();
+	 }
+
   //Solo llamo initCarMode() una vez, antes del while
   /* USER CODE END 2 */
 
@@ -1017,6 +1018,7 @@ void initCarMode(){
 	  OLED_DrawStr(&oledTask, "HOLA MUNDO", false);
 	  OLED_SendBuffer(&oledTask);
 	  USART1_PrintString("OLED read\r\n");
+	  SET_FLAG(systemFlags, OLED_READY);
 	}
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
 }

@@ -17,10 +17,7 @@ static void OLED_StartNextTransfer(OLED_HandleTypeDef *oled) {
     /* Verificar DMA libre */
     if (*(oled->dma_busy_flag)) return;
     /* Verificar cola */
-    if (oled->queue_count == 0){
-    	__NOP();
-    	return;
-    }
+    if (oled->queue_count == 0) return;
 
     /* Tomar request */
     OLED_Page_t req = oled->page_queue[oled->queue_head];
@@ -49,7 +46,6 @@ static void OLED_DequeuePage(OLED_HandleTypeDef *oled) {
     if (oled->queue_count == 0) return;
     oled->queue_head = (oled->queue_head + 1) % OLED_QUEUE_DEPTH;
     oled->queue_count--;
-    __NOP();
 }
 
 void OLED_Is_Ready(OLED_HandleTypeDef *oled){
@@ -70,7 +66,6 @@ void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled) {
         } else {
             // init terminada
             oled->init_done = true;
-            SET_FLAG(systemFlags, OLED_READY);
             __NOP();
             // refresco inicial del buffer de datos
             oled->requestBusCb();
@@ -87,6 +82,7 @@ void OLED_GrantAccessCallback(OLED_HandleTypeDef *oled) {
     if (!oled->init_done) {
         // enviar un solo comando de init
         uint8_t cmd = oled->init_cmds[oled->init_idx++];
+        __NOP();
         if (HAL_I2C_Mem_Write_DMA(
                 oled->hi2c,
 				oled->oled_dev_address<<1,
@@ -105,40 +101,33 @@ void OLED_GrantAccessCallback(OLED_HandleTypeDef *oled) {
 
 HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
                             I2C_HandleTypeDef *hi2c,
-                            uint16_t oled_dev_address,
-                            volatile uint8_t *dma_busy_flag,
-                            I2C_Request_Bus_Use requestBusCbFn)
-{
+							uint16_t oled_dev_address,
+                            volatile uint8_t  *dma_busy_flag, I2C_Request_Bus_Use requestBusCbFn) {
     /* Asignar referencias */
-    oled->hi2c            = hi2c;
-    oled->dma_busy_flag   = dma_busy_flag;
-    oled->oled_dev_address= oled_dev_address;
-    oled->requestBusCb    = requestBusCbFn;
+    oled->hi2c = hi2c;
+    oled->dma_busy_flag = dma_busy_flag;
+    oled->oled_dev_address = oled_dev_address;
+    oled->requestBusCb = requestBusCbFn;
 
     /* Inicializar flags y cola */
-    for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
-        oled->page_dirty_main[p]    = true;
-        oled->page_dirty_overlay[p] = false;
-    }
-    oled->queue_head    = oled->queue_tail = oled->queue_count = 0;
-    oled->overlay_active= false;
-    *oled->dma_busy_flag = 0;
+	for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
+		oled->page_dirty_main[p]    = true;
+		oled->page_dirty_overlay[p] = false;
+	}
+    oled->queue_head = oled->queue_tail = oled->queue_count = 0;
+    oled->overlay_active = false;
+    *(oled->dma_busy_flag) = 0;
 
-    /* Secuencia de init */
     oled->init_cmds = ssd1306_init_seq;
     oled->init_len  = SSD1306_INIT_LEN;
     oled->init_idx  = 0;
     oled->init_done = false;
-
-    /* Modo por defecto */
-    oled->font         = &Font_7x10;
-    oled->cursor_x     = oled->cursor_y = 0;
-    oled->bitmap_opaque= true;
-    oled->font_normal  = true;
+    oled->font = &Font_7x10;
+    oled->cursor_x = 0;
+    oled->cursor_y = 0;
 
     return HAL_OK;
 }
-
 
 void OLED_ClearBuffer(OLED_HandleTypeDef *oled, bool clear_overlay) {
 	if (clear_overlay) {
