@@ -1,6 +1,6 @@
 ../Core/Src/i2c_manager.c:15:6:I2C_Manager_Init	2
 ../Core/Src/i2c_manager.c:29:19:I2C_Manager_RegisterDevice	3
-../Core/Src/i2c_manager.c:47:19:I2C_Manager_SetRequestPending	3
+../Core/Src/i2c_manager.c:47:19:I2C_Manager_SetRequestPending	4
 ../Core/Src/i2c_manager.c:57:19:I2C_Manager_RequestAccess	7
 ../Core/Src/i2c_manager.c:93:9:I2C_Manager_GetAddress	3
 ../Core/Src/i2c_manager.c:102:6:I2C_Manager_ReleaseBus	1

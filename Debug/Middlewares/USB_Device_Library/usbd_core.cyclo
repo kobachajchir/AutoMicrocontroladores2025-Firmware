@@ -4,11 +4,11 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:178:21:USBD_Start	1
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:192:21:USBD_Stop	1
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:209:21:USBD_RunTestMode	1
-C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:225:20:USBD_SetClassConfig	2
+C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:225:20:USBD_SetClassConfig	3
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:248:20:USBD_ClrClassConfig	1
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:263:20:USBD_LL_SetupStage	4
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:300:20:USBD_LL_DataOutStage	10
-C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:361:20:USBD_LL_DataInStage	13
+C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:361:20:USBD_LL_DataInStage	14
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:442:20:USBD_LL_Reset	2
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:476:20:USBD_LL_SetSpeed	1
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c:491:20:USBD_LL_Suspend	1

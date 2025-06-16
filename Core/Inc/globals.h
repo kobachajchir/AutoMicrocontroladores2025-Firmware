@@ -29,13 +29,14 @@
 #define TCRT_CALIB_BLACK_AND_WHITE_COMPLETE BIT2_MASK
 #define TCRT_CALIB_OBSTACLES_COMPLETE BIT3_MASK
 #define MPU_GET_DATA BIT4_MASK
-#define OLED_TENMS_PASSED BIT5_MASK
+#define OLED_READY BIT5_MASK
+#define OLED_TENMS_PASSED BIT6_MASK
 //#define A BIT2_MASK
 
 //Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
 
-#define I2C_ADDR_OLED     0x3C
+#define I2C_ADDR_OLED  (0x3C << 1)
 #define I2C_ADDR_MPU6050  0x68
 
 #define INSIDE_MENU (inside_menu_flag)
@@ -69,5 +70,9 @@ extern SubMenu       mainMenu, submenu1, submenu2, submenu3;
 extern MenuItem      mainMenuItems[], submenu1Items[], submenu2Items[], submenu3Items[];
 extern volatile uint8_t inside_menu_flag;
 extern const uint8_t* generic_icon;
+extern const RenderScreenFunction mainMenuScreen;
+extern const RenderScreenFunction subMenuScreen;
+extern const RenderScreenFunction valoresIRScreen;
+extern const RenderScreenFunction wifiDataScreen;
 
 #endif // GLOBALS_H

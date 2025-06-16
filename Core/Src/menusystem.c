@@ -18,12 +18,43 @@
 #define MAX_VISIBLE_ITEMS 2  ///< Cantidad máxima visible por pantalla (puede redefinirse)
 #endif
 
+/**
+ * @brief  Reinicia índices y bandera "insideMenu" al cambiar de menú.
+ */
+static void changeMenu(MenuSystem *system, SubMenu *newMenu) {
+    if (!system || !newMenu) return;
+    system->currentMenu = newMenu;
+    newMenu->currentItemIndex = 0;
+    newMenu->firstVisibleItem = 0;
+    // Si volvemos al mainMenu, activamos la bandera
+    if (newMenu == &mainMenu && system->insideMenuFlag) {
+        *(system->insideMenuFlag) = 1;
+    }
+}
+
+/**
+ * @brief  Asigna renderFn según el ítem actual y levanta renderFlag.
+ */
+static void updateRender(MenuSystem *system) {
+    if (!system || !system->currentMenu) return;
+    SubMenu *menu = system->currentMenu;
+    if (!menu->items || menu->itemCount == 0) return;
+    uint8_t idx = menu->currentItemIndex;
+    if (idx >= menu->itemCount) return;
+    MenuItem *it = &menu->items[idx];
+    if (it->screenRenderFn) {
+        system->renderFn   = it->screenRenderFn;
+        system->renderFlag = true;
+    }
+}
+
 void initMenuSystem(MenuSystem *system) {
     if (!system || !system->currentMenu) return;
 
     SubMenu *menu = system->currentMenu;
     menu->currentItemIndex = 0;
     menu->firstVisibleItem = 0;
+    system->renderFlag = false;
 }
 
 void MenuSystem_SetCallbacks(MenuSystem *system,
@@ -65,96 +96,61 @@ void moveCursorDown(MenuSystem *system) {
     }
 }
 
-void selectCurrentItem(MenuSystem *system) {
-	SubMenu *m    = system->currentMenu;
-	MenuItem *it  = &m->items[m->currentItemIndex];
-
-	if (it->submenu) {
-		// ¡Es un submenu! Navego a él
-		submenuFn(system, it->submenu);
-	}
-	else if (it->action) {
-		// Es un comando “terminal”
-		it->action();
-
-	}
-}
-
-
-void displayMenu(MenuSystem *system) {
-    SubMenu *menu = system->currentMenu;
-    if (system->clearScreen) system->clearScreen();
-
-    /* Descomenta si quieres scroll visible
-    for (int i = 0; i < MAX_VISIBLE_ITEMS; i++) {
-        int idx = menu->firstVisibleItem + i;
-        if (idx >= menu->itemCount) break;
-        MenuItem *it = &menu->items[idx];
-        int y = 12 + i * 12;
-        if (system->drawItem) {
-            bool sel = (idx == menu->currentItemIndex);
-            system->drawItem(it->name, y, sel);
-        }
-    }
-    */
-
-    if (system->renderFn) system->renderFn();
-}
-
-void volver(MenuSystem *system) {
-    if (!system) return;
-    if (system->currentMenu == &mainMenu) {
-        // ya en main, no hacer nada
-        return;
-    }
-    if (system->currentMenu->parent) {
-        system->currentMenu = system->currentMenu->parent;
-        displayMenu(system);
-    }
-}
 
 /**
- * Regresa siempre al menú principal y lo muestra desde el primer ítem.
- * Enciende la bandera INSIDE_MENU.
+ * @brief  Selecciona el ítem actual: navega o ejecuta acción, luego renderiza.
  */
-void navigateToMainMenu(MenuSystem *system) {
-    if (!system) return;
-    system->currentMenu = &mainMenu;
-    system->currentMenu->currentItemIndex = 0;
-    system->currentMenu->firstVisibleItem   = 0;
-    displayMenu(system);
-    if (system->insideMenuFlag) {
-        *(system->insideMenuFlag) = 1;
+void selectCurrentItem(MenuSystem *system) {
+    if (!system || !system->currentMenu) return;
+    SubMenu *menu = system->currentMenu;
+    if (!menu->items || menu->itemCount == 0) return;
+    uint8_t idx = menu->currentItemIndex;
+    if (idx >= menu->itemCount) return;
+    MenuItem *it = &menu->items[idx];
+
+    if (it->submenu) {
+        changeMenu(system, it->submenu);
+    } else if (it->action) {
+        it->action();
     }
+    updateRender(system);
 }
 
 /**
- * Si hay menú padre, sube a él; si no (estás en main), sale del sistema de menús.
+ * @brief  Sube un nivel o sale al main, luego renderiza el ítem activo.
  */
 void navigateBackInMenu(MenuSystem *system) {
-    if (!system) return;
-    if (system->currentMenu->parent != NULL) {
-        system->currentMenu = system->currentMenu->parent;
-        displayMenu(system);
+    if (!system || !system->currentMenu) return;
+    SubMenu *parent = system->currentMenu->parent;
+    if (parent) {
+        changeMenu(system, parent);
     } else {
-        // Salir del modo menú
         if (system->insideMenuFlag) {
             *(system->insideMenuFlag) = 0;
         }
-        system->currentMenu->currentItemIndex = 0;
-        if (system->clearScreen) system->clearScreen();
-        if (system->renderFn)   system->renderFn();
+        changeMenu(system, &mainMenu);
     }
+    updateRender(system);
 }
 
 /**
- * Función genérica para abrir un submenú pasado como parámetro.
+ * @brief  Regresa siempre al menú principal y renderiza su primer ítem.
+ */
+void navigateToMainMenu(MenuSystem *system) {
+    if (!system) return;
+    if (system->insideMenuFlag) {
+        *(system->insideMenuFlag) = 1;
+    }
+    changeMenu(system, &mainMenu);
+    updateRender(system);
+}
+
+/**
+ * @brief  Abre un submenú dado y renderiza su primer ítem.
  */
 void submenuFn(MenuSystem *system, SubMenu *submenu) {
     if (!system || !submenu) return;
-    system->currentMenu = submenu;
-    system->currentMenu->currentItemIndex = 0;
-    system->currentMenu->firstVisibleItem   = 0;
-    displayMenu(system);
+    changeMenu(system, submenu);
+    updateRender(system);
 }
 

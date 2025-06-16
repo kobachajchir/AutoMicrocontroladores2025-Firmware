@@ -96,15 +96,20 @@ void NMI_Handler(void)
   */
 void HardFault_Handler(void)
 {
-  /* USER CODE BEGIN HardFault_IRQn 0 */
-
-  /* USER CODE END HardFault_IRQn 0 */
-  while (1)
-  {
-    /* USER CODE BEGIN W1_HardFault_IRQn 0 */
-    /* USER CODE END W1_HardFault_IRQn 0 */
-  }
+    __disable_irq();
+    uint32_t hfsr = SCB->HFSR;
+    uint32_t cfsr = SCB->CFSR;
+    uint32_t bfar = (SCB->CFSR & (1<<15)) ? SCB->BFAR : 0;
+    char msg[128];
+    int len = snprintf(msg, sizeof(msg),
+        "HARDFAULT!\r\nHFSR=0x%08lx\r\nCFSR=0x%08lx\r\nBFAR=0x%08lx\r\n",
+        (unsigned long)hfsr,
+        (unsigned long)cfsr,
+        (unsigned long)bfar);
+    if (len > 0) USART1_PrintString(msg);
+    while (1) { /* bucle infinito para debug */ }
 }
+
 
 /**
   * @brief This function handles Memory management fault.

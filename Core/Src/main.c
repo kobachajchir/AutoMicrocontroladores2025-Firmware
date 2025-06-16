@@ -32,6 +32,9 @@
 #include "oled_ssd1306_dma.h"
 #include "fonts.h"
 #include "menusystem.h"
+#include "oled_utils.h"
+#include "menuSystem_utils.h"
+#include "oled_screens.h"
 
 /* USER CODE END Includes */
 
@@ -133,12 +136,10 @@ void setMode_IDLE(void){
 	carMode = IDLE_MODE;
 	USART1_PrintString("IDLE");
 }
-
 void setMode_FOLLOW(void){
 	carMode = FOLLOW_MODE;
 	USART1_PrintString("FOLLOW");
 }
-
 void setMode_TEST(void){
 	carMode = TEST_MODE;
 	USART1_PrintString("TEST");
@@ -147,59 +148,84 @@ void setMode_TEST(void){
 
 // Sistema de menú
 MenuSystem menuSystem = {
-    .currentMenu = &mainMenu,
-    .clearScreen = clearScreenWrapper,
-    .drawItem = drawItemWrapper,
-    .renderFn = renderFnWrapper,
-    .insideMenuFlag = &inside_menu_flag
+    .currentMenu      = &mainMenu,
+    .clearScreen      = clearScreenWrapper,
+    .drawItem         = drawItemWrapper,
+    .renderFn         = NULL,
+    .insideMenuFlag   = &inside_menu_flag,
+    .renderFlag       = false
 };
 
 // Ítems del menú principal
 MenuItem mainMenuItems[] = {
-    {"Modo",    submenu1_Open, NULL, NULL},
-    {"Tiempos", submenu2_Open, NULL, NULL},
-    {"Config.", submenu3_Open, NULL, NULL},
-    {"VOLVER",  volver,         NULL, NULL}
+    {"Modo",      submenu1_Open,      NULL, NULL, displayMenuCustom},
+    {"Pantallas", submenu2_Open,      NULL, NULL, displayMenuCustom},
+    {"Config.",   submenu3_Open,      NULL, NULL, displayMenuCustom},
+    {"VOLVER",    navigateBackInMenu, NULL, NULL, renderDashboard_Wrapper}
 };
 
 // Menú principal
 SubMenu mainMenu = {
-    "Main Menu", mainMenuItems, 4, 0, 0, NULL, NULL
+    .name                = "Main Menu",
+    .items               = mainMenuItems,
+    .itemCount           = sizeof(mainMenuItems)/sizeof(mainMenuItems[0]),
+    .currentItemIndex    = 0,
+    .firstVisibleItem    = 0,
+    .parent              = NULL,
+    .icon                = NULL
 };
 
-// Ítems del submenu 1: MODO
+// Ítems del submenu 1: MODO (sin pantalla asociada por ahora)
 MenuItem submenu1Items[] = {
-    {"IDLE",   setMode_IDLE, NULL, NULL},
-    {"FOLLOW", setMode_FOLLOW, NULL, NULL},
-    {"TEST",   setMode_TEST, NULL, NULL},
-    {"VOLVER", volver, &mainMenu, NULL}
+    {"IDLE",   setMode_IDLE,       NULL, NULL, NULL},
+    {"FOLLOW", setMode_FOLLOW,     NULL, NULL, NULL},
+    {"TEST",   setMode_TEST,       NULL, NULL, NULL},
+    {"VOLVER", navigateBackInMenu, &mainMenu, NULL, displayMenuCustom}
 };
 
 SubMenu submenu1 = {
-    "Modo", submenu1Items, 4, 0, 0, &mainMenu, NULL
+    .name                = "Modo",
+    .items               = submenu1Items,
+    .itemCount           = sizeof(submenu1Items)/sizeof(submenu1Items[0]),
+    .currentItemIndex    = 0,
+    .firstVisibleItem    = 0,
+    .parent              = &mainMenu,
+    .icon                = NULL
 };
 
-// Submenú 2: Mockup
+// Ítems del submenu 2 (“Pantallas”)
 MenuItem submenu2Items[] = {
-    {"Tiempo de espera", NULL, NULL, NULL},
-    {"Tiempo de tiro",   NULL, NULL, NULL},
-    {"VOLVER", volver, &mainMenu, NULL}
+    {"Valores IR",     NULL,               NULL, NULL, renderValoresIR_Wrapper},
+    {"VOLVER",         navigateBackInMenu, &mainMenu, NULL, displayMenuCustom}
 };
 
 SubMenu submenu2 = {
-    "Tiempos", submenu2Items, 3, 0, 0, &mainMenu, NULL
+    .name                = "Pantallas",
+    .items               = submenu2Items,
+    .itemCount           = sizeof(submenu2Items)/sizeof(submenu2Items[0]),
+    .currentItemIndex    = 0,
+    .firstVisibleItem    = 0,
+    .parent              = &mainMenu,
+    .icon                = NULL
 };
 
-// Submenú 3: Mockup
+// Ítems del submenu 3: Mockup sin pantallas por ahora
 MenuItem submenu3Items[] = {
-    {"Option 1", NULL, NULL, NULL},
-    {"Option 2", NULL, NULL, NULL},
-    {"VOLVER", volver, &mainMenu, NULL}
+    {"Option 1", NULL,               NULL, NULL, NULL},
+    {"Option 2", NULL,               NULL, NULL, NULL},
+    {"VOLVER",   navigateBackInMenu, &mainMenu, NULL, displayMenuCustom}
 };
 
 SubMenu submenu3 = {
-    "Configuración", submenu3Items, 3, 0, 0, &mainMenu, NULL
+    .name                = "Configuración",
+    .items               = submenu3Items,
+    .itemCount           = sizeof(submenu3Items)/sizeof(submenu3Items[0]),
+    .currentItemIndex    = 0,
+    .firstVisibleItem    = 0,
+    .parent              = &mainMenu,
+    .icon                = NULL
 };
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -362,15 +388,32 @@ int main(void)
   if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
 	  Error_Handler();
   }
+  for (uint8_t addr7 = 1; addr7 < 0x80; addr7++) {
+      // pruebo cada dirección 7-bit << 1
+      if (HAL_I2C_IsDeviceReady(&hi2c1, addr7 << 1, 1, 10) == HAL_OK) {
+          // aquí addr7 es, por ejemplo, 0x3C; addr7<<1 = 0x78
+          char buf[32];
+          snprintf(buf, sizeof(buf), "I2C device at 0x%02X\n", addr7);
+          USART1_PrintString(buf);
+          HAL_Delay(100);
+          __NOP();
+      }
+  }
   initTCRTLib();
   InitMotorTask();
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
   HAL_TIM_Base_Start_IT(&htim3);
+  if (HAL_I2C_IsDeviceReady(&hi2c1, I2C_ADDR_OLED, 3, 100) == HAL_OK) {
+	  USART1_PrintString("OLED responde HAL\r\n");
+  } else {
+	  USART1_PrintString("OLED NO responde HAL\r\n");
+  }
+  __NOP();
   I2C_Manager_Init(&hi2c1, &i2c_tx_busy_flag);
   if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
 	  HAL_StatusTypeDef result = I2C_Manager_RegisterDevice(
 		  DEVICE_ID_OLED,
-		  I2C_ADDR_OLED,
+		  (I2C_ADDR_OLED << 1),
 		  OLED_DMA_Complete_I2CManager,
 		  OLED_GrantAccess_I2CManager,
 		  1
@@ -391,26 +434,28 @@ int main(void)
 	  // El OLED no respondió en el bus
 	  USART1_PushTxString(&usart1Buf, "OLED no respondio");
   }
-  //Solo llamo initCarMode() una vez, antes del while
   if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
-	  initCarMode();
-	  initMenuSystemTask();
+  	  initCarMode();
+  	  initMenuSystemTask();
   }
+  //Solo llamo initCarMode() una vez, antes del while
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
 		USART1_Update();
+		TCRT_MainTask();
+		i2cManager_MainTask();
 		if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
 			UserBtn_MainTask(&btnUser);
 			Encoder_MainTask(&encoder);
 		}
-		TCRT_MainTask();
-		Motor_MainTask();
-		i2cManager_MainTask();
-		OLED_MainTask();
+		if(IS_FLAG_SET(systemFlags, OLED_READY)){ //Inicializado completamente
+			OLED_MainTask();
+		}
 		MPU_MainTask();
+		Motor_MainTask();
 		// Si quieres saber cuántos sobrepasos de 1 s hubo (0..9):
 		//uint8_t num_overflows = NIBBLEH_GET_STATE(btnUser.flags);
 
@@ -982,12 +1027,7 @@ void initCarMode(){
 	ENC_Init(&encoder, &htim4, 1, 2,EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
 	if(OLED_Is_Ready(&oledTask)){
-	  OLED_SetFont(&oledTask, &Font_11x18);
-	  OLED_ClearBuffer(&oledTask, false);
-	  OLED_SetCursor(&oledTask, 0, 0);
-	  OLED_DrawStr(&oledTask, "HOLA MUNDO", false);
-	  OLED_SendBuffer(&oledTask);
-	  USART1_PrintString("OLED read\r\n");
+	  SET_FLAG(systemFlags, OLED_READY);
 	}
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
 }
@@ -997,8 +1037,14 @@ void UserBtn_MainTask(ButtonState_t *h){
 
 		CLEAR_FLAG(h->flags, BTN_USER_SHORT_PRESS);
 	}
-	if (IS_FLAG_SET(h->flags, BTN_USER_LONG_PRESS)) { // Acción long
-		Handle_ModeChange_ByButton(h, &ledStatus);
+	if (IS_FLAG_SET(h->flags, BTN_USER_LONG_PRESS)) { // Acción long, entra y sale del menu
+		//Handle_ModeChange_ByButton(h, &ledStatus);
+		INSIDE_MENU = !INSIDE_MENU;
+		if(INSIDE_MENU){
+			USART1_PrintString("Entered menu system\r\n");
+		}else{
+			USART1_PrintString("Exited menu system\r\n");
+		}
 		CLEAR_FLAG(h->flags, BTN_USER_LONG_PRESS);
 	}
 }
@@ -1030,19 +1076,19 @@ void Encoder_MainTask(ENC_Handle_t *h)
         CLEAR_FLAG(h->btnState.flags, ENC_BTN_SHORT_PRESS);
         if (INSIDE_MENU) {
         	selectCurrentItem(&menuSystem);
+        	//Aca iria el call al render de cada item
         }else{
 
         }
     }
 
-    // LONG PRESS: dentro vuelve al main menu; fuera entra al menú
+    // LONG PRESS: dentro vuelve al main menu; fuera nada
     if (IS_FLAG_SET(h->btnState.flags, ENC_BTN_LONG_PRESS)) {
         CLEAR_FLAG(h->btnState.flags, ENC_BTN_LONG_PRESS);
         if (INSIDE_MENU) {
-            navigateBackInMenu(&menuSystem);
-        } else {
             navigateToMainMenu(&menuSystem);
-            USART1_PrintString("Entered menu system\r\n");
+        } else {
+
         }
     }
 }
@@ -1116,11 +1162,16 @@ void TCRT_MainTask(){
 		}*/
 	    // 3) Una vez consumidos, limpiar la bandera para empezar a contar
 	    //    otras 4000 muestras.
+		SET_FLAG(systemFlags, PROCESS_IR_DATA);
 	    TCRT5000_ClearReady(&tcrtTask);
 	}
 	if(IS_FLAG_SET(systemFlags, PROCESS_IR_DATA)){
 		//Procesar aca la data de los IR
 		CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
+		if (menuSystem.renderFn == renderValoresIR) {
+		    // Estamos en la pantalla de Valores IR:
+		    menuSystem.renderFlag = true;
+		}
 	}
 }
 
@@ -1191,9 +1242,7 @@ void i2cManager_MainTask(){
 
 void OLED_MainTask(void) {
     // Verificar si pasó el tiempo de 10 ms y hay overlay activo
-    if (!IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED) || !oledTask.overlay_active){
-        return;
-    }else{
+	if (IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED) && oledTask.overlay_active){
 		// Decrementar el temporizador del overlay
 		if (oledTask.overlay_timer_ms >= 10) {
 			oledTask.overlay_timer_ms -= 10;
@@ -1202,13 +1251,18 @@ void OLED_MainTask(void) {
 			oledTask.overlay_active = false;
 
 			for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
-				oledTask.frame_buffer_main[p] = true;
+			    oledTask.page_dirty_main[p] = true;
 			}
 
 			OLED_SendBuffer(&oledTask);
 		}
     }
-
+    if (menuSystem.renderFlag &&
+        menuSystem.renderFn) {
+        menuSystem.renderFlag = false;
+        menuSystem.renderFn();
+        OLED_SendBuffer(&oledTask);
+    }
 }
 
 
@@ -1219,8 +1273,9 @@ void initMenuSystemTask(void) {
         drawItemWrapper,
         renderFnWrapper,
         &inside_menu_flag);
+    menuSystem.renderFn = renderDashboard_Wrapper;
+    menuSystem.renderFlag = true;
 }
-
 
 /* USER CODE END 4 */
 

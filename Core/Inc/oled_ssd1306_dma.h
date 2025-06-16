@@ -11,6 +11,7 @@
 #include "stm32f1xx_hal.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include <math.h>
 #include "fonts.h"
 
 /** Dimensiones del display */
@@ -21,6 +22,10 @@
 #define OLED_QUEUE_DEPTH      8
 
 #define MEMADD_SIZE_8BIT I2C_MEMADD_SIZE_8BIT
+
+// Ajusta estos valores al layout de tu pantalla
+#define Y_OFFSET   12
+#define Y_SPACING  12
 
 typedef void (*I2C_Request_Bus_Use)(void);
 
@@ -58,6 +63,8 @@ typedef struct {
 	FontDef           *font;
 	uint8_t            cursor_x;
 	uint8_t            cursor_y;
+	bool        bitmap_opaque;    /**< true=bitmap cubre fondo; false=bitmap transparente */
+	bool        font_normal;      /**< true=texto normal; false=texto invertido */
 } OLED_HandleTypeDef;
 
 static const uint8_t ssd1306_init_seq[] = {
@@ -80,17 +87,85 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
 							uint16_t oled_dev_address,
                             volatile uint8_t  *dma_busy_flag, I2C_Request_Bus_Use requestBusCbFn);
 
+bool OLED_Is_Ready(OLED_HandleTypeDef *oled);
+
 /** Borra buffer principal u overlay y marca páginas dirty */
 void OLED_ClearBuffer(OLED_HandleTypeDef *oled, bool clear_overlay);
 
-/** Dibuja texto en buffer activo y marca dirty de páginas */
-void OLED_DrawStr(OLED_HandleTypeDef *oled, const char *str, bool use_overlay);
+void OLED_DrawPixel(OLED_HandleTypeDef *oled,
+                    uint8_t x, uint8_t y,
+                    bool use_overlay);
 
-/** Dibuja bitmap en buffer activo y marca dirty de páginas */
+void OLED_DrawHLine(OLED_HandleTypeDef *oled,
+                    uint8_t x, uint8_t y, uint8_t w,
+                    bool use_overlay);
+
+void OLED_DrawVLine(OLED_HandleTypeDef *oled,
+                    uint8_t x, uint8_t y, uint8_t h,
+                    bool use_overlay);
+
+void OLED_DrawLineXY(OLED_HandleTypeDef *oled,
+                     uint8_t x0, uint8_t y0,
+                     uint8_t x1, uint8_t y1,
+                     bool use_overlay);
+
+void OLED_DrawBox(OLED_HandleTypeDef *oled,
+                  uint8_t x, uint8_t y,
+                  uint8_t w, uint8_t h,
+                  bool use_overlay);
+
+void OLED_DrawFrame(OLED_HandleTypeDef *oled,
+                    uint8_t x, uint8_t y,
+                    uint8_t w, uint8_t h,
+                    bool use_overlay);
+
+void OLED_DrawCircle(OLED_HandleTypeDef *oled,
+                     uint8_t x0, uint8_t y0,
+                     uint8_t rad,
+                     bool use_overlay);
+
+void OLED_DrawDisc(OLED_HandleTypeDef *oled,
+                   uint8_t x0, uint8_t y0,
+                   uint8_t rad,
+                   bool use_overlay);
+
+void OLED_DrawArc(OLED_HandleTypeDef *oled,
+                  uint8_t x0, uint8_t y0,
+                  uint8_t rad,
+                  uint8_t start, uint8_t end,
+                  bool use_overlay);
+
+void OLED_DrawEllipse(OLED_HandleTypeDef *oled,
+                      uint8_t x0, uint8_t y0,
+                      uint8_t rx, uint8_t ry,
+                      bool use_overlay);
+
+void OLED_DrawFilledEllipse(OLED_HandleTypeDef *oled,
+                            uint8_t x0, uint8_t y0,
+                            uint8_t rx, uint8_t ry,
+                            bool use_overlay);
+
+void OLED_DrawTriangle(OLED_HandleTypeDef *oled,
+                       int16_t x0, int16_t y0,
+                       int16_t x1, int16_t y1,
+                       int16_t x2, int16_t y2,
+                       bool use_overlay);
+
 void OLED_DrawBitmap(OLED_HandleTypeDef *oled,
                      uint8_t x, uint8_t y,
-                     const uint8_t *bmp,
-                     uint16_t size);
+                     uint8_t cnt, uint8_t h,
+                     const uint8_t *bitmap,
+                     bool use_overlay);
+
+void OLED_DrawXBM(OLED_HandleTypeDef *oled,
+                  uint8_t x, uint8_t y,
+                  uint8_t w, uint8_t h,
+                  const uint8_t *bitmap,
+                  bool use_overlay);
+
+void OLED_DrawStr(OLED_HandleTypeDef *oled,
+                  const char *str,
+                  bool use_overlay);
 
 /**
  * @brief Encola páginas dirty con columnas específicas y limpia flags
@@ -124,5 +199,10 @@ void OLED_GrantAccessCallback(OLED_HandleTypeDef *oled);
 
 void OLED_SetCursor(OLED_HandleTypeDef *oled, uint8_t x, uint8_t y);
 void OLED_SetFont(OLED_HandleTypeDef *oled, FontDef *font);
+/** @brief Define si los bitmaps borran el fondo o no */
+void OLED_SetBitmapMode(OLED_HandleTypeDef *oled, bool opaque);
+/** @brief Define si el texto se dibuja normal o invertido */
+void OLED_SetFontMode  (OLED_HandleTypeDef *oled, bool normal);
+
 
 #endif /* INC_OLED_SSD1306_DMA_H_ */

@@ -42,12 +42,17 @@ extern "C" {
 	 */
 	typedef void (*RenderFunction)();
 
+	typedef void (*RenderScreenFunction)();
+
+	typedef struct SubMenu SubMenu;
+
 	// Estructura para un ítem del menú
 	typedef struct MenuItem {
 		const char *name;           ///< Nombre del ítem del menú
 		MenuFunction action;       ///< Acción a ejecutar al seleccionar el ítem
 		struct SubMenu *submenu;   ///< Submenú asociado (si existe)
 		const uint8_t *icon;       ///< Icono asociado (opcional)
+		RenderScreenFunction screenRenderFn;             ///< Puntero a la pantalla asociada (si existe)
 	} MenuItem;
 
 	// Estructura para un submenú
@@ -68,6 +73,7 @@ extern "C" {
 		DrawItemFunction drawItem;          ///< Callback para dibujar ítems del menú
 		RenderFunction renderFn;            ///< Callback para renderizar la pantalla (flush)
 		volatile uint8_t *insideMenuFlag;   ///< Puntero a una bandera externa que indica si estamos dentro del menú
+		bool renderFlag;
 	} MenuSystem;
 
 	// =================== PROTOTIPOS ===================
@@ -111,12 +117,6 @@ extern "C" {
 	void selectCurrentItem(MenuSystem *system);
 
 	/**
-	 * @brief Dibuja el menú actual usando las funciones de dibujo configuradas.
-	 * @param system Puntero al sistema de menú
-	 */
-	void displayMenu(MenuSystem *system);
-
-	/**
 	 * @brief Cambia al submenú pasado y actualiza la pantalla.
 	 * @param system Puntero al sistema de menú y al submenu
 	 */
@@ -128,7 +128,6 @@ extern "C" {
 	 * @param system Puntero al sistema de menú
 	 */
 	void volver(MenuSystem *system);
-
 	/**
 	 * @brief Selecciona un ítem del menú actual por índice.
 	 * @param system Puntero al sistema de menú
@@ -148,6 +147,13 @@ extern "C" {
 	 * @param system Puntero al sistema de menú
 	 */
 	void navigateBackInMenu(MenuSystem *system);
+
+	static inline bool
+	Menu_IsCurrentItem(const MenuSystem *sys,
+	                   const MenuItem  *item)
+	{
+	    return &sys->currentMenu->items[sys->currentMenu->currentItemIndex] == item;
+	}
 
 
 #ifdef __cplusplus

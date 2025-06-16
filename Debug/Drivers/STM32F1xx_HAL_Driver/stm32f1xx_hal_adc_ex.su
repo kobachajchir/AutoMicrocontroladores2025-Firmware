@@ -5,9 +5,9 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:507:19:HAL_ADCEx_InjectedStart_IT	8	static
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:606:19:HAL_ADCEx_InjectedStop_IT	8	static
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:675:19:HAL_ADCEx_MultiModeStart_DMA	72	static
-C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:801:19:HAL_ADCEx_MultiModeStop_DMA	64	static
+C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:801:19:HAL_ADCEx_MultiModeStop_DMA	56	static
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:889:10:HAL_ADCEx_InjectedGetValue	0	static
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:926:10:HAL_ADCEx_MultiModeGetValue	0	static
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:958:13:HAL_ADCEx_InjectedConvCpltCallback	0	static
-C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:1000:19:HAL_ADCEx_InjectedConfigChannel	32	static
-C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:1261:19:HAL_ADCEx_MultiModeConfigChannel	8	static
+C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:1000:19:HAL_ADCEx_InjectedConfigChannel	24	static
+C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c:1261:19:HAL_ADCEx_MultiModeConfigChannel	64	static

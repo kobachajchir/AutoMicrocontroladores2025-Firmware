@@ -1,11 +1,11 @@
 ../Core/Src/usart_dma_buffer.c:28:19:USART1_RegisterHandle	0	static
 ../Core/Src/usart_dma_buffer.c:40:19:USART1_SetDMACallbacks	0	static
-../Core/Src/usart_dma_buffer.c:54:19:USART1_DMA_Init	16	static
+../Core/Src/usart_dma_buffer.c:54:19:USART1_DMA_Init	24	static
 ../Core/Src/usart_dma_buffer.c:79:19:USART1_PushTxString	24	static
 ../Core/Src/usart_dma_buffer.c:127:19:USART1_SetRxHandler	0	static
-../Core/Src/usart_dma_buffer.c:140:6:USART1_Update	16	static
+../Core/Src/usart_dma_buffer.c:140:6:USART1_Update	8	static
 ../Core/Src/usart_dma_buffer.c:162:6:USART1_DMA_TxCpltHandler	0	static
-../Core/Src/usart_dma_buffer.c:182:13:HAL_UART_TxCpltCallback	0	static
+../Core/Src/usart_dma_buffer.c:182:13:HAL_UART_TxCpltCallback	8	static
 ../Core/Src/usart_dma_buffer.c:190:6:HAL_UART_RxHalfCpltCallback	0	static
-../Core/Src/usart_dma_buffer.c:203:6:HAL_UART_RxCpltCallback	0	static
-../Core/Src/usart_dma_buffer.c:216:19:USART1_PushTxU16Values	112	static
+../Core/Src/usart_dma_buffer.c:203:6:HAL_UART_RxCpltCallback	8	static
+../Core/Src/usart_dma_buffer.c:216:19:USART1_PushTxU16Values	104	static

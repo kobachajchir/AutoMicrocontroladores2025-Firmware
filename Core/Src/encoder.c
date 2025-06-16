@@ -87,40 +87,46 @@ void ENC_Button_Task_10ms(ENC_Handle_t *h)
 
 void ENC_Task_N10ms(ENC_Handle_t *h)
 {
-    // Debounce y flags del botón interno
+    // —— Guards para evitar null pointers ——
+    if (!h) return;
+    if (!h->htim) return;
+    if (!h->htim->Instance) return;  // evita acceder a un periférico no inicializado
+
+    // 1) Debounce y flags del botón interno
     ENC_Button_Task_10ms(h);
 
     // 2) Leo el contador bruto actual
-	int16_t cnt = (int16_t)__HAL_TIM_GET_COUNTER(h->htim);
+    int16_t cnt = (int16_t)__HAL_TIM_GET_COUNTER(h->htim);
 
-	// 3) Calculo delta raw con wrap-around
-	int32_t delta = (int32_t)cnt - (int32_t)h->prevCount;
-	if (delta < -32768) delta += 65536;
-	else if (delta >  32768) delta -= 65536;
+    // 3) Calculo delta raw con wrap-around
+    int32_t delta = (int32_t)cnt - (int32_t)h->prevCount;
+    if (delta < -32768) delta += 65536;
+    else if (delta >  32768) delta -= 65536;
 
-	// 4) Actualizo prevCount para la próxima
-	h->prevCount = cnt;
+    // 4) Actualizo prevCount para la próxima
+    h->prevCount = cnt;
 
-	// 5) Acumulo esos pulsos raw
-	h->accumCount += delta;
+    // 5) Acumulo esos pulsos raw
+    h->accumCount += delta;
 
-	// 6) Extraigo pasos completos
-	int32_t steps = h->accumCount / h->calibrateCountPerStep;
-	h->accumCount %= h->calibrateCountPerStep;  // resto “incompleto”
+    // 6) Extraigo pasos completos
+    int32_t steps = h->accumCount / h->calibrateCountPerStep;
+    h->accumCount %= h->calibrateCountPerStep;  // resto “incompleto”
 
-	// 7) Velocidad y aceleración en pasos
-	h->data.pair.vel = (uint16_t)steps;
-	h->data.pair.acc = (uint16_t)(steps - (int16_t)h->prevData.pair.vel);
-	h->prevData.allData = h->data.allData;
+    // 7) Velocidad y aceleración en pasos
+    h->data.pair.vel      = (uint16_t)steps;
+    h->data.pair.acc      = (uint16_t)(steps - (int16_t)h->prevData.pair.vel);
+    h->prevData.allData   = h->data.allData;
 
-	// 8) Marco update y dirección
-	if (steps != 0) {
-		SET_FLAG(h->flags, ENC_FLAG_UPDATED);
-	}
-	if (steps >  0) h->dir = ENC_DIR_CW;
-	else if (steps < 0) h->dir = ENC_DIR_CCW;
-	else              h->dir = ENC_DIR_NONE;
+    // 8) Marco update y dirección
+    if (steps != 0)
+        SET_FLAG(h->flags, ENC_FLAG_UPDATED);
+
+    if (steps >  0)           h->dir = ENC_DIR_CW;
+    else if (steps < 0)       h->dir = ENC_DIR_CCW;
+    else                      h->dir = ENC_DIR_NONE;
 }
+
 
 ENC_Direction_t ENC_GetDirection(ENC_Handle_t *h)
 {
