@@ -387,28 +387,28 @@ int main(void)
   if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
 	  Error_Handler();
   }
-  HAL_TIM_Base_Start_IT(&htim3);
   initTCRTLib();
   InitMotorTask();
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
+  initMenuSystemTask();
   I2C_Manager_Init(&hi2c1, &i2c_tx_busy_flag);
   if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
 	  HAL_StatusTypeDef result = I2C_Manager_RegisterDevice(
 		  DEVICE_ID_OLED,
-		  (I2C_ADDR_OLED << 1),
+		  I2C_ADDR_OLED,
 		  OLED_DMA_Complete_I2CManager,
 		  OLED_GrantAccess_I2CManager,
 		  1
 	  );
-	  __NOP();
 	  if (result == HAL_OK) {
 		  // Éxito: El OLED está presente y fue registrado
-		  USART1_PushTxString(&usart1Buf, "OLED Registrado");
+		  //USART1_PushTxString(&usart1Buf, "OLED Registrado");
 		  OLED_Init(&oledTask,
 				   &hi2c1,
 				   I2C_ADDR_OLED,
 				   &oled_dma_busy_flag,    // ← pasa la bandera DMA
 				   OLED_RequestBusUse_I2CManager);
+		menuSystem.renderFn = renderDashboard_Wrapper;
+		menuSystem.renderFlag = true;
 	  } else {
 		  // Falló al registrar (posiblemente sin espacio en la tabla)
 		  USART1_PushTxString(&usart1Buf, "OLED NO Registrado");
@@ -419,8 +419,9 @@ int main(void)
   }
   if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
   	  initCarMode();
-  	  initMenuSystemTask();
   }
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
+  HAL_TIM_Base_Start_IT(&htim3);
   //Solo llamo initCarMode() una vez, antes del while
   /* USER CODE END 2 */
 
@@ -993,7 +994,6 @@ void initUsartBufferHandler(){
 }
 
 void initCarMode(){
-	__NOP();
 	NIBBLEH_SET_STATE(systemFlags, IDLE_MODE);
 	carMode = GET_CAR_MODE();
 	ledStatus.gpio_port = LED_GPIO_Port;
@@ -1009,10 +1009,6 @@ void initCarMode(){
 	btnUser.pin = User_BTN_Pin;
 	ENC_Init(&encoder, &htim4, 1, 2,EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
-	if(OLED_Is_Ready(&oledTask)){
-		__NOP();
-	  SET_FLAG(systemFlags, OLED_READY);
-	}
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
 	SET_FLAG(systemFlags, INIT_CAR);
 }
@@ -1258,8 +1254,6 @@ void initMenuSystemTask(void) {
         drawItemWrapper,
         renderFnWrapper,
         &inside_menu_flag);
-    menuSystem.renderFn = renderDashboard_Wrapper;
-    menuSystem.renderFlag = true;
 }
 
 /* USER CODE END 4 */
