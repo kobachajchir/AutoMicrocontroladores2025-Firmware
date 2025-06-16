@@ -1,0 +1,10 @@
+../Core/Src/oled_utils.c:54:6:renderDashboard_Wrapper	1
+../Core/Src/oled_utils.c:74:6:displayMenuCustom	7
+../Core/Src/oled_utils.c:28:6:renderMenu_Wrapper	1
+../Core/Src/oled_utils.c:36:6:renderBack_Wrapper	1
+../Core/Src/oled_utils.c:151:6:displayMenu	4
+../Core/Src/oled_utils.c:161:6:renderDashboard	1
+../Core/Src/oled_utils.c:232:6:OLED_DrawIRBars	3
+../Core/Src/oled_utils.c:192:6:OLED_DrawIRGraph	3
+../Core/Src/oled_utils.c:46:6:renderValoresIR_Wrapper	1
+../Core/Src/oled_utils.c:177:6:renderValoresIR	1

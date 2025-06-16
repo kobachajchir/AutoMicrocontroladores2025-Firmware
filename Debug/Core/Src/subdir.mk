@@ -12,6 +12,7 @@ C_SRCS += \
 ../Core/Src/menusystem.c \
 ../Core/Src/motor_control.c \
 ../Core/Src/oled_ssd1306_dma.c \
+../Core/Src/oled_utils.c \
 ../Core/Src/stm32f1xx_hal_msp.c \
 ../Core/Src/stm32f1xx_it.c \
 ../Core/Src/syscalls.c \
@@ -28,6 +29,7 @@ OBJS += \
 ./Core/Src/menusystem.o \
 ./Core/Src/motor_control.o \
 ./Core/Src/oled_ssd1306_dma.o \
+./Core/Src/oled_utils.o \
 ./Core/Src/stm32f1xx_hal_msp.o \
 ./Core/Src/stm32f1xx_it.o \
 ./Core/Src/syscalls.o \
@@ -44,6 +46,7 @@ C_DEPS += \
 ./Core/Src/menusystem.d \
 ./Core/Src/motor_control.d \
 ./Core/Src/oled_ssd1306_dma.d \
+./Core/Src/oled_utils.d \
 ./Core/Src/stm32f1xx_hal_msp.d \
 ./Core/Src/stm32f1xx_it.d \
 ./Core/Src/syscalls.d \
@@ -60,7 +63,7 @@ Core/Src/%.o Core/Src/%.su Core/Src/%.cyclo: ../Core/Src/%.c Core/Src/subdir.mk
 clean: clean-Core-2f-Src
 
 clean-Core-2f-Src:
-	-$(RM) ./Core/Src/encoder.cyclo ./Core/Src/encoder.d ./Core/Src/encoder.o ./Core/Src/encoder.su ./Core/Src/fonts.cyclo ./Core/Src/fonts.d ./Core/Src/fonts.o ./Core/Src/fonts.su ./Core/Src/i2c_manager.cyclo ./Core/Src/i2c_manager.d ./Core/Src/i2c_manager.o ./Core/Src/i2c_manager.su ./Core/Src/main.cyclo ./Core/Src/main.d ./Core/Src/main.o ./Core/Src/main.su ./Core/Src/menusystem.cyclo ./Core/Src/menusystem.d ./Core/Src/menusystem.o ./Core/Src/menusystem.su ./Core/Src/motor_control.cyclo ./Core/Src/motor_control.d ./Core/Src/motor_control.o ./Core/Src/motor_control.su ./Core/Src/oled_ssd1306_dma.cyclo ./Core/Src/oled_ssd1306_dma.d ./Core/Src/oled_ssd1306_dma.o ./Core/Src/oled_ssd1306_dma.su ./Core/Src/stm32f1xx_hal_msp.cyclo ./Core/Src/stm32f1xx_hal_msp.d ./Core/Src/stm32f1xx_hal_msp.o ./Core/Src/stm32f1xx_hal_msp.su ./Core/Src/stm32f1xx_it.cyclo ./Core/Src/stm32f1xx_it.d ./Core/Src/stm32f1xx_it.o ./Core/Src/stm32f1xx_it.su ./Core/Src/syscalls.cyclo ./Core/Src/syscalls.d ./Core/Src/syscalls.o ./Core/Src/syscalls.su ./Core/Src/sysmem.cyclo ./Core/Src/sysmem.d ./Core/Src/sysmem.o ./Core/Src/sysmem.su ./Core/Src/system_stm32f1xx.cyclo ./Core/Src/system_stm32f1xx.d ./Core/Src/system_stm32f1xx.o ./Core/Src/system_stm32f1xx.su ./Core/Src/usart_dma_buffer.cyclo ./Core/Src/usart_dma_buffer.d ./Core/Src/usart_dma_buffer.o ./Core/Src/usart_dma_buffer.su ./Core/Src/utils.cyclo ./Core/Src/utils.d ./Core/Src/utils.o ./Core/Src/utils.su
+	-$(RM) ./Core/Src/encoder.cyclo ./Core/Src/encoder.d ./Core/Src/encoder.o ./Core/Src/encoder.su ./Core/Src/fonts.cyclo ./Core/Src/fonts.d ./Core/Src/fonts.o ./Core/Src/fonts.su ./Core/Src/i2c_manager.cyclo ./Core/Src/i2c_manager.d ./Core/Src/i2c_manager.o ./Core/Src/i2c_manager.su ./Core/Src/main.cyclo ./Core/Src/main.d ./Core/Src/main.o ./Core/Src/main.su ./Core/Src/menusystem.cyclo ./Core/Src/menusystem.d ./Core/Src/menusystem.o ./Core/Src/menusystem.su ./Core/Src/motor_control.cyclo ./Core/Src/motor_control.d ./Core/Src/motor_control.o ./Core/Src/motor_control.su ./Core/Src/oled_ssd1306_dma.cyclo ./Core/Src/oled_ssd1306_dma.d ./Core/Src/oled_ssd1306_dma.o ./Core/Src/oled_ssd1306_dma.su ./Core/Src/oled_utils.cyclo ./Core/Src/oled_utils.d ./Core/Src/oled_utils.o ./Core/Src/oled_utils.su ./Core/Src/stm32f1xx_hal_msp.cyclo ./Core/Src/stm32f1xx_hal_msp.d ./Core/Src/stm32f1xx_hal_msp.o ./Core/Src/stm32f1xx_hal_msp.su ./Core/Src/stm32f1xx_it.cyclo ./Core/Src/stm32f1xx_it.d ./Core/Src/stm32f1xx_it.o ./Core/Src/stm32f1xx_it.su ./Core/Src/syscalls.cyclo ./Core/Src/syscalls.d ./Core/Src/syscalls.o ./Core/Src/syscalls.su ./Core/Src/sysmem.cyclo ./Core/Src/sysmem.d ./Core/Src/sysmem.o ./Core/Src/sysmem.su ./Core/Src/system_stm32f1xx.cyclo ./Core/Src/system_stm32f1xx.d ./Core/Src/system_stm32f1xx.o ./Core/Src/system_stm32f1xx.su ./Core/Src/usart_dma_buffer.cyclo ./Core/Src/usart_dma_buffer.d ./Core/Src/usart_dma_buffer.o ./Core/Src/usart_dma_buffer.su ./Core/Src/utils.cyclo ./Core/Src/utils.d ./Core/Src/utils.o ./Core/Src/utils.su
 
 .PHONY: clean-Core-2f-Src
 

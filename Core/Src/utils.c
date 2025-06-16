@@ -32,9 +32,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             	SET_FLAG(systemFlags, OLED_TENMS_PASSED);
             }
             // Llamar a las rutinas de 10 ms
-            Button_Task_10ms(&btnUser);
             StateLED_Task_10ms(&ledStatus);
-            ENC_Task_N10ms(&encoder);
+            if (IS_FLAG_SET(systemFlags, INIT_CAR)) {
+				Button_Task_10ms(&btnUser);
+				ENC_Task_N10ms(&encoder);
+			}
         }
     }
 }

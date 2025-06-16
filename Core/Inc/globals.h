@@ -36,7 +36,7 @@
 //Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
 
-#define I2C_ADDR_OLED  (0x3C << 1)
+#define I2C_ADDR_OLED  0x3C
 #define I2C_ADDR_MPU6050  0x68
 
 #define INSIDE_MENU (inside_menu_flag)

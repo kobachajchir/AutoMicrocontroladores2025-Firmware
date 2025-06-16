@@ -33,8 +33,7 @@
 #include "fonts.h"
 #include "menusystem.h"
 #include "oled_utils.h"
-#include "menuSystem_utils.h"
-#include "oled_screens.h"
+//#include "oled_screens.h"
 
 /* USER CODE END Includes */
 
@@ -151,7 +150,7 @@ MenuSystem menuSystem = {
     .currentMenu      = &mainMenu,
     .clearScreen      = clearScreenWrapper,
     .drawItem         = drawItemWrapper,
-    .renderFn         = NULL,
+    .renderFn         = renderFnWrapper,
     .insideMenuFlag   = &inside_menu_flag,
     .renderFlag       = false
 };
@@ -388,27 +387,10 @@ int main(void)
   if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
 	  Error_Handler();
   }
-  for (uint8_t addr7 = 1; addr7 < 0x80; addr7++) {
-      // pruebo cada dirección 7-bit << 1
-      if (HAL_I2C_IsDeviceReady(&hi2c1, addr7 << 1, 1, 10) == HAL_OK) {
-          // aquí addr7 es, por ejemplo, 0x3C; addr7<<1 = 0x78
-          char buf[32];
-          snprintf(buf, sizeof(buf), "I2C device at 0x%02X\n", addr7);
-          USART1_PrintString(buf);
-          HAL_Delay(100);
-          __NOP();
-      }
-  }
+  HAL_TIM_Base_Start_IT(&htim3);
   initTCRTLib();
   InitMotorTask();
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
-  HAL_TIM_Base_Start_IT(&htim3);
-  if (HAL_I2C_IsDeviceReady(&hi2c1, I2C_ADDR_OLED, 3, 100) == HAL_OK) {
-	  USART1_PrintString("OLED responde HAL\r\n");
-  } else {
-	  USART1_PrintString("OLED NO responde HAL\r\n");
-  }
-  __NOP();
   I2C_Manager_Init(&hi2c1, &i2c_tx_busy_flag);
   if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
 	  HAL_StatusTypeDef result = I2C_Manager_RegisterDevice(
@@ -418,6 +400,7 @@ int main(void)
 		  OLED_GrantAccess_I2CManager,
 		  1
 	  );
+	  __NOP();
 	  if (result == HAL_OK) {
 		  // Éxito: El OLED está presente y fue registrado
 		  USART1_PushTxString(&usart1Buf, "OLED Registrado");
@@ -1010,6 +993,7 @@ void initUsartBufferHandler(){
 }
 
 void initCarMode(){
+	__NOP();
 	NIBBLEH_SET_STATE(systemFlags, IDLE_MODE);
 	carMode = GET_CAR_MODE();
 	ledStatus.gpio_port = LED_GPIO_Port;
@@ -1019,7 +1003,6 @@ void initCarMode(){
 	ledStatus.onTime = LED_IDLE_ONTIME;
 	ledStatus.offTime = LED_IDLE_OFFTIME;
 	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
-	SET_FLAG(systemFlags, INIT_CAR);
 	btnUser.flags.byte = 0;
 	btnUser.counter = 0;
 	btnUser.port = User_BTN_GPIO_Port;
@@ -1027,9 +1010,11 @@ void initCarMode(){
 	ENC_Init(&encoder, &htim4, 1, 2,EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
 	if(OLED_Is_Ready(&oledTask)){
+		__NOP();
 	  SET_FLAG(systemFlags, OLED_READY);
 	}
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
+	SET_FLAG(systemFlags, INIT_CAR);
 }
 
 void UserBtn_MainTask(ButtonState_t *h){
