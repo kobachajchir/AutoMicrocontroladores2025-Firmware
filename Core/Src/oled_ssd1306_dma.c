@@ -6,6 +6,10 @@
 #include "globals.h"
 #include <string.h>
 
+#ifndef M_PI_d
+#define M_PI_d 3.14159265358979323846f
+#endif
+
 /**
  * @brief Inicia transferencia DMA de la siguiente página en cola
  * @param oled  puntero al handle
@@ -324,8 +328,8 @@ void OLED_DrawArc(OLED_HandleTypeDef *oled,
                   uint8_t start, uint8_t end,
                   bool use_overlay)
 {
-    float a0 = (start / 256.0f) * 2 * M_PI;
-    float a1 = (end   / 256.0f) * 2 * M_PI;
+    float a0 = (start / 256.0f) * 2 * M_PI_d;
+    float a1 = (end   / 256.0f) * 2 * M_PI_d;
     for (float a = a0; a <= a1; a += 0.01f) {
         int16_t x = x0 + (int16_t)(rad * cosf(a));
         int16_t y = y0 + (int16_t)(rad * sinf(a));
@@ -339,7 +343,7 @@ void OLED_DrawEllipse(OLED_HandleTypeDef *oled,
                       bool use_overlay)
 {
     for (int16_t deg = 0; deg < 360; deg++) {
-        float radang = deg * (M_PI / 180.0f);
+        float radang = deg * (M_PI_d / 180.0f);
         int16_t x = x0 + (int16_t)(rx * cosf(radang));
         int16_t y = y0 + (int16_t)(ry * sinf(radang));
         _setPixel(oled, x, y, use_overlay);
@@ -503,7 +507,7 @@ void OLED_ActivateOverlay(OLED_HandleTypeDef *oled,
         oled->queue_tail = (oled->queue_tail + 1) % OLED_QUEUE_DEPTH;
         oled->queue_count++;
     }
-    OLED_StartNextTransfer(oled);
+    oled->requestBusCb();
 }
 
 /* ============================================================================ */

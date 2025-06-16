@@ -1232,7 +1232,7 @@ void OLED_MainTask(void) {
 			oledTask.overlay_active = false;
 
 			for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
-			    oledTask.page_dirty_main[p] = true;
+				oledTask.page_dirty_main[p] = true;
 			}
 
 			OLED_SendBuffer(&oledTask);

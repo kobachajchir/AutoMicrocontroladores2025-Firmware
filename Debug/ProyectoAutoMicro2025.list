@@ -27,27 +27,27 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   ALLOC
  11 .ARM.attributes 00000029  00000000  00000000  0000f35c  2**0
                   CONTENTS, READONLY
- 12 .debug_info   0002eec8  00000000  00000000  0000f385  2**0
+ 12 .debug_info   0002ee65  00000000  00000000  0000f385  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 13 .debug_abbrev 00006101  00000000  00000000  0003e24d  2**0
+ 13 .debug_abbrev 0000611c  00000000  00000000  0003e1ea  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_loclists 000153ab  00000000  00000000  0004434e  2**0
+ 14 .debug_loclists 0001539f  00000000  00000000  00044306  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_aranges 00001e30  00000000  00000000  00059700  2**3
+ 15 .debug_aranges 00001e30  00000000  00000000  000596a8  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_rnglists 000019e5  00000000  00000000  0005b530  2**0
+ 16 .debug_rnglists 000019e5  00000000  00000000  0005b4d8  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_macro  000201b2  00000000  00000000  0005cf15  2**0
+ 17 .debug_macro  000201b8  00000000  00000000  0005cebd  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_line   000340cf  00000000  00000000  0007d0c7  2**0
+ 18 .debug_line   000340d0  00000000  00000000  0007d075  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .debug_str    000a52c4  00000000  00000000  000b1196  2**0
+ 19 .debug_str    000a52b2  00000000  00000000  000b1145  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 20 .comment      00000043  00000000  00000000  0015645a  2**0
+ 20 .comment      00000043  00000000  00000000  001563f7  2**0
                   CONTENTS, READONLY
- 21 .debug_frame  00005abc  00000000  00000000  001564a0  2**2
+ 21 .debug_frame  00005abc  00000000  00000000  0015643c  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 22 .debug_line_str 00000084  00000000  00000000  0015bf5c  2**0
+ 22 .debug_line_str 00000084  00000000  00000000  0015bef8  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -1631,7 +1631,7 @@ void OLED_MainTask(void) {
  8000ac2:	f882 3817 	strb.w	r3, [r2, #2071]	@ 0x817
 			for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
  8000ac6:	e006      	b.n	8000ad6 <OLED_MainTask+0x5a>
-			    oledTask.page_dirty_main[p] = true;
+				oledTask.page_dirty_main[p] = true;
  8000ac8:	4a07      	ldr	r2, [pc, #28]	@ (8000ae8 <OLED_MainTask+0x6c>)
  8000aca:	441a      	add	r2, r3
  8000acc:	2101      	movs	r1, #1
