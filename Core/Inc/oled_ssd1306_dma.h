@@ -23,10 +23,6 @@
 
 #define MEMADD_SIZE_8BIT I2C_MEMADD_SIZE_8BIT
 
-// Ajusta estos valores al layout de tu pantalla
-#define Y_OFFSET   12
-#define Y_SPACING  12
-
 typedef void (*I2C_Request_Bus_Use)(void);
 
 /** Descriptor de página para cola de actualizaciones */

@@ -18,6 +18,7 @@
 #include "globals.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 // ─── Wrappers de render ──────────────────────────────────────────────────────
 

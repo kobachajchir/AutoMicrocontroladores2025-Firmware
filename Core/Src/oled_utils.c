@@ -9,8 +9,9 @@
 
 #define OLED_BAR_COUNT 8
 #define BAR_WIDTH 12
-#define Y_OFFSET   5
-#define Y_SPACING  22
+#define Y_OFFSET    5    // margen superior
+#define Y_SPACING   22   // separación vertical entre ítems
+#define ITEM_HEIGHT 21   // altura del recuadro de selección
 
 const uint8_t bar_x[OLED_BAR_COUNT] = {
     0*BAR_WIDTH, 1*BAR_WIDTH, 2*BAR_WIDTH, 3*BAR_WIDTH,
@@ -28,6 +29,7 @@ const uint8_t bar_x[OLED_BAR_COUNT] = {
 void renderMenu_Wrapper(void)
 {
     displayMenuCustom(&menuSystem);
+    menuSystem.renderFlag = true;
 }
 
 /**
@@ -36,6 +38,7 @@ void renderMenu_Wrapper(void)
 void renderValoresIR_Wrapper(void)
 {
     OLED_DrawIRGraph(&oledTask, sensor_raw_data);
+    menuSystem.renderFlag = true;
 }
 
 /**
@@ -44,6 +47,7 @@ void renderValoresIR_Wrapper(void)
 void renderDashboard_Wrapper(void)
 {
     renderDashboard();
+    menuSystem.renderFlag = true;
 }
 
 // ============================================================================
@@ -55,74 +59,89 @@ void renderDashboard_Wrapper(void)
  */
 void displayMenuCustom(MenuSystem *system)
 {
-
     if (!system) return;
-
     SubMenu *menu = system->currentMenu;
     uint8_t  idx  = menu->currentItemIndex;
 
-    // 1) limpia buffer principal
+    // 1) limpia buffer principal y modos
     OLED_ClearBuffer(&oledTask, false);
     OLED_SetBitmapMode(&oledTask, true);
     OLED_SetFontMode(&oledTask,   true);
     OLED_SetFont(&oledTask, &Font_11x18);
 
-    // 2) ítem anterior
+    // 2) calculo dinámico de Y para anterior, actual y siguiente
+    int16_t yPrev = Y_OFFSET + (idx - 1)*Y_SPACING;
+    int16_t yCurr = Y_OFFSET +    idx *Y_SPACING;
+    int16_t yNext = Y_OFFSET + (idx + 1)*Y_SPACING;
+
+    // 3) ítem anterior (si existe)
     if (idx > 0) {
-        OLED_SetCursor(&oledTask, 23, Y_OFFSET);
+        // centramos verticalmente restando la mitad de la altura de la fuente
+        OLED_SetCursor(&oledTask,
+                       23,
+                       yPrev - (oledTask.font->FontHeight/2));
         OLED_DrawStr(&oledTask, menu->items[idx-1].name, false);
         if (menu->items[idx-1].icon) {
             OLED_DrawXBM(&oledTask,
-                         4, Y_OFFSET - 12,
+                         4,
+                         yPrev - 8,    // icono de 16px ligeramente por encima
                          16, 16,
                          menu->items[idx-1].icon,
                          false);
         }
     }
 
-    // 3) fondo del seleccionado
-    OLED_DrawBox(&oledTask,
-                1, Y_OFFSET + Y_SPACING - 12,
-                119, 21,
-                false);
+    // 4) recuadro de selección centrado sobre el ítem actual
+    int16_t frameY = yCurr - (ITEM_HEIGHT/2);
+    OLED_DrawFrame(&oledTask,
+                   1, frameY,
+                   119, ITEM_HEIGHT,
+                   false);
 
-    // 4) ítem actual
-    OLED_SetCursor(&oledTask, 23, Y_OFFSET + Y_SPACING + 2);
+    // 5) ítem actual
+    OLED_SetCursor(&oledTask,
+                   23,
+                   yCurr - (oledTask.font->FontHeight/2));
     OLED_DrawStr(&oledTask, menu->items[idx].name, false);
     if (menu->items[idx].icon) {
         OLED_DrawXBM(&oledTask,
-                     4, Y_OFFSET + Y_SPACING - 10,
-                     15, 16,
+                     4,
+                     yCurr - 8,
+                     16, 16,
                      menu->items[idx].icon,
                      false);
     }
 
-    // 5) ítem siguiente
+    // 6) ítem siguiente (si existe)
     if (idx + 1 < menu->itemCount) {
         OLED_SetCursor(&oledTask,
                        23,
-                       Y_OFFSET + 2*Y_SPACING + 3);
+                       yNext - (oledTask.font->FontHeight/2));
         OLED_DrawStr(&oledTask,
                      menu->items[idx+1].name,
                      false);
         if (menu->items[idx+1].icon) {
             OLED_DrawXBM(&oledTask,
-                         4, Y_OFFSET + 2*Y_SPACING - 9,
-                         15, 14,
+                         4,
+                         yNext - 8,
+                         16, 16,
                          menu->items[idx+1].icon,
                          false);
         }
     }
 
-    // 6) indicador lateral
+    // 7) indicador lateral a la altura del ítem actual
     OLED_DrawBox(&oledTask,
                 124,
-                Y_OFFSET - 3 + (idx * Y_SPACING),
+                yCurr - 3,
                 2,
                 6,
                 false);
 
+    // 8) enviamos la pantalla
+    OLED_SendBuffer(&oledTask);
 }
+
 
 void renderDashboard(void)
 {
@@ -130,7 +149,7 @@ void renderDashboard(void)
     OLED_ClearBuffer(&oledTask, false);
     // 2) Selecciona fuente y centra texto
     OLED_SetFont(&oledTask, &Font_11x18);
-    const char *msg = "HOLA MUNDO";
+    const char *msg = "INICIO";
     uint16_t w = strlen(msg) * oledTask.font->FontWidth;
     uint8_t  x = (OLED_WIDTH  - w) / 2;
     uint8_t  y = (OLED_HEIGHT - oledTask.font->FontHeight) / 2;

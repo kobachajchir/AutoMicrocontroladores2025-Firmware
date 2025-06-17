@@ -160,7 +160,7 @@ MenuItem mainMenuItems[] = {
     {"Modo",      submenu1_Open,      NULL, NULL, renderMenu_Wrapper},
     {"Pantallas", submenu2_Open,      NULL, NULL, renderMenu_Wrapper},
     {"Config.",   submenu3_Open,      NULL, NULL, renderMenu_Wrapper},
-    {"VOLVER",    navigateBackInMenu, NULL, NULL, renderDashboard_Wrapper}
+    {"VOLVER",    navigateBackInMenu, NULL, NULL, renderMenu_Wrapper}
 };
 
 // Menú principal
@@ -447,7 +447,8 @@ int main(void)
 		}
 		if(oledTask.init_done){
 			if(!IS_FLAG_SET(systemFlags, OLED_READY)){ //Inicializado completamente
-	            renderDashboard_Wrapper();
+	            menuSystem.renderFn = renderDashboard_Wrapper;
+	            menuSystem.renderFlag = true;
 	            OLED_SendBuffer(&oledTask);
 	            SET_FLAG(systemFlags, OLED_READY);
 			}else{
