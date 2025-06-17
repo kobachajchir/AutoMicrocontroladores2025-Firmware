@@ -30,6 +30,11 @@ static void changeMenu(MenuSystem *system, SubMenu *newMenu) {
     if (newMenu == &mainMenu && system->insideMenuFlag) {
         *(system->insideMenuFlag) = 1;
     }
+    if (newMenu == &mainMenu) {
+    	system->renderFn   = newMenu->items[newMenu->currentItemIndex].screenRenderFn;
+    }else{
+    	//Render del nuevo menu
+    }
 }
 
 /**
@@ -69,8 +74,8 @@ void MenuSystem_SetCallbacks(MenuSystem *system,
 }
 
 /**
- * Mueve el cursor al ítem anterior y ajusta scroll si es necesario.
- * Imprime el nombre del ítem actual por UART.
+ * Mueve el cursor al ítem anterior, ajusta scroll si es necesario
+ * y dispara el render de la nueva pantalla asociada.
  */
 void moveCursorUp(MenuSystem *system) {
     SubMenu *menu = system->currentMenu;
@@ -79,12 +84,18 @@ void moveCursorUp(MenuSystem *system) {
         if (menu->currentItemIndex < menu->firstVisibleItem) {
             menu->firstVisibleItem = menu->currentItemIndex;
         }
+        // Asignar la nueva función de render y activar el flag
+        MenuItem *it = &menu->items[menu->currentItemIndex];
+        if (it->screenRenderFn) {
+            system->renderFn   = it->screenRenderFn;
+            system->renderFlag = true;
+        }
     }
 }
 
 /**
- * Mueve el cursor al siguiente ítem y ajusta scroll si es necesario.
- * Imprime el nombre del ítem actual por UART.
+ * Mueve el cursor al siguiente ítem, ajusta scroll si es necesario
+ * y dispara el render de la nueva pantalla asociada.
  */
 void moveCursorDown(MenuSystem *system) {
     SubMenu *menu = system->currentMenu;
@@ -93,8 +104,15 @@ void moveCursorDown(MenuSystem *system) {
         if (menu->currentItemIndex >= menu->firstVisibleItem + MAX_VISIBLE_ITEMS) {
             menu->firstVisibleItem = menu->currentItemIndex - (MAX_VISIBLE_ITEMS - 1);
         }
+        // Asignar la nueva función de render y activar el flag
+        MenuItem *it = &menu->items[menu->currentItemIndex];
+        if (it->screenRenderFn) {
+            system->renderFn   = it->screenRenderFn;
+            system->renderFlag = true;
+        }
     }
 }
+
 
 
 /**

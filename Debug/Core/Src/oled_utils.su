@@ -1,9 +1,8 @@
-../Core/Src/oled_utils.c:44:6:renderDashboard_Wrapper	8	static
-../Core/Src/oled_utils.c:64:6:displayMenuCustom	40	static
+../Core/Src/oled_utils.c:56:6:displayMenuCustom	40	static
 ../Core/Src/oled_utils.c:28:6:renderMenu_Wrapper	8	static
-../Core/Src/oled_utils.c:141:6:displayMenu	8	static
-../Core/Src/oled_utils.c:151:6:renderDashboard	8	static
-../Core/Src/oled_utils.c:222:6:OLED_DrawIRBars	32	static
-../Core/Src/oled_utils.c:182:6:OLED_DrawIRGraph	40	static
+../Core/Src/oled_utils.c:127:6:renderDashboard	8	static
+../Core/Src/oled_utils.c:44:6:renderDashboard_Wrapper	8	static
+../Core/Src/oled_utils.c:192:6:OLED_DrawIRBars	32	static
+../Core/Src/oled_utils.c:154:6:OLED_DrawIRGraph	40	static
 ../Core/Src/oled_utils.c:36:6:renderValoresIR_Wrapper	8	static
-../Core/Src/oled_utils.c:167:6:renderValoresIR	8	static
+../Core/Src/oled_utils.c:141:6:renderValoresIR	8	static

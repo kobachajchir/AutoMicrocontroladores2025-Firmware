@@ -1,4 +1,6 @@
 #include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include "globals.h"
 #include "types/usart_buffer_type.h"
@@ -35,7 +37,7 @@ static uint16_t lastTxLen = 0;
  * @note    Usa un buffer interno de 128 bytes. Si el formato genera más de 127 caracteres,
  *          se truncará.
  */
-HAL_StatusTypeDef USART1_Printf(const char *fmt, ...)
+HAL_StatusTypeDef USART1_PrintfBlocking(const char *fmt, ...)
 {
     char buffer[128];
     va_list args;

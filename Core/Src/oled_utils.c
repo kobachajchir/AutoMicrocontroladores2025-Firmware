@@ -43,15 +43,7 @@ void renderValoresIR_Wrapper(void)
  */
 void renderDashboard_Wrapper(void)
 {
-    OLED_ClearBuffer(&oledTask, false);
-    OLED_SetFont(&oledTask, &Font_11x18);
-    // Centrar "HOLA MUNDO" en 128×64:
-    const char *msg = "HOLA MUNDO";
-    uint16_t w = strlen(msg) * oledTask.font->FontWidth;
-    uint8_t  x = (OLED_WIDTH - w) / 2;
-    uint8_t  y = (OLED_HEIGHT - oledTask.font->FontHeight) / 2;
-    OLED_SetCursor(&oledTask, x, y);
-    OLED_DrawStr(&oledTask, msg, false);
+    renderDashboard();
 }
 
 // ============================================================================
@@ -63,6 +55,7 @@ void renderDashboard_Wrapper(void)
  */
 void displayMenuCustom(MenuSystem *system)
 {
+
     if (!system) return;
 
     SubMenu *menu = system->currentMenu;
@@ -129,23 +122,6 @@ void displayMenuCustom(MenuSystem *system)
                 6,
                 false);
 
-    // 7) enviar sólo páginas sucias
-    OLED_SendBuffer(&oledTask);
-}
-
-// ============================================================================
-// displayMenu: la versión “básica” que sólo limpia y dibuja items
-// (si quieres conservarla para otros usos)
-// ============================================================================
-
-void displayMenu(MenuSystem *system)
-{
-    if (!system) return;
-    SubMenu *menu = system->currentMenu;
-
-    if (system->clearScreen) system->clearScreen();
-    // podría iterar sobre menu->firstVisibleItem… pero lo dejamos simple
-    if (system->renderFn) system->renderFn();
 }
 
 void renderDashboard(void)
@@ -160,8 +136,6 @@ void renderDashboard(void)
     uint8_t  y = (OLED_HEIGHT - oledTask.font->FontHeight) / 2;
     OLED_SetCursor(&oledTask, x, y);
     OLED_DrawStr(&oledTask, msg, false);
-    // 3) Envía sólo las páginas sucias
-    OLED_SendBuffer(&oledTask);
 }
 
 void renderValoresIR(void)
@@ -170,8 +144,6 @@ void renderValoresIR(void)
     OLED_ClearBuffer(&oledTask, false);
     // 2) Dibuja el gráfico IR
     OLED_DrawIRGraph(&oledTask, sensor_raw_data);
-    // 3) Envía sólo las páginas sucias
-    OLED_SendBuffer(&oledTask);
 }
 
 /**
@@ -210,8 +182,6 @@ void OLED_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
     // 5) barras
     OLED_DrawIRBars(oled, irValues);
 
-    // 6) enviar no bloqueante
-    OLED_SendBuffer(oled);
 }
 
 /**

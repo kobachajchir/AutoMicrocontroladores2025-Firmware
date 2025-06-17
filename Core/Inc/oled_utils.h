@@ -17,6 +17,7 @@
 #include "oled_utils.h"      // para OLED_DrawIRGraph, etc.
 #include "globals.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 // ─── Wrappers de render ──────────────────────────────────────────────────────
 

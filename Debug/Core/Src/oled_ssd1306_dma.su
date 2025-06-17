@@ -24,7 +24,7 @@
 ../Core/Src/oled_ssd1306_dma.c:390:6:OLED_DrawXBM	48	static
 ../Core/Src/oled_ssd1306_dma.c:381:6:OLED_DrawBitmap	24	static
 ../Core/Src/oled_ssd1306_dma.c:406:6:OLED_DrawStr	56	static
-../Core/Src/oled_ssd1306_dma.c:452:6:OLED_SetBitmapMode	0	static
-../Core/Src/oled_ssd1306_dma.c:457:6:OLED_SetFontMode	0	static
-../Core/Src/oled_ssd1306_dma.c:462:19:OLED_SendBuffer	16	static,ignoring_inline_asm
-../Core/Src/oled_ssd1306_dma.c:508:6:OLED_ActivateOverlay	16	static
+../Core/Src/oled_ssd1306_dma.c:455:6:OLED_SetBitmapMode	0	static
+../Core/Src/oled_ssd1306_dma.c:460:6:OLED_SetFontMode	0	static
+../Core/Src/oled_ssd1306_dma.c:465:19:OLED_SendBuffer	16	static,ignoring_inline_asm
+../Core/Src/oled_ssd1306_dma.c:511:6:OLED_ActivateOverlay	16	static

@@ -433,10 +433,13 @@ void OLED_DrawStr(OLED_HandleTypeDef *oled,
                             ? oled->frame_buffer_overlay
                             : oled->frame_buffer_main;
                         buf[idx] |= (1 << (py & 7));
-                        if (use_overlay)
+                        if (use_overlay){
                             oled->page_dirty_overlay[py >> 3] = true;
-                        else
+                        }
+                        else{
                             oled->page_dirty_main[py >> 3] = true;
+                            //Aca tendria que ver el column start y setearlo
+                        }
                     }
                 }
             }
@@ -494,7 +497,7 @@ HAL_StatusTypeDef OLED_SendBuffer(OLED_HandleTypeDef *oled) {
         }
     }
 
-    if (any) {
+    if (any) { //TENDRIAMOS QUE hacer una request al i2c manager a traves del requestCb
         //forzamos al HAL-I2C a estar listo para un nuevo DMA
         //    (así HAL_I2C_Mem_Write_DMA devolverá HAL_OK)
         oled->hi2c->State     = HAL_I2C_STATE_READY;

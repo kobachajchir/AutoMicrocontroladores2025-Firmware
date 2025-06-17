@@ -447,10 +447,9 @@ int main(void)
 		}
 		if(oledTask.init_done){
 			if(!IS_FLAG_SET(systemFlags, OLED_READY)){ //Inicializado completamente
-	            __NOP();
-	            SET_FLAG(systemFlags, OLED_READY);
 	            renderDashboard_Wrapper();
 	            OLED_SendBuffer(&oledTask);
+	            SET_FLAG(systemFlags, OLED_READY);
 			}else{
 				OLED_MainTask();
 			}
@@ -1025,7 +1024,7 @@ void initCarMode(){
 	btnUser.counter = 0;
 	btnUser.port = User_BTN_GPIO_Port;
 	btnUser.pin = User_BTN_Pin;
-	ENC_Init(&encoder, &htim4, 1, 2,EncoderSW_GPIO_Port, EncoderSW_Pin);
+	ENC_Init(&encoder, &htim4, 1, 2, EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
 }
@@ -1038,13 +1037,19 @@ void UserBtn_MainTask(ButtonState_t *h){
 	if (IS_FLAG_SET(h->flags, BTN_USER_LONG_PRESS)) { // Acción long, entra y sale del menu
 		//Handle_ModeChange_ByButton(h, &ledStatus);
 		if(INSIDE_MENU){
-			USART1_PrintString("Exited menu system\r\n");
+			USART1_PrintBlocking("Exited menu system\r\n");
+			menuSystem.renderFn = renderDashboard_Wrapper;
+			menuSystem.renderFlag = true;
+			oledTask.overlay_active = false;
+			oledTask.overlay_timeout_active = true;
 			inside_menu_flag = 0;
 		}else{
-			USART1_PrintString("Entered menu system\r\n");
+			USART1_PrintBlocking("Entered menu system\r\n");
+			menuSystem.renderFn = renderMenu_Wrapper;
+		    oledTask.overlay_active = false;
+		    oledTask.overlay_timeout_active = false;
 			inside_menu_flag = 1;
 		}
-		__NOP();
 		CLEAR_FLAG(h->flags, BTN_USER_LONG_PRESS);
 	}
 }
@@ -1054,41 +1059,75 @@ void Encoder_MainTask(ENC_Handle_t *h)
     // ROTARY: si hubo giro, avanzamos o retrocedemos en el menú
     if (IS_FLAG_SET(h->flags, ENC_FLAG_UPDATED)) {
         CLEAR_FLAG(h->flags, ENC_FLAG_UPDATED);
+
         if (INSIDE_MENU) {
             if (h->dir == ENC_DIR_CW) {
                 moveCursorDown(&menuSystem);
+                menuSystem.renderFlag = true;
+                oledTask.overlay_active = false;
+				oledTask.overlay_timeout_active = false;
             }
             else if (h->dir == ENC_DIR_CCW) {
                 moveCursorUp(&menuSystem);
+                menuSystem.renderFlag = true;
+                oledTask.overlay_active = false;
+				oledTask.overlay_timeout_active = false;
             }
-            // Imprimir el nombre
-            const char *name = menuSystem.currentMenu->items[menuSystem.currentMenu->currentItemIndex].name;
-            char buf[64];
-            sprintf(buf, "Current item: %s\r\n", name);
-            USART1_PrintString(buf);
-        } else {
+
+            // Imprimir el nombre del item actual
+            const char *name = menuSystem.currentMenu
+                               ->items[menuSystem.currentMenu->currentItemIndex]
+                               .name;
+            // Llamada directa a printf‐style bloqueante:
+            HAL_StatusTypeDef st = USART1_PrintfBlocking("Current item: %s\r\n", name);
+            if (st != HAL_OK) {
+            	__NOP();
+            }
+        }
+        else {
             // fuera del menú, podrías usar el encoder para otra cosa
         }
     }
 
-    // SHORT PRESS: dentro del menú ejecuta acción; fuera no hace nada
+    // SHORT PRESS: dentro del menú ejecuta acción
     if (IS_FLAG_SET(h->btnState.flags, ENC_BTN_SHORT_PRESS)) {
         CLEAR_FLAG(h->btnState.flags, ENC_BTN_SHORT_PRESS);
-        if (INSIDE_MENU) {
-        	selectCurrentItem(&menuSystem);
-        	//Aca iria el call al render de cada item
-        }else{
 
+        if (INSIDE_MENU) {
+            // nuevamente, recuperamos el nombre actual
+            const char *name = menuSystem.currentMenu
+                               ->items[menuSystem.currentMenu->currentItemIndex]
+                               .name;
+
+            HAL_StatusTypeDef st = USART1_PrintfBlocking("Select item: %s\r\n", name);
+		   if (st != HAL_OK) {
+			   __NOP();
+		   }
+
+            selectCurrentItem(&menuSystem);
+			menuSystem.renderFlag = true;
+			oledTask.overlay_active = false;
+			oledTask.overlay_timeout_active = false;
+            // Aquí podrías llamar al render del nuevo item
+        }
+        else {
+            // fuera del menú: nada
         }
     }
 
-    // LONG PRESS: dentro vuelve al main menu; fuera nada
+    // LONG PRESS: dentro vuelve al menú principal
     if (IS_FLAG_SET(h->btnState.flags, ENC_BTN_LONG_PRESS)) {
         CLEAR_FLAG(h->btnState.flags, ENC_BTN_LONG_PRESS);
-        if (INSIDE_MENU) {
-            navigateToMainMenu(&menuSystem);
-        } else {
 
+        if (INSIDE_MENU) {
+        	HAL_StatusTypeDef st = USART1_PrintBlocking("Navego a menú principal\r\n");
+        	if (st != HAL_OK) {
+			   __NOP();
+		   }
+            navigateToMainMenu(&menuSystem);
+        }
+        else {
+            // fuera del menú: nada
         }
     }
 }
@@ -1243,12 +1282,13 @@ void i2cManager_MainTask(){
 void OLED_MainTask(void) {
     // 1) Compruebo si han pasado 10 ms:
     if (!IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED)) {
-        return;
+
+    }else{
+		CLEAR_FLAG(systemFlags, OLED_TENMS_PASSED);
     }
-    CLEAR_FLAG(systemFlags, OLED_TENMS_PASSED);
 
     // 2) Si tienes un overlay activo, actualiza su temporizador...
-    if (oledTask.overlay_active) {
+    if (oledTask.overlay_active && oledTask.overlay_timeout_active) {
         if (oledTask.overlay_timer_ms >= 10) {
             oledTask.overlay_timer_ms -= 10;
         } else {
@@ -1259,11 +1299,6 @@ void OLED_MainTask(void) {
             }
             OLED_SendBuffer(&oledTask);
         }
-    }
-
-    // 3) Si estamos en mainMenu, el wrapper por defecto es el dashboard:
-    if (menuSystem.currentMenu == &mainMenu) {
-        menuSystem.renderFn   = renderDashboard_Wrapper;
     }
 
     // 4) Finalmente, si hay algo que renderizar:

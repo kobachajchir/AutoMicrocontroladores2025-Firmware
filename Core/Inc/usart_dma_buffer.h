@@ -246,7 +246,7 @@ HAL_StatusTypeDef USART1_PushTxU16Values(USART_Buffer_t *buf,
  *         hayan sido físicamente enviados por PA9.
  */
 HAL_StatusTypeDef USART1_PrintBlocking(const char *str);
-HAL_StatusTypeDef USART1_Printf(const char *fmt, ...);
+HAL_StatusTypeDef USART1_PrintfBlocking(const char *fmt, ...);
 HAL_StatusTypeDef USART1_PrintValue(uint32_t value, uint8_t base);
 
 

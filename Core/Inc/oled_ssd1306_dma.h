@@ -48,6 +48,7 @@ typedef struct {
     bool    page_dirty_main[OLED_MAX_PAGES];             /**< Flags de páginas modificadas */
     bool    page_dirty_overlay[OLED_MAX_PAGES];             /**< Flags de páginas modificadas */
     bool    overlay_active;      /**< Overlay activo */
+    bool    overlay_timeout_active; //Auto clear overlay
     uint16_t overlay_timer_ms;   /**< Tiempo restante (ms) */
     /* Cola circular de requests de página */
     OLED_Page_t page_queue[OLED_QUEUE_DEPTH];
