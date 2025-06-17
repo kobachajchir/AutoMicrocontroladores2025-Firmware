@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdbool.h>
+#include "globals.h"
 #include "types/usart_buffer_type.h"
 #include "usart_dma_buffer.h"
 #include "stm32f1xx_hal.h"
@@ -21,6 +22,121 @@ static USART_Buffer_t        *bufPtr        = NULL;
 
 // Número de bytes que la última llamada solicitó al DMA (≤64)
 static uint16_t lastTxLen = 0;
+
+/**
+ * @brief   Transmite una cadena formateada (printf‐style) de forma bloqueante por USART1.
+ * @param   fmt     Cadena de formato (igual que printf).
+ * @param   ...     Argumentos variables según fmt.
+ * @retval  HAL_OK       Si todo salió bien.
+ * @retval  HAL_ERROR    Si hubo error al formatear o transmitIR.
+ * @retval  HAL_BUSY     Si UART1 estaba ocupado.
+ * @retval  HAL_TIMEOUT  Si se agotó el timeout (usamos HAL_MAX_DELAY).
+ *
+ * @note    Usa un buffer interno de 128 bytes. Si el formato genera más de 127 caracteres,
+ *          se truncará.
+ */
+HAL_StatusTypeDef USART1_Printf(const char *fmt, ...)
+{
+    char buffer[128];
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    if (len < 0) {
+        return HAL_ERROR;              // fallo interno de vsnprintf
+    }
+    if (len > (int)(sizeof(buffer)-1)) {
+        len = sizeof(buffer)-1;        // truncar
+    }
+    // Bloqueante: transmite y espera a que termine incluyendo el stop bit
+    return HAL_UART_Transmit(uartHandle,
+                             (uint8_t*)buffer,
+                             (uint16_t)len,
+                             HAL_MAX_DELAY);
+}
+
+/**
+ * @brief   Transmite un valor entero en un formato numérico específico.
+ * @param   value   Valor a imprimir (32 bits sin signo).
+ * @param   base    Base para la representación:
+ *                   - 2  → binario
+ *                   - 10 → decimal
+ *                   - 16 → hexadecimal (letras mayúsculas)
+ * @retval  HAL_OK       Si la impresión y transmisión fueron exitosas.
+ * @retval  HAL_ERROR    Si base no es 2/10/16 o falla al formatear.
+ * @retval  HAL_BUSY     Si UART1 está ocupado.
+ * @retval  HAL_TIMEOUT  Si se agotó el timeout.
+ *
+ * @note    El output siempre termina con "\r\n".
+ */
+
+HAL_StatusTypeDef USART1_PrintValue(uint32_t value, uint8_t base)
+{
+    char buffer[40];
+    int pos = 0;
+
+    if (base == 2) {
+        // Convertir a binario (sin ceros líderes)
+        bool started = false;
+        for (int b = 31; b >= 0; b--) {
+            bool bit = (value >> b) & 1;
+            if (bit) started = true;
+            if (started) {
+                buffer[pos++] = bit ? '1' : '0';
+                if (pos >= (int)sizeof(buffer)-3) break;
+            }
+        }
+        if (!started) {
+            buffer[pos++] = '0';
+        }
+    }
+    else if (base == 10) {
+        pos = snprintf(buffer, sizeof(buffer), "%lu", (unsigned long)value);
+    }
+    else if (base == 16) {
+        pos = snprintf(buffer, sizeof(buffer), "%lX", (unsigned long)value);
+    }
+    else {
+        return HAL_ERROR;  // base inválida
+    }
+
+    if (pos < 0 || pos >= (int)sizeof(buffer)-2) {
+        return HAL_ERROR;  // formateo falló o buffer insuficiente
+    }
+
+    // añadir CRLF
+    buffer[pos++] = '\r';
+    buffer[pos++] = '\n';
+
+    // bloquear hasta enviar todo
+    return HAL_UART_Transmit(uartHandle,
+                             (uint8_t*)buffer,
+                             (uint16_t)pos,
+                             HAL_MAX_DELAY);
+}
+
+/**
+ * @brief  Transmite de forma bloqueante una cadena por el USART1 previamente registrado.
+ * @param  str  Cadena C-terminada en '\0' que se desea enviar.
+ * @retval HAL_OK       Si la transmisión finalizó correctamente.
+ * @retval HAL_ERROR    Si hubo error (por ejemplo, no se registró el handle).
+ * @retval HAL_BUSY     Si el periférico UART está ocupado.
+ * @retval HAL_TIMEOUT  Si se superó el tiempo máximo de espera.
+ *
+ * @note   Usa HAL_MAX_DELAY como timeout, por lo que bloqueará hasta terminar.
+ */
+HAL_StatusTypeDef USART1_PrintBlocking(const char *str)
+{
+    if (str == NULL || uartHandle == NULL) {
+        return HAL_ERROR;
+    }
+    uint16_t len = (uint16_t)strlen(str);
+    return HAL_UART_Transmit(uartHandle,
+                             (uint8_t*)str,
+                             len,
+                             HAL_MAX_DELAY);
+}
 
 /**
  * @brief  Registra el handle UART1 (debe llamarse tras MX_USART1_UART_Init).

@@ -87,6 +87,13 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
 							uint16_t oled_dev_address,
                             volatile uint8_t  *dma_busy_flag, I2C_Request_Bus_Use requestBusCbFn);
 
+/**
+ * @brief   Lanza la secuencia de init por DMA (envío de ssd1306_init_seq).
+ *          Debe llamarse justo después de OLED_Init().
+ * @param   oled  puntero al handle ya inicializado.
+ */
+void initOLEDSequence(OLED_HandleTypeDef *oled);
+
 /** Borra buffer principal u overlay y marca páginas dirty */
 void OLED_ClearBuffer(OLED_HandleTypeDef *oled, bool clear_overlay);
 

@@ -31,16 +31,6 @@ void renderMenu_Wrapper(void)
 }
 
 /**
- * @brief  Wrapper para volver: renderiza el menú padre.
- */
-void renderBack_Wrapper(void)
-{
-    // tras haber ajustado menuSystem.currentMenu en volver(),
-    // llamamos al render de ese menú:
-    displayMenuCustom(&menuSystem);
-}
-
-/**
  * @brief  Wrapper para la pantalla de Valores IR.
  */
 void renderValoresIR_Wrapper(void)

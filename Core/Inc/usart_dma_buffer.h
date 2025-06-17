@@ -145,6 +145,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include "types/usart_buffer_type.h"
 #include "stm32f1xx_hal.h"
 
@@ -231,6 +232,22 @@ void USART1_DMA_TxDMACpltHandler(DMA_HandleTypeDef *hdma);
 HAL_StatusTypeDef USART1_PushTxU16Values(USART_Buffer_t *buf,
                                          const uint16_t *values,
                                          uint16_t length);
+
+/**
+ * @brief  Transmite de forma bloqueante una cadena por USART1.
+ * @param  str  Cadena C-terminada en '\0' que se desea enviar.
+ * @retval HAL_OK       Si la transmisión finalizó correctamente.
+ * @retval HAL_ERROR    Si hubo un error en la transmisión.
+ * @retval HAL_BUSY     Si el periférico UART está ocupado.
+ * @retval HAL_TIMEOUT  Si se superó el tiempo máximo de espera.
+ *
+ * @note   Esta función usa HAL_UART_Transmit() con timeout infinito (HAL_MAX_DELAY),
+ *         por lo que bloqueará la ejecución hasta que todos los bytes y el stop bit
+ *         hayan sido físicamente enviados por PA9.
+ */
+HAL_StatusTypeDef USART1_PrintBlocking(const char *str);
+HAL_StatusTypeDef USART1_Printf(const char *fmt, ...);
+HAL_StatusTypeDef USART1_PrintValue(uint32_t value, uint8_t base);
 
 
 

@@ -157,9 +157,9 @@ MenuSystem menuSystem = {
 
 // Ítems del menú principal
 MenuItem mainMenuItems[] = {
-    {"Modo",      submenu1_Open,      NULL, NULL, displayMenuCustom},
-    {"Pantallas", submenu2_Open,      NULL, NULL, displayMenuCustom},
-    {"Config.",   submenu3_Open,      NULL, NULL, displayMenuCustom},
+    {"Modo",      submenu1_Open,      NULL, NULL, renderMenu_Wrapper},
+    {"Pantallas", submenu2_Open,      NULL, NULL, renderMenu_Wrapper},
+    {"Config.",   submenu3_Open,      NULL, NULL, renderMenu_Wrapper},
     {"VOLVER",    navigateBackInMenu, NULL, NULL, renderDashboard_Wrapper}
 };
 
@@ -179,7 +179,7 @@ MenuItem submenu1Items[] = {
     {"IDLE",   setMode_IDLE,       NULL, NULL, NULL},
     {"FOLLOW", setMode_FOLLOW,     NULL, NULL, NULL},
     {"TEST",   setMode_TEST,       NULL, NULL, NULL},
-    {"VOLVER", navigateBackInMenu, &mainMenu, NULL, displayMenuCustom}
+    {"VOLVER", navigateBackInMenu, &mainMenu, NULL, renderMenu_Wrapper}
 };
 
 SubMenu submenu1 = {
@@ -195,7 +195,7 @@ SubMenu submenu1 = {
 // Ítems del submenu 2 (“Pantallas”)
 MenuItem submenu2Items[] = {
     {"Valores IR",     NULL,               NULL, NULL, renderValoresIR_Wrapper},
-    {"VOLVER",         navigateBackInMenu, &mainMenu, NULL, displayMenuCustom}
+    {"VOLVER",         navigateBackInMenu, &mainMenu, NULL, renderMenu_Wrapper}
 };
 
 SubMenu submenu2 = {
@@ -212,7 +212,7 @@ SubMenu submenu2 = {
 MenuItem submenu3Items[] = {
     {"Option 1", NULL,               NULL, NULL, NULL},
     {"Option 2", NULL,               NULL, NULL, NULL},
-    {"VOLVER",   navigateBackInMenu, &mainMenu, NULL, displayMenuCustom}
+    {"VOLVER",   navigateBackInMenu, &mainMenu, NULL, renderMenu_Wrapper}
 };
 
 SubMenu submenu3 = {
@@ -329,6 +329,14 @@ static void MyRxHandler(uint8_t byte)
     USART1_PushTxString(&usart1Buf, eco);
 }
 
+/*// Mensaje formateado:
+USART1_Printf("Sensor %d: umbral=0x%X\r\n", idx, umbral);
+if (USART1_PrintBlocking("Mensaje bloqueante por USART1\r\n") != HAL_OK) {
+    // Manejar error
+}
+ *
+*/
+
 
 /* USER CODE END 0 */
 
@@ -408,6 +416,8 @@ int main(void)
 					   I2C_ADDR_OLED,
 					   &oled_dma_busy_flag,    // ← pasa la bandera DMA
 					   OLED_RequestBusUse_I2CManager);
+			  initOLEDSequence(&oledTask);
+			  __NOP();
 		  } else {
 			  // Falló al registrar (posiblemente sin espacio en la tabla)
 			  USART1_PushTxString(&usart1Buf, "OLED NO Registrado");
@@ -435,9 +445,15 @@ int main(void)
 			UserBtn_MainTask(&btnUser);
 			Encoder_MainTask(&encoder);
 		}
-		if(IS_FLAG_SET(systemFlags, OLED_READY)){ //Inicializado completamente
-			__NOP();
-			OLED_MainTask();
+		if(oledTask.init_done){
+			if(!IS_FLAG_SET(systemFlags, OLED_READY)){ //Inicializado completamente
+	            __NOP();
+	            SET_FLAG(systemFlags, OLED_READY);
+	            renderDashboard_Wrapper();
+	            OLED_SendBuffer(&oledTask);
+			}else{
+				OLED_MainTask();
+			}
 		}
 		MPU_MainTask();
 		Motor_MainTask();
@@ -1011,15 +1027,6 @@ void initCarMode(){
 	btnUser.pin = User_BTN_Pin;
 	ENC_Init(&encoder, &htim4, 1, 2,EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
-	if(OLED_Is_Ready(&oledTask)){
-	  OLED_SetFont(&oledTask, &Font_11x18);
-	  OLED_ClearBuffer(&oledTask, false);
-	  OLED_SetCursor(&oledTask, 0, 0);
-	  OLED_DrawStr(&oledTask, "HOLA MUNDO", false);
-	  OLED_SendBuffer(&oledTask);
-	  USART1_PrintString("OLED read\r\n");
-	  SET_FLAG(systemFlags, OLED_READY);
-	}
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
 }
 
@@ -1234,30 +1241,38 @@ void i2cManager_MainTask(){
 
 
 void OLED_MainTask(void) {
-    // Verificar si pasó el tiempo de 10 ms y hay overlay activo
-	if (IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED) && oledTask.overlay_active){
-		// Decrementar el temporizador del overlay
-		if (oledTask.overlay_timer_ms >= 10) {
-			oledTask.overlay_timer_ms -= 10;
-		} else {
-			// Tiempo agotado, desactivar overlay y marcar todas las páginas como sucias
-			oledTask.overlay_active = false;
-
-			for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
-				oledTask.page_dirty_main[p] = true;
-			}
-
-			OLED_SendBuffer(&oledTask);
-		}
+    // 1) Compruebo si han pasado 10 ms:
+    if (!IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED)) {
+        return;
     }
-    if (menuSystem.renderFlag &&
-        menuSystem.renderFn) {
+    CLEAR_FLAG(systemFlags, OLED_TENMS_PASSED);
+
+    // 2) Si tienes un overlay activo, actualiza su temporizador...
+    if (oledTask.overlay_active) {
+        if (oledTask.overlay_timer_ms >= 10) {
+            oledTask.overlay_timer_ms -= 10;
+        } else {
+            oledTask.overlay_active = false;
+            // marco todas las páginas main como dirty
+            for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
+                oledTask.page_dirty_main[p] = true;
+            }
+            OLED_SendBuffer(&oledTask);
+        }
+    }
+
+    // 3) Si estamos en mainMenu, el wrapper por defecto es el dashboard:
+    if (menuSystem.currentMenu == &mainMenu) {
+        menuSystem.renderFn   = renderDashboard_Wrapper;
+    }
+
+    // 4) Finalmente, si hay algo que renderizar:
+    if (menuSystem.renderFlag && menuSystem.renderFn) {
         menuSystem.renderFlag = false;
         menuSystem.renderFn();
         OLED_SendBuffer(&oledTask);
     }
 }
-
 
 void initMenuSystemTask(void) {
     initMenuSystem(&menuSystem);

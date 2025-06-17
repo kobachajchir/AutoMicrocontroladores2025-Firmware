@@ -7,12 +7,18 @@
 #include <string.h>
 #include "math.h"
 
+#if OLED_MAX_PAGES == 0
+#  error "OLED_MAX_PAGES está a 0 — revisa dónde lo defines"
+#endif
+
+
 /**
  * @brief Inicia transferencia DMA de la siguiente página en cola
  * @param oled  puntero al handle
  */
 static void OLED_StartNextTransfer(OLED_HandleTypeDef *oled) {
 	__NOP();
+
     if (!oled) return;
     /* Verificar DMA libre */
     if (*(oled->dma_busy_flag)) return;
@@ -26,6 +32,8 @@ static void OLED_StartNextTransfer(OLED_HandleTypeDef *oled) {
                         oled->frame_buffer_main;
     uint16_t offset = req.page * OLED_WIDTH + req.column_start;
 
+
+
     /* Iniciar DMA I2C del fragmento */
     if (HAL_I2C_Mem_Write_DMA(
             oled->hi2c,
@@ -34,7 +42,8 @@ static void OLED_StartNextTransfer(OLED_HandleTypeDef *oled) {
             MEMADD_SIZE_8BIT,
             &buffer[offset],
             req.length) == HAL_OK) {
-        *(oled->dma_busy_flag) = 1;
+    	__NOP();
+    	*(oled->dma_busy_flag) = 1;
     }
 }
 
@@ -46,6 +55,7 @@ static void OLED_DequeuePage(OLED_HandleTypeDef *oled) {
     if (oled->queue_count == 0) return;
     oled->queue_head = (oled->queue_head + 1) % OLED_QUEUE_DEPTH;
     oled->queue_count--;
+    __NOP();
 }
 
 void OLED_Is_Ready(OLED_HandleTypeDef *oled){
@@ -57,7 +67,7 @@ void OLED_Is_Ready(OLED_HandleTypeDef *oled){
  */
 void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled) {
     *(oled->dma_busy_flag) = 0;
-
+    __NOP();
     if (!oled->init_done) {
         if (oled->init_idx < oled->init_len) {
             // más comandos de init
@@ -74,6 +84,7 @@ void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled) {
     else {
         // flujo de páginas de datos
         OLED_DequeuePage(oled);
+        __NOP();
         oled->requestBusCb();
     }
 }
@@ -82,7 +93,6 @@ void OLED_GrantAccessCallback(OLED_HandleTypeDef *oled) {
     if (!oled->init_done) {
         // enviar un solo comando de init
         uint8_t cmd = oled->init_cmds[oled->init_idx++];
-        __NOP();
         if (HAL_I2C_Mem_Write_DMA(
                 oled->hi2c,
 				oled->oled_dev_address<<1,
@@ -90,6 +100,7 @@ void OLED_GrantAccessCallback(OLED_HandleTypeDef *oled) {
                 MEMADD_SIZE_8BIT,
                 &cmd,
                 1) == HAL_OK) {
+			//__NOP();
             *(oled->dma_busy_flag) = 1;
         }
     }
@@ -127,6 +138,16 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
     oled->cursor_y = 0;
 
     return HAL_OK;
+}
+
+void initOLEDSequence(OLED_HandleTypeDef *oled)
+{
+    if (!oled) return;
+    // 1) marcamos el DMA como “ocupado” para que OLED_DMA_CompleteCallback
+    //    libere el flag y continúe con el siguiente byte/comando.
+    *(oled->dma_busy_flag) = 1;
+    // 2) solicitamos el bus I2C y disparamos el primer comando de init
+    oled->requestBusCb();
 }
 
 void OLED_ClearBuffer(OLED_HandleTypeDef *oled, bool clear_overlay) {
@@ -439,9 +460,8 @@ void OLED_SetFontMode(OLED_HandleTypeDef *oled, bool normal) {
 }
 
 HAL_StatusTypeDef OLED_SendBuffer(OLED_HandleTypeDef *oled) {
-	__NOP();
     bool any = false;
-    // Primero páginas main
+    // encolamos páginas “main”
     for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
         if (oled->page_dirty_main[p]) {
             if (oled->queue_count >= OLED_QUEUE_DEPTH) return HAL_BUSY;
@@ -457,7 +477,7 @@ HAL_StatusTypeDef OLED_SendBuffer(OLED_HandleTypeDef *oled) {
             any = true;
         }
     }
-    // Luego páginas overlay
+    // encolamos páginas “overlay”
     for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
         if (oled->page_dirty_overlay[p]) {
             if (oled->queue_count >= OLED_QUEUE_DEPTH) return HAL_BUSY;
@@ -473,9 +493,14 @@ HAL_StatusTypeDef OLED_SendBuffer(OLED_HandleTypeDef *oled) {
             any = true;
         }
     }
+
     if (any) {
-        // En lugar de arrancar DMA directamente:
-        oled->requestBusCb();
+        //forzamos al HAL-I2C a estar listo para un nuevo DMA
+        //    (así HAL_I2C_Mem_Write_DMA devolverá HAL_OK)
+        oled->hi2c->State     = HAL_I2C_STATE_READY;
+		oled->hi2c->ErrorCode = HAL_I2C_ERROR_NONE;
+        __NOP();
+        OLED_StartNextTransfer(oled);
     }
     return HAL_OK;
 }
