@@ -2,7 +2,7 @@
 ../Core/Src/oled_utils.c:33:6:renderMenu_Wrapper	1
 ../Core/Src/oled_utils.c:149:6:renderDashboard	1
 ../Core/Src/oled_utils.c:54:6:renderDashboard_Wrapper	1
-../Core/Src/oled_utils.c:212:6:OLED_DrawIRBars	5
+../Core/Src/oled_utils.c:212:6:OLED_DrawIRBars	4
 ../Core/Src/oled_utils.c:174:6:OLED_DrawIRGraph	3
 ../Core/Src/oled_utils.c:161:6:renderValoresIR	1
 ../Core/Src/oled_utils.c:41:6:renderValoresIR_Wrapper	2

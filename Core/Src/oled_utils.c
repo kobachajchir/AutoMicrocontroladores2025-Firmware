@@ -18,8 +18,8 @@ const uint8_t text_bar_x[OLED_BAR_COUNT] = {
     64, 79, 94, 109
 };
 const uint8_t bar_x[OLED_BAR_COUNT] = {
-    0*BAR_WIDTH, 1*BAR_WIDTH, 2*BAR_WIDTH, 3*BAR_WIDTH,
-    4*BAR_WIDTH, 5*BAR_WIDTH, 6*BAR_WIDTH, 7*BAR_WIDTH
+    5, 20, 35, 50,
+    65, 80, 95, 110
 };
 
 // ============================================================================
@@ -216,33 +216,36 @@ void OLED_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
     const uint8_t bar_y0 = sep_y + 1;
     const uint8_t maxH   = OLED_HEIGHT - bar_y0;
 
-    // Páginas involucradas en la zona de barras
+    // 1) Calcular páginas involucradas
     const uint8_t page_start = bar_y0 / 8;
     const uint8_t page_end   = (OLED_HEIGHT - 1) / 8;
 
-    // Limpiar área completa de las barras (solo las columnas de las barras)
-    for (int i = 0; i < OLED_BAR_COUNT; i++) {
-        for (uint8_t page = page_start; page <= page_end; page++) {
-            uint16_t offset = page * OLED_WIDTH + bar_x[i];
-            memset(&oled->frame_buffer_main[offset], 0x00, BAR_WIDTH);
-        }
+    // 2) Limpiar área completa del recuadro de barras
+    for (uint8_t page = page_start; page <= page_end; page++) {
+        uint16_t offset = page * OLED_WIDTH;
+        memset(&oled->frame_buffer_main[offset], 0x00, OLED_WIDTH);
+        oled->page_dirty_main[page] = true;
     }
 
-    // Dibujar cada barra
+    // 3) Dibujar cada barra IR
     for (int i = 0; i < OLED_BAR_COUNT; i++) {
-        // 1) Clamp del valor IR
-        uint16_t v = irValues[i] > 4095 ? 4095 : irValues[i];
-        // 2) Mapeo a altura de barra
+        // Clamp del valor IR
+        uint16_t v = (irValues[i] > 4095) ? 4095 : irValues[i];
+
+        // Mapeo a altura
         uint8_t h = (uint32_t)v * maxH / 4095;
+
+        // Y de inicio (crece hacia arriba)
         uint8_t y0 = bar_y0 + (maxH - h);
 
-        // 3) DIBUJAR la barra actual
+        // Dibujo de la barra
         OLED_DrawBox(oled,
-                     bar_x[i],
+                     bar_x[i],  // posición X según tabla
                      y0,
-                     BAR_WIDTH,
-                     h,
-                     false);        // false = dibujar en main
+                     BAR_WIDTH, // ancho de barra = 12 px
+                     h,         // altura mapeada
+                     false);    // false = dibujar en frame_buffer_main
     }
 }
+
 
