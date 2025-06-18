@@ -33,7 +33,7 @@ static void changeMenu(MenuSystem *system, SubMenu *newMenu) {
     if (newMenu == &mainMenu) {
     	system->renderFn   = newMenu->items[newMenu->currentItemIndex].screenRenderFn;
     }else{
-    	//Render del nuevo menu
+    	system->renderFn   = newMenu->items[newMenu->currentItemIndex].screenRenderFn;
     }
 }
 
@@ -84,12 +84,6 @@ void moveCursorUp(MenuSystem *system) {
         if (menu->currentItemIndex < menu->firstVisibleItem) {
             menu->firstVisibleItem = menu->currentItemIndex;
         }
-        // Asignar la nueva función de render y activar el flag
-        MenuItem *it = &menu->items[menu->currentItemIndex];
-        if (it->screenRenderFn) {
-            system->renderFn   = it->screenRenderFn;
-            system->renderFlag = true;
-        }
     }
 }
 
@@ -103,12 +97,6 @@ void moveCursorDown(MenuSystem *system) {
         menu->currentItemIndex++;
         if (menu->currentItemIndex >= menu->firstVisibleItem + MAX_VISIBLE_ITEMS) {
             menu->firstVisibleItem = menu->currentItemIndex - (MAX_VISIBLE_ITEMS - 1);
-        }
-        // Asignar la nueva función de render y activar el flag
-        MenuItem *it = &menu->items[menu->currentItemIndex];
-        if (it->screenRenderFn) {
-            system->renderFn   = it->screenRenderFn;
-            system->renderFlag = true;
         }
     }
 }

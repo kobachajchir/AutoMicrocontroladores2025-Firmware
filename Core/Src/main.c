@@ -1,4 +1,4 @@
-/* USER CODE BEGIN Header */
+// 8 páginas * 2 buffers/* USER CODE BEGIN Header */
 /**
  ******************************************************************************
  * @file           : main.c
@@ -1036,19 +1036,15 @@ void UserBtn_MainTask(ButtonState_t *h){
 	if (IS_FLAG_SET(h->flags, BTN_USER_LONG_PRESS)) { // Acción long, entra y sale del menu
 		//Handle_ModeChange_ByButton(h, &ledStatus);
 		if(INSIDE_MENU){
-			USART1_PrintBlocking("Exited menu system\r\n");
 			menuSystem.renderFn = renderDashboard_Wrapper;
 			menuSystem.renderFlag = true;
-			oledTask.overlay_active = false;
-			oledTask.overlay_timeout_active = true;
 			inside_menu_flag = 0;
 		}else{
-			USART1_PrintBlocking("Entered menu system\r\n");
 			menuSystem.renderFn = renderMenu_Wrapper;
-		    oledTask.overlay_active = false;
-		    oledTask.overlay_timeout_active = false;
+			menuSystem.renderFlag = true;
 			inside_menu_flag = 1;
 		}
+		__NOP();
 		CLEAR_FLAG(h->flags, BTN_USER_LONG_PRESS);
 	}
 }
@@ -1062,26 +1058,19 @@ void Encoder_MainTask(ENC_Handle_t *h)
         if (INSIDE_MENU) {
             if (h->dir == ENC_DIR_CW) {
                 moveCursorDown(&menuSystem);
+                menuSystem.renderFn = renderMenu_Wrapper;
                 menuSystem.renderFlag = true;
-                oledTask.overlay_active = false;
-				oledTask.overlay_timeout_active = false;
             }
             else if (h->dir == ENC_DIR_CCW) {
                 moveCursorUp(&menuSystem);
+                menuSystem.renderFn = renderMenu_Wrapper;
                 menuSystem.renderFlag = true;
-                oledTask.overlay_active = false;
-				oledTask.overlay_timeout_active = false;
             }
 
             // Imprimir el nombre del item actual
             const char *name = menuSystem.currentMenu
                                ->items[menuSystem.currentMenu->currentItemIndex]
                                .name;
-            // Llamada directa a printf‐style bloqueante:
-            HAL_StatusTypeDef st = USART1_PrintfBlocking("Current item: %s\r\n", name);
-            if (st != HAL_OK) {
-            	__NOP();
-            }
         }
         else {
             // fuera del menú, podrías usar el encoder para otra cosa
@@ -1098,15 +1087,7 @@ void Encoder_MainTask(ENC_Handle_t *h)
                                ->items[menuSystem.currentMenu->currentItemIndex]
                                .name;
 
-            HAL_StatusTypeDef st = USART1_PrintfBlocking("Select item: %s\r\n", name);
-		   if (st != HAL_OK) {
-			   __NOP();
-		   }
-
             selectCurrentItem(&menuSystem);
-			menuSystem.renderFlag = true;
-			oledTask.overlay_active = false;
-			oledTask.overlay_timeout_active = false;
             // Aquí podrías llamar al render del nuevo item
         }
         else {
@@ -1119,10 +1100,6 @@ void Encoder_MainTask(ENC_Handle_t *h)
         CLEAR_FLAG(h->btnState.flags, ENC_BTN_LONG_PRESS);
 
         if (INSIDE_MENU) {
-        	HAL_StatusTypeDef st = USART1_PrintBlocking("Navego a menú principal\r\n");
-        	if (st != HAL_OK) {
-			   __NOP();
-		   }
             navigateToMainMenu(&menuSystem);
         }
         else {
@@ -1280,9 +1257,10 @@ void i2cManager_MainTask(){
 
 void OLED_MainTask(void) {
     if (oledTask.init_done && !IS_FLAG_SET(systemFlags, OLED_READY)) {
-        menuSystem.renderFn = renderDashboard_Wrapper;
+        menuSystem.renderFn = renderValoresIR_Wrapper;
         menuSystem.renderFlag = true;
         SET_FLAG(systemFlags, OLED_READY);
+        __NOP();
     }
 
     if (IS_FLAG_SET(systemFlags, OLED_READY)) {

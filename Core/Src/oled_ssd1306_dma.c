@@ -411,6 +411,7 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
     oled->font = &Font_7x10;
     oled->cursor_x = 0;
     oled->cursor_y = 0;
+    oled->first_Fn_Draw = false;
     oled->allow_overlay_transfer = false;
     oled->overlay_active = false;
     oled->overlay_timeout_active = false;

@@ -2,9 +2,9 @@
 ../Core/Src/menusystem.c:43:13:updateRender	7
 ../Core/Src/menusystem.c:56:6:initMenuSystem	3
 ../Core/Src/menusystem.c:65:6:MenuSystem_SetCallbacks	1
-../Core/Src/menusystem.c:80:6:moveCursorUp	4
-../Core/Src/menusystem.c:100:6:moveCursorDown	4
-../Core/Src/menusystem.c:121:6:selectCurrentItem	8
-../Core/Src/menusystem.c:140:6:navigateBackInMenu	5
-../Core/Src/menusystem.c:157:6:navigateToMainMenu	3
-../Core/Src/menusystem.c:169:6:submenuFn	3
+../Core/Src/menusystem.c:80:6:moveCursorUp	3
+../Core/Src/menusystem.c:94:6:moveCursorDown	3
+../Core/Src/menusystem.c:109:6:selectCurrentItem	8
+../Core/Src/menusystem.c:128:6:navigateBackInMenu	5
+../Core/Src/menusystem.c:145:6:navigateToMainMenu	3
+../Core/Src/menusystem.c:157:6:submenuFn	3

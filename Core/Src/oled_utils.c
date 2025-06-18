@@ -13,6 +13,10 @@
 #define Y_SPACING   22   // separación vertical entre ítems
 #define ITEM_HEIGHT 21   // altura del recuadro de selección
 
+const uint8_t text_bar_x[OLED_BAR_COUNT] = {
+    4, 19, 34, 49,
+    64, 79, 94, 109
+};
 const uint8_t bar_x[OLED_BAR_COUNT] = {
     0*BAR_WIDTH, 1*BAR_WIDTH, 2*BAR_WIDTH, 3*BAR_WIDTH,
     4*BAR_WIDTH, 5*BAR_WIDTH, 6*BAR_WIDTH, 7*BAR_WIDTH
@@ -29,7 +33,6 @@ const uint8_t bar_x[OLED_BAR_COUNT] = {
 void renderMenu_Wrapper(void)
 {
     displayMenuCustom(&menuSystem);
-    menuSystem.renderFlag = true;
 }
 
 /**
@@ -37,8 +40,12 @@ void renderMenu_Wrapper(void)
  */
 void renderValoresIR_Wrapper(void)
 {
-    OLED_DrawIRGraph(&oledTask, sensor_raw_data);
-    menuSystem.renderFlag = true;
+	if(!oledTask.first_Fn_Draw){
+		OLED_DrawIRGraph(&oledTask, sensor_raw_data); // La primera vez renderizo todo
+		oledTask.first_Fn_Draw = true;
+	}else{
+		OLED_DrawIRBars(&oledTask, sensor_raw_data); //La siguiente solo las barras
+	}
 }
 
 /**
@@ -136,9 +143,6 @@ void displayMenuCustom(MenuSystem *system)
                 2,
                 6,
                 false);
-
-    // 8) enviamos la pantalla
-    OLED_SendBuffer(&oledTask);
 }
 
 
@@ -146,7 +150,7 @@ void renderDashboard(void)
 {
     // 2) Selecciona fuente y centra texto
     OLED_SetFont(&oledTask, &Font_11x18);
-    const char *msg = "HOLA MUNDO";
+    const char *msg = "DASHBOARD";
     uint16_t w = strlen(msg) * oledTask.font->FontWidth;
     uint8_t  x = (OLED_WIDTH  - w) / 2;
     uint8_t  y = (OLED_HEIGHT - oledTask.font->FontHeight) / 2;
@@ -183,7 +187,7 @@ void OLED_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
     char label[5];
     for (int i = 0; i < OLED_BAR_COUNT; i++) {
         snprintf(label, sizeof(label), "IR%d", i+1);
-        int16_t lx = bar_x[i] - (oled->font->FontWidth / 2);
+        int16_t lx = text_bar_x[i] - (oled->font->FontWidth / 2);
         if (lx < 0) lx = 0;
         OLED_SetCursor(oled, lx, 0);
         OLED_DrawStr(oled, label, false);
@@ -207,27 +211,38 @@ void OLED_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
  */
 void OLED_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
 {
-    // Altura de la fuente y separación vertical
     const uint8_t fh     = oled->font->FontHeight;
-    const uint8_t sep_y  = fh + 1;
+    const uint8_t sep_y  = fh + 2;
     const uint8_t bar_y0 = sep_y + 1;
     const uint8_t maxH   = OLED_HEIGHT - bar_y0;
 
+    // Páginas involucradas en la zona de barras
+    const uint8_t page_start = bar_y0 / 8;
+    const uint8_t page_end   = (OLED_HEIGHT - 1) / 8;
+
+    // Limpiar área completa de las barras (solo las columnas de las barras)
     for (int i = 0; i < OLED_BAR_COUNT; i++) {
-        // 1) Clamp del valor IR a 0…4095
+        for (uint8_t page = page_start; page <= page_end; page++) {
+            uint16_t offset = page * OLED_WIDTH + bar_x[i];
+            memset(&oled->frame_buffer_main[offset], 0x00, BAR_WIDTH);
+        }
+    }
+
+    // Dibujar cada barra
+    for (int i = 0; i < OLED_BAR_COUNT; i++) {
+        // 1) Clamp del valor IR
         uint16_t v = irValues[i] > 4095 ? 4095 : irValues[i];
-        // 2) Mapeo lineal a la altura disponible
+        // 2) Mapeo a altura de barra
         uint8_t h = (uint32_t)v * maxH / 4095;
-        // 3) Y de inicio (invertido para crecer hacia arriba)
         uint8_t y0 = bar_y0 + (maxH - h);
 
-        // 4) Dibujar la barra
+        // 3) DIBUJAR la barra actual
         OLED_DrawBox(oled,
-                    bar_x[i],   // posición X pre-calculada
-                    y0,         // posición Y
-                    BAR_WIDTH,  // ancho de cada barra
-                    h,          // alto mapeado
-                    false);     // false = main buffer
+                     bar_x[i],
+                     y0,
+                     BAR_WIDTH,
+                     h,
+                     false);        // false = dibujar en main
     }
 }
 

@@ -53,6 +53,7 @@ typedef struct {
 	uint8_t        init_idx;    // índice actual en la init
 	bool           init_done;   // marca cuando la init terminó
 	bool           just_finished_init;
+	bool 		   first_Fn_Draw;
     uint8_t frame_buffer_main[OLED_BUFFER_SIZE];    /**< Contenido principal */
     uint8_t frame_buffer_overlay[OLED_BUFFER_SIZE]; /**< Contenido temporal */
     bool    page_dirty_main[OLED_MAX_PAGES];             /**< Flags de páginas modificadas */
