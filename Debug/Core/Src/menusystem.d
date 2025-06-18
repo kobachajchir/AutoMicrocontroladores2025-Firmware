@@ -41,7 +41,8 @@ Core/Src/menusystem.o: ../Core/Src/menusystem.c \
  ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/oled_ssd1306_dma.h \
- ../Core/Inc/fonts.h ../Core/Inc/menusystem.h ../Core/Inc/menusystem.h
+ ../Core/Inc/fonts.h ../Core/Inc/menusystem.h ../Core/Inc/mpu6050.h \
+ ../Core/Inc/i2c_manager.h ../Core/Inc/menusystem.h
 ../Core/Inc/types/menu_types.h:
 ../Core/Inc/globals.h:
 ../Core/Inc/types/button_state.h:
@@ -92,4 +93,6 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HA
 ../Core/Inc/oled_ssd1306_dma.h:
 ../Core/Inc/fonts.h:
 ../Core/Inc/menusystem.h:
+../Core/Inc/mpu6050.h:
+../Core/Inc/i2c_manager.h:
 ../Core/Inc/menusystem.h:

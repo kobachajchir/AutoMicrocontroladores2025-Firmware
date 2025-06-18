@@ -12,7 +12,15 @@
 
 void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-  I2C_Manager_OnDMAComplete();
+	I2C_Manager_OnDMAComplete();
+}
+
+void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c) {
+	I2C_Manager_OnDMAComplete();
+}
+
+void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c) {
+  I2C_Manager_OnRXDMAComplete();
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -20,8 +28,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if (htim->Instance == TIM3)
     {
     	cnt_10ms++;
-    	if((cnt_10ms % 4) == 0 && !IS_FLAG_SET(systemFlags, MPU_GET_DATA)){ //Multiplo de 4 y no pedi data del MPU
-    		SET_FLAG(systemFlags, MPU_GET_DATA);
+    	if ((cnt_10ms % 4) == 0 && !IS_FLAG_SET(systemFlags, MPU_GET_DATA)) {
+    	    mpu_trigger = true;
+    	    __NOP();
     	}
 		//Según el modo actual de tcrt, contar o no hacer nada
 		TCRTCalibCounter_Task();

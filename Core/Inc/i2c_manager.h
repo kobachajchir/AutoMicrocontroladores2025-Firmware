@@ -41,24 +41,28 @@ typedef struct {
     i2cDeviceType type;
     I2C_Callback transfer_complete_cb;
     I2C_Callback request_approved_cb;
+    I2C_Callback transfer_complete_cb_RX;
+	I2C_Callback request_approved_cb_RX;
     uint8_t request_pending;
 } I2C_DeviceEntry;
 
 // Funciones públicas
-void I2C_Manager_Init(I2C_HandleTypeDef *hi2c, volatile uint8_t *tx_busy_flag);
-HAL_StatusTypeDef I2C_Manager_RegisterDevice(
-    I2C_DeviceID id,
-    uint8_t address,
-    I2C_Callback dma_complete_cb,
-    I2C_RequestApprovedCallback request_granted_cb,
-    uint8_t priority
-);
+void I2C_Manager_Init(I2C_HandleTypeDef *hi2c, volatile uint8_t *tx_busy_flag, volatile uint8_t *rx_busy_flag);
+HAL_StatusTypeDef I2C_Manager_RegisterDevice(I2C_DeviceID id, uint8_t address,
+                                             I2C_Callback transfer_complete_cb,
+                                             I2C_Callback request_approved_cb,
+											 I2C_Callback transfer_complete_cb_RX,
+											 I2C_Callback request_approved_cb_RX,
+                                             uint8_t priority);
 HAL_StatusTypeDef I2C_Manager_SetRequestPending(I2C_DeviceID id, uint8_t pending);
 HAL_StatusTypeDef I2C_Manager_RequestAccess(I2C_DeviceID id);
 void I2C_Manager_OnDMAComplete(void);
+void I2C_Manager_OnRXDMAComplete(void);
 HAL_StatusTypeDef I2C_Manager_IsAddressReady(uint8_t i2c_address);
 uint8_t I2C_Manager_GetAddress(I2C_DeviceID id);
 uint8_t I2C_Manager_ReleaseBus(I2C_DeviceID id);
+HAL_StatusTypeDef I2C_Manager_RequestAccessRX(I2C_DeviceID id);
+uint8_t          I2C_Manager_ReleaseBusRX(I2C_DeviceID id);
 void I2C_Manager_ScanBus(void);
 void I2C_Manager_Update(void);
 

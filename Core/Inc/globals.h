@@ -13,6 +13,7 @@
 #include "motor_control.h"
 #include "oled_ssd1306_dma.h"
 #include "menusystem.h"
+#include "mpu6050.h"
 
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
@@ -37,13 +38,14 @@
 #define USART1_BUFFER_SIZE 64
 
 #define I2C_ADDR_OLED  0x3C
-#define I2C_ADDR_MPU6050  0x68
+#define I2C_ADDR_MPU  0x68  // 104 decimal
 
 #define INSIDE_MENU (inside_menu_flag)
 
 //Variables globales
 extern volatile bool  procesar_flag;
 extern volatile bool  lanzar_ADC_trigger_flag;
+extern volatile bool  mpu_trigger;
 extern volatile uint16_t tim3_overflow_count;
 extern volatile uint32_t contador;
 extern volatile LedStatus_t ledStatus;
@@ -62,6 +64,7 @@ extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;
 extern MotorControl_Handle motorTask;
 extern OLED_HandleTypeDef oledTask;
+extern MPU6050_Handle_t mpuTask;
 extern ButtonState_t btnUser;
 extern ENC_Handle_t encoder;
 

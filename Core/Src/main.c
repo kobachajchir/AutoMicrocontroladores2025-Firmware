@@ -33,6 +33,7 @@
 #include "fonts.h"
 #include "menusystem.h"
 #include "oled_utils.h"
+#include "mpu6050.h"
 //#include "oled_screens.h"
 
 /* USER CODE END Includes */
@@ -74,6 +75,7 @@ DMA_HandleTypeDef hdma_usart1_rx;
 
 volatile bool procesar_flag = false;
 volatile bool lanzar_ADC_trigger_flag = false;
+volatile bool mpu_trigger = false;
 volatile LedStatus_t ledStatus;
 volatile Byte_Flag_Struct systemFlags;
 volatile CarMode_t carMode;
@@ -88,6 +90,7 @@ static uint8_t motorBothSpeed = 50;
 static int8_t motorBothDirection = MOTOR_DIR_FORWARD;
 // Bandera para I2C_Manager (bus ocupado)
 volatile uint8_t i2c_tx_busy_flag = 0;
+volatile uint8_t i2c_rx_busy_flag = 0;
 // Bandera para la librería OLED (DMA ocupado)
 volatile uint8_t oled_dma_busy_flag = 0;
 volatile uint8_t inside_menu_flag;
@@ -109,6 +112,7 @@ USART_Buffer_t usart1Buf;
 TCRTHandlerTask tcrtTask;
 MotorControl_Handle motorTask;
 OLED_HandleTypeDef oledTask;
+MPU6050_Handle_t mpuTask;
 ButtonState_t btnUser;
 ENC_Handle_t encoder;
 
@@ -325,6 +329,59 @@ void OLED_ReleaseBusUse_I2CManager(void) {
 	__NOP();
 }
 
+// Wrapper para I2C_Manager al completar TX (canal 6)
+void MPU_DMA_Complete_I2CManager(void) {
+    // Aquí puedes poner un breakpoint o togglear un LED para depuración TX
+	MPU_DMA_CompleteCallback(&mpuTask);
+}
+
+// Wrapper para I2C_Manager al completar RX (canal 7)
+void MPU_DMARX_Complete_I2CManager(void) {
+    // Aquí puedes poner un breakpoint o togglear un LED para depuración RX
+	MPU_DMARX_CompleteCallback(&mpuTask);
+}
+
+// Wrapper para I2C_Manager cuando concede acceso TX
+void MPU_GrantAccessCallback_I2CManager(void) {
+    // Aquí breakpoint/LED para depuración TX grant
+	MPU_GrantAccessCallback(&mpuTask);
+}
+
+// Wrapper para I2C_Manager cuando concede acceso RX
+void MPU_GrantAccessRXCallback_I2CManager(void) {
+    // Aquí breakpoint/LED para depuración RX grant
+	MPU_GrantAccessRXCallback(&mpuTask);
+}
+
+void MPU_RequestBusUse_I2CManager(void) {
+    // Pide acceso inmediato al manager
+	__NOP();
+    I2C_Manager_RequestAccess(DEVICE_ID_MPU);
+}
+
+void MPU_ReleaseBusUse_I2CManager(void) {
+    // Pide acceso inmediato al manager
+	uint8_t res = I2C_Manager_ReleaseBus(DEVICE_ID_MPU);
+	__NOP();
+}
+
+void MPU_RequestRXBusUse_I2CManager(void) {
+    // Pide acceso inmediato al manager
+    I2C_Manager_RequestAccessRX(DEVICE_ID_MPU);
+}
+
+void MPU_ReleaseRXBusUse_I2CManager(void) {
+    // Pide acceso inmediato al manager
+	uint8_t res = I2C_Manager_ReleaseBusRX(DEVICE_ID_MPU);
+	__NOP();
+}
+
+void MPU_Data_Ready(void) {
+    SET_FLAG(systemFlags, MPU_GET_DATA); //Setea bandera de data
+}
+
+
+
 /* Callback que procesará cada byte recibido */
 static void MyRxHandler(uint8_t byte)
 {
@@ -386,6 +443,7 @@ int main(void)
 	 MX_SPI2_Init();
 	 MX_TIM4_Init();
 	 /* USER CODE BEGIN 2 */
+	 HAL_StatusTypeDef result;
 	 if (USART1_RegisterHandle(&huart1) != HAL_OK){
 		 Error_Handler();
 	 }
@@ -404,15 +462,50 @@ int main(void)
 	 }
 	 initTCRTLib();
 	 InitMotorTask();
-	 HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
-	 HAL_TIM_Base_Start_IT(&htim3);
-	 I2C_Manager_Init(&hi2c1, &i2c_tx_busy_flag);
+	 I2C_Manager_Init(&hi2c1, &i2c_tx_busy_flag, &i2c_rx_busy_flag);
+	 /*I2C_Manager_ScanBus();*/
+	 if (I2C_Manager_IsAddressReady(I2C_ADDR_MPU) == HAL_OK) {
+	     HAL_StatusTypeDef res = I2C_Manager_RegisterDevice(
+	         DEVICE_ID_MPU,
+	         I2C_ADDR_MPU,
+	         MPU_DMA_Complete_I2CManager,
+	         MPU_GrantAccessCallback_I2CManager,
+	         MPU_DMARX_Complete_I2CManager,
+	         MPU_GrantAccessRXCallback_I2CManager,
+	         1
+	     );
+	     if (res == HAL_OK) {
+	         MPU6050_Init(
+	             &mpuTask,
+	             DEVICE_ID_MPU,
+	             I2C_ADDR_MPU,
+	             &hi2c1,
+	             &i2c_tx_busy_flag,
+	             &i2c_rx_busy_flag,
+	             MPU_Data_Ready,                  // callback usuario
+	             MPU_RequestBusUse_I2CManager,
+	             MPU_ReleaseBusUse_I2CManager,
+	             MPU_RequestRXBusUse_I2CManager,
+	             MPU_ReleaseRXBusUse_I2CManager,
+	             &mpu_trigger
+	         );
+	         MPU6050_Configure(&mpuTask);
+		 } else {
+			  // Falló al registrar (posiblemente sin espacio en la tabla)
+			  USART1_PushTxString(&usart1Buf, "MPU NO Registrado");
+		 }
+	 }else {
+		  // El OLED no respondió en el bus
+		  USART1_PushTxString(&usart1Buf, "MPU no respondio");
+	 }
 	 if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
-		  HAL_StatusTypeDef result = I2C_Manager_RegisterDevice(
+		  result = I2C_Manager_RegisterDevice(
 			  DEVICE_ID_OLED,
 			  I2C_ADDR_OLED,
 			  OLED_DMA_Complete_I2CManager,
 			  OLED_GrantAccess_I2CManager,
+			  NULL,
+			  NULL,
 			  1
 		  );
 		  if (result == HAL_OK) {
@@ -425,7 +518,6 @@ int main(void)
 					   OLED_RequestBusUse_I2CManager,
 					   OLED_ReleaseBusUse_I2CManager);
 			  initOLEDSequence(&oledTask);
-			  __NOP();
 		  } else {
 			  // Falló al registrar (posiblemente sin espacio en la tabla)
 			  USART1_PushTxString(&usart1Buf, "OLED NO Registrado");
@@ -433,7 +525,10 @@ int main(void)
 	 } else {
 		  // El OLED no respondió en el bus
 		  USART1_PushTxString(&usart1Buf, "OLED no respondio");
+		  __NOP();
 	 }
+	 HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
+	 HAL_TIM_Base_Start_IT(&htim3);
 	 //Solo llamo initCarMode() una vez, antes del while
 	 if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
 		  initCarMode();
@@ -1245,11 +1340,29 @@ void Motor_MainTask(void)
     }
 }
 
-void MPU_MainTask(){
-	if(IS_FLAG_SET(systemFlags, MPU_GET_DATA)){
-		CLEAR_FLAG(systemFlags, MPU_GET_DATA);
-	}
+void MPU_MainTask(void) {
+    // 1) Si el trigger periódico (mpu_trigger) está activo, disparamos la lectura
+    if (mpu_trigger) {
+        __NOP();                       // breakpoint: detectó trigger en MainTask
+        MPU6050_CheckTrigger(&mpuTask);
+    }
+
+    // 2) Cuando el callback MPU_Data_Ready() levantó la bandera MPU_GET_DATA,
+    //    procesamos los datos convertidos
+    if (IS_FLAG_SET(systemFlags, MPU_GET_DATA)) {
+        CLEAR_FLAG(systemFlags, MPU_GET_DATA);
+
+        // obtener los valores ya convertidos
+        const MPU6050_IntData_t *d = MPU6050_GetData(&mpuTask);
+        __NOP();
+
+        // … aquí procesas d->accel_x_mg, d->gyro_z_mdps, etc. …
+
+        // si quisieras volver a disparar automáticamente:
+        // mpu_trigger = true;
+    }
 }
+
 
 void i2cManager_MainTask(){
 	I2C_Manager_Update();
