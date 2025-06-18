@@ -318,6 +318,12 @@ void OLED_RequestBusUse_I2CManager(void) {
     I2C_Manager_RequestAccess(DEVICE_ID_OLED);
 }
 
+void OLED_ReleaseBusUse_I2CManager(void) {
+    // Pide acceso inmediato al manager
+	uint8_t res = I2C_Manager_ReleaseBus(DEVICE_ID_OLED);
+	__NOP();
+}
+
 /* Callback que procesará cada byte recibido */
 static void MyRxHandler(uint8_t byte)
 {
@@ -414,8 +420,9 @@ int main(void)
 			  OLED_Init(&oledTask,
 					   &hi2c1,
 					   I2C_ADDR_OLED,
-					   &oled_dma_busy_flag,    // ← pasa la bandera DMA
-					   OLED_RequestBusUse_I2CManager);
+					   &i2c_tx_busy_flag,    // ← pasa la bandera DMA
+					   OLED_RequestBusUse_I2CManager,
+					   OLED_ReleaseBusUse_I2CManager);
 			  initOLEDSequence(&oledTask);
 			  __NOP();
 		  } else {
@@ -445,16 +452,7 @@ int main(void)
 			UserBtn_MainTask(&btnUser);
 			Encoder_MainTask(&encoder);
 		}
-		if(oledTask.init_done){
-			if(!IS_FLAG_SET(systemFlags, OLED_READY)){ //Inicializado completamente
-	            menuSystem.renderFn = renderDashboard_Wrapper;
-	            menuSystem.renderFlag = true;
-	            OLED_SendBuffer(&oledTask);
-	            SET_FLAG(systemFlags, OLED_READY);
-			}else{
-				OLED_MainTask();
-			}
-		}
+		OLED_MainTask();
 		MPU_MainTask();
 		Motor_MainTask();
 		// Si quieres saber cuántos sobrepasos de 1 s hubo (0..9):
@@ -1208,7 +1206,7 @@ void TCRT_MainTask(){
 	if(IS_FLAG_SET(systemFlags, PROCESS_IR_DATA)){
 		//Procesar aca la data de los IR
 		CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
-		if (menuSystem.renderFn == renderValoresIR) {
+		if (menuSystem.renderFn == renderValoresIR_Wrapper) {
 		    // Estamos en la pantalla de Valores IR:
 		    menuSystem.renderFlag = true;
 		}
@@ -1281,34 +1279,46 @@ void i2cManager_MainTask(){
 
 
 void OLED_MainTask(void) {
-    // 1) Compruebo si han pasado 10 ms:
-    if (!IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED)) {
-
-    }else{
-		CLEAR_FLAG(systemFlags, OLED_TENMS_PASSED);
+    if (oledTask.init_done && !IS_FLAG_SET(systemFlags, OLED_READY)) {
+        menuSystem.renderFn = renderDashboard_Wrapper;
+        menuSystem.renderFlag = true;
+        SET_FLAG(systemFlags, OLED_READY);
     }
 
-    // 2) Si tienes un overlay activo, actualiza su temporizador...
-    if (oledTask.overlay_active && oledTask.overlay_timeout_active) {
-        if (oledTask.overlay_timer_ms >= 10) {
-            oledTask.overlay_timer_ms -= 10;
-        } else {
-            oledTask.overlay_active = false;
-            // marco todas las páginas main como dirty
-            for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
-                oledTask.page_dirty_main[p] = true;
+    if (IS_FLAG_SET(systemFlags, OLED_READY)) {
+        // 1) Compruebo si han pasado 10 ms:
+        if (IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED)) {
+
+            // 2) Si hay overlay activo y cuenta regresiva activa
+            if (oledTask.overlay_active && oledTask.overlay_timeout_active) {
+                if (oledTask.overlay_timer_ms >= 10) {
+                    oledTask.overlay_timer_ms -= 10;
+                } else {
+                    OLED_HideOverlayNow(&oledTask);
+                }
             }
-            OLED_SendBuffer(&oledTask);
+            // 3) Si se solicitó ocultar el overlay de inmediato
+            else if (oledTask.overlay_active && oledTask.overlay_hide_now) {
+                oledTask.overlay_hide_now = false;
+                OLED_HideOverlayNow(&oledTask);
+            }
+
+            CLEAR_FLAG(systemFlags, OLED_TENMS_PASSED);
+        }
+
+        // 4) Si hay algo que renderizar (ej. menú)
+        if (menuSystem.renderFlag && menuSystem.renderFn) {
+            menuSystem.renderFlag = false;
+            menuSystem.renderFn();  // Esta función modifica el framebuffer
+            __NOP();
+            OLED_SendBuffer(&oledTask);  // Encola páginas dirty del buffer activo
         }
     }
 
-    // 4) Finalmente, si hay algo que renderizar:
-    if (menuSystem.renderFlag && menuSystem.renderFn) {
-        menuSystem.renderFlag = false;
-        menuSystem.renderFn();
-        OLED_SendBuffer(&oledTask);
-    }
+    // 5) Siempre, intento avanzar el flujo no bloqueante
+    OLED_Update(&oledTask);
 }
+
 
 void initMenuSystemTask(void) {
     initMenuSystem(&menuSystem);

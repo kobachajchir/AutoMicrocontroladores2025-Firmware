@@ -47,7 +47,6 @@ void renderValoresIR_Wrapper(void)
 void renderDashboard_Wrapper(void)
 {
     renderDashboard();
-    menuSystem.renderFlag = true;
 }
 
 // ============================================================================
@@ -145,11 +144,9 @@ void displayMenuCustom(MenuSystem *system)
 
 void renderDashboard(void)
 {
-    // 1) Limpia el main buffer
-    OLED_ClearBuffer(&oledTask, false);
     // 2) Selecciona fuente y centra texto
     OLED_SetFont(&oledTask, &Font_11x18);
-    const char *msg = "INICIO";
+    const char *msg = "HOLA MUNDO";
     uint16_t w = strlen(msg) * oledTask.font->FontWidth;
     uint8_t  x = (OLED_WIDTH  - w) / 2;
     uint8_t  y = (OLED_HEIGHT - oledTask.font->FontHeight) / 2;
