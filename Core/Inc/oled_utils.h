@@ -32,6 +32,11 @@ void renderBack_Wrapper(void);
 /** Renderiza la pantalla de valores IR */
 void renderValoresIR_Wrapper(void);
 
+/**
+ * @brief  Wrapper para la pantalla de Valores MPU.
+ */
+void renderValoresMPU_Wrapper(void);
+
 /** Renderiza la pantalla principal (dashboard: "HOLA MUNDO" centrado) */
 void renderDashboard_Wrapper(void);
 
@@ -52,6 +57,8 @@ void displayMenu(MenuSystem *system);
 void renderDashboard(void);
 
 void renderValoresIR(void);
+
+void renderValoresMPUScreen(void);
 
 void OLED_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
 

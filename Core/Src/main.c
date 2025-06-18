@@ -195,6 +195,7 @@ SubMenu submenu1 = {
 // Ítems del submenu 2 (“Pantallas”)
 MenuItem submenu2Items[] = {
     {"Valores IR",     NULL,               NULL, NULL, renderValoresIR_Wrapper},
+	{"Valores MPU",     NULL,               NULL, NULL, renderValoresMPU_Wrapper},
     {"VOLVER",         navigateBackInMenu, &mainMenu, NULL, renderMenu_Wrapper}
 };
 
@@ -1257,7 +1258,7 @@ void i2cManager_MainTask(){
 
 void OLED_MainTask(void) {
     if (oledTask.init_done && !IS_FLAG_SET(systemFlags, OLED_READY)) {
-        menuSystem.renderFn = renderValoresIR_Wrapper;
+        menuSystem.renderFn = renderDashboard_Wrapper;
         menuSystem.renderFlag = true;
         SET_FLAG(systemFlags, OLED_READY);
         __NOP();

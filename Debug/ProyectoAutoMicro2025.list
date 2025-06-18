@@ -1643,7 +1643,7 @@ void OLED_MainTask(void) {
  8000ab2:	781b      	ldrb	r3, [r3, #0]
  8000ab4:	f013 0f20 	tst.w	r3, #32
  8000ab8:	d10a      	bne.n	8000ad0 <OLED_MainTask+0x28>
-        menuSystem.renderFn = renderValoresIR_Wrapper;
+        menuSystem.renderFn = renderDashboard_Wrapper;
  8000aba:	4b29      	ldr	r3, [pc, #164]	@ (8000b60 <OLED_MainTask+0xb8>)
  8000abc:	4a29      	ldr	r2, [pc, #164]	@ (8000b64 <OLED_MainTask+0xbc>)
  8000abe:	60da      	str	r2, [r3, #12]
@@ -1752,7 +1752,7 @@ void OLED_MainTask(void) {
  8000b58:	200003f4 	.word	0x200003f4
  8000b5c:	20000e58 	.word	0x20000e58
  8000b60:	20000170 	.word	0x20000170
- 8000b64:	08002575 	.word	0x08002575
+ 8000b64:	08002435 	.word	0x08002435
 
 08000b68 <initMenuSystemTask>:
 

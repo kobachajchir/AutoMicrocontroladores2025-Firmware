@@ -49,6 +49,19 @@ void renderValoresIR_Wrapper(void)
 }
 
 /**
+ * @brief  Wrapper para la pantalla de Valores MPU.
+ */
+void renderValoresMPU_Wrapper(void)
+{
+	if(!oledTask.first_Fn_Draw){
+		renderValoresMPUScreen();
+		oledTask.first_Fn_Draw = true;
+	}else{
+		 //La siguiente solo las barras
+	}
+}
+
+/**
  * @brief  Wrapper para la pantalla principal (dashboard).
  */
 void renderDashboard_Wrapper(void)
@@ -158,12 +171,16 @@ void renderDashboard(void)
     OLED_DrawStr(&oledTask, msg, false);
 }
 
-void renderValoresIR(void)
+void renderValoresMPUScreen(void)
 {
-    // 1) Limpia el main buffer
     OLED_ClearBuffer(&oledTask, false);
-    // 2) Dibuja el gráfico IR
-    OLED_DrawIRGraph(&oledTask, sensor_raw_data);
+    OLED_SetFont(&oledTask, &Font_11x18);
+    const char *msg = "VALORES MPU";
+    uint16_t w = strlen(msg) * oledTask.font->FontWidth;
+    uint8_t  x = (OLED_WIDTH  - w) / 2;
+    uint8_t  y = 20;
+    OLED_SetCursor(&oledTask, x, y);
+    OLED_DrawStr(&oledTask, msg, false);
 }
 
 /**
