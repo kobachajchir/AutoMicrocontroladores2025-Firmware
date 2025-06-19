@@ -96,6 +96,8 @@ volatile uint8_t oled_dma_busy_flag = 0;
 volatile uint8_t inside_menu_flag;
 volatile uint16_t encoderValue;
 
+volatile uint8_t oled10msCounter = 0;
+
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
     TCRT_PULL_UP,    // canal 1: línea lateral izq
@@ -1279,10 +1281,7 @@ void TCRT_MainTask(){
 	if(IS_FLAG_SET(systemFlags, PROCESS_IR_DATA)){
 		//Procesar aca la data de los IR
 		CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
-		if (menuSystem.renderFn == renderValoresIR_Wrapper) {
-		    // Estamos en la pantalla de Valores IR:
-		    menuSystem.renderFlag = true;
-		}
+
 	}
 }
 
@@ -1371,13 +1370,19 @@ void i2cManager_MainTask(){
 
 void OLED_MainTask(void) {
     if (oledTask.init_done && !IS_FLAG_SET(systemFlags, OLED_READY)) {
-        menuSystem.renderFn = renderDashboard_Wrapper;
+        menuSystem.renderFn = renderValoresIR_Wrapper;
         menuSystem.renderFlag = true;
         SET_FLAG(systemFlags, OLED_READY);
         __NOP();
     }
 
     if (IS_FLAG_SET(systemFlags, OLED_READY)) {
+    	if(IS_FLAG_SET(systemFlags, OLED_REFRESH)){
+    		if(menuSystem.renderFn){
+    			menuSystem.renderFlag = true;
+    		}
+    		CLEAR_FLAG(systemFlags, OLED_REFRESH);
+    	}
         // 1) Compruebo si han pasado 10 ms:
         if (IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED)) {
 

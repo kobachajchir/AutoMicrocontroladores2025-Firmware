@@ -32,6 +32,7 @@
 #define MPU_GET_DATA BIT4_MASK
 #define OLED_READY BIT5_MASK
 #define OLED_TENMS_PASSED BIT6_MASK
+#define OLED_REFRESH BIT7_MASK
 //#define A BIT2_MASK
 
 //Definicion de tamanios
@@ -59,6 +60,7 @@ extern volatile uint16_t cnt_10ms;
 extern volatile uint32_t cnt_10us;
 extern volatile uint32_t tcrt_calib_cnt_phase;  // contador de 10 µs para la fase actual
 extern volatile uint8_t i2c_tx_busy_flag;
+extern volatile uint8_t oled10msCounter;
 
 extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;

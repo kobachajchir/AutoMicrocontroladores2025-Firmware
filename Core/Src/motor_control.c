@@ -77,7 +77,7 @@ static HAL_StatusTypeDef Motor_SetLeftBackward(MotorControl_Handle *self, uint8_
 }
 
 static HAL_StatusTypeDef Motor_SetRightForward(MotorControl_Handle *self, uint8_t speed)
-{
+ {
     if (!self || speed > 255) return HAL_ERROR;
     HAL_TIM_PWM_Stop(self->htim, self->right_backward_channel);
     __HAL_TIM_SET_COMPARE(self->htim, self->right_backward_channel, 0);

@@ -46,6 +46,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				Button_Task_10ms(&btnUser);
 				ENC_Task_N10ms(&encoder);
 			}
+            OLED_Task_10ms();
         }
     }
 }
@@ -86,6 +87,15 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
     if (hadc->Instance == ADC1) {
 		procesar_flag = true; // Cada vez que hacer ovf el tim 3 que es cada 250us -> 4Khz de muestreo
     }
+}
+
+void OLED_Task_10ms(){
+	if(oled10msCounter > 4){
+		oled10msCounter = 0;
+		SET_FLAG(systemFlags, OLED_REFRESH);
+	}else{
+		oled10msCounter++;
+	}
 }
 
 
