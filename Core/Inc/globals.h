@@ -43,6 +43,13 @@
 
 #define INSIDE_MENU (inside_menu_flag)
 
+//Defines para el I2C_DeviceEntry
+#define I2C_REQ_PENDING BIT0_MASK
+#define I2C_REQ_IS_TX  BIT1_MASK
+#define I2C_REQ_IS_RX  BIT2_MASK
+/*#define UNUSED  BIT3_MASK*/
+
+
 //Variables globales
 extern volatile bool  procesar_flag;
 extern volatile bool  lanzar_ADC_trigger_flag;
@@ -59,7 +66,7 @@ extern volatile uint8_t cnt_adc_trigger;
 extern volatile uint16_t cnt_10ms;
 extern volatile uint32_t cnt_10us;
 extern volatile uint32_t tcrt_calib_cnt_phase;  // contador de 10 µs para la fase actual
-extern volatile uint8_t i2c_tx_busy_flag;
+extern volatile uint8_t i2c_busy_flag;
 extern volatile uint8_t oled10msCounter;
 
 extern USART_Buffer_t usart1Buf;

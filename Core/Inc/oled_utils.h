@@ -58,7 +58,7 @@ void renderDashboard(void);
 
 void renderValoresIR(void);
 
-void renderValoresMPUScreen(void);
+void renderValoresMPUScreen(OLED_HandleTypeDef *oled, MPU6050_IntData_t *mpuData);
 
 void OLED_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
 

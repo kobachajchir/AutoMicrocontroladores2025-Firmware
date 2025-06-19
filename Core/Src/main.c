@@ -25,15 +25,17 @@
 #include "globals.h"
 #include "utils.h"
 #include "utils/macros_utils.h"
+#include "types/bitmap_type.h"
 #include "types/usart_buffer_type.h"
 #include "usart_dma_buffer.h"
 #include "motor_control.h"
 #include "i2c_manager.h"
-#include "oled_ssd1306_dma.h"
 #include "fonts.h"
 #include "menusystem.h"
 #include "oled_utils.h"
-#include "mpu6050.h"
+#include "encoder.h"             // donde se define ENC_Handle_t
+#include "oled_ssd1306_dma.h"    // donde se define OLED_HandleTypeDef
+#include "mpu6050.h"             // donde se define MPU6050_Handle_t
 //#include "oled_screens.h"
 
 /* USER CODE END Includes */
@@ -88,15 +90,12 @@ volatile uint32_t tcrt_calib_cnt_phase = 0;
 //Modificcar para hacer una sola struct de velocidades modo y direcciones
 static uint8_t motorBothSpeed = 50;
 static int8_t motorBothDirection = MOTOR_DIR_FORWARD;
-// Bandera para I2C_Manager (bus ocupado)
-volatile uint8_t i2c_tx_busy_flag = 0;
-volatile uint8_t i2c_rx_busy_flag = 0;
-// Bandera para la librería OLED (DMA ocupado)
-volatile uint8_t oled_dma_busy_flag = 0;
 volatile uint8_t inside_menu_flag;
 volatile uint16_t encoderValue;
-
 volatile uint8_t oled10msCounter = 0;
+
+// Bandera para I2C_Manager (bus ocupado)
+volatile uint8_t i2c_busy_flag = 0;
 
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
@@ -262,7 +261,7 @@ void Motor_MainTask(void);
 void i2cManager_MainTask(void);
 void MPU_MainTask(void);
 void OLED_MainTask(void);
-void OLED_DMA_Complete_I2CManager(void);
+void OLED_DMA_Complete_I2CManager(uint8_t is_tx);
 void OLED_GrantAccess_I2CManager(void);
 /**
  * @brief Tarea principal del encoder (main loop)
@@ -309,9 +308,9 @@ void renderFnWrapper(void) {
 }
 
 // Wrapper para I2C_Manager cuando termina el DMA
-void OLED_DMA_Complete_I2CManager(void) {
+void OLED_DMA_Complete_I2CManager(uint8_t is_tx) {
     // aquí puedes poner un breakpoint o togglear un LED para debug
-    OLED_DMA_CompleteCallback(&oledTask);
+    OLED_DMA_CompleteCallback(&oledTask, is_tx);
 }
 
 // Wrapper para I2C_Manager cuando concede acceso al bus
@@ -320,61 +319,37 @@ void OLED_GrantAccess_I2CManager(void) {
     OLED_GrantAccessCallback(&oledTask);
 }
 
-void OLED_RequestBusUse_I2CManager(void) {
+void OLED_RequestBusUse_I2CManager(uint8_t is_tx) {
     // Pide acceso inmediato al manager
-    I2C_Manager_RequestAccess(DEVICE_ID_OLED);
+    I2C_Manager_RequestAccess(DEVICE_ID_OLED, I2C_REQ_TYPE_TX); //Es TX
 }
 
 void OLED_ReleaseBusUse_I2CManager(void) {
     // Pide acceso inmediato al manager
-	uint8_t res = I2C_Manager_ReleaseBus(DEVICE_ID_OLED);
+	I2C_Manager_ReleaseBus(DEVICE_ID_OLED);
 	__NOP();
 }
 
 // Wrapper para I2C_Manager al completar TX (canal 6)
-void MPU_DMA_Complete_I2CManager(void) {
+void MPU_DMA_Complete_I2CManager(uint8_t is_tx) {
     // Aquí puedes poner un breakpoint o togglear un LED para depuración TX
-	MPU_DMA_CompleteCallback(&mpuTask);
+	MPU_DMA_CompleteCallback(&mpuTask, is_tx);
 }
-
-// Wrapper para I2C_Manager al completar RX (canal 7)
-void MPU_DMARX_Complete_I2CManager(void) {
-    // Aquí puedes poner un breakpoint o togglear un LED para depuración RX
-	MPU_DMARX_CompleteCallback(&mpuTask);
-}
-
 // Wrapper para I2C_Manager cuando concede acceso TX
 void MPU_GrantAccessCallback_I2CManager(void) {
     // Aquí breakpoint/LED para depuración TX grant
 	MPU_GrantAccessCallback(&mpuTask);
 }
 
-// Wrapper para I2C_Manager cuando concede acceso RX
-void MPU_GrantAccessRXCallback_I2CManager(void) {
-    // Aquí breakpoint/LED para depuración RX grant
-	MPU_GrantAccessRXCallback(&mpuTask);
-}
-
-void MPU_RequestBusUse_I2CManager(void) {
+void MPU_RequestBusUse_I2CManager(int8_t is_tx) {
     // Pide acceso inmediato al manager
 	__NOP();
-    I2C_Manager_RequestAccess(DEVICE_ID_MPU);
+    I2C_Manager_RequestAccess(DEVICE_ID_MPU, I2C_REQ_TYPE_TX_RX);
 }
 
 void MPU_ReleaseBusUse_I2CManager(void) {
     // Pide acceso inmediato al manager
-	uint8_t res = I2C_Manager_ReleaseBus(DEVICE_ID_MPU);
-	__NOP();
-}
-
-void MPU_RequestRXBusUse_I2CManager(void) {
-    // Pide acceso inmediato al manager
-    I2C_Manager_RequestAccessRX(DEVICE_ID_MPU);
-}
-
-void MPU_ReleaseRXBusUse_I2CManager(void) {
-    // Pide acceso inmediato al manager
-	uint8_t res = I2C_Manager_ReleaseBusRX(DEVICE_ID_MPU);
+	I2C_Manager_ReleaseBus(DEVICE_ID_MPU);
 	__NOP();
 }
 
@@ -464,7 +439,7 @@ int main(void)
 	 }
 	 initTCRTLib();
 	 InitMotorTask();
-	 I2C_Manager_Init(&hi2c1, &i2c_tx_busy_flag, &i2c_rx_busy_flag);
+	 I2C_Manager_Init(&hi2c1, &i2c_busy_flag);
 	 /*I2C_Manager_ScanBus();*/
 	 if (I2C_Manager_IsAddressReady(I2C_ADDR_MPU) == HAL_OK) {
 	     HAL_StatusTypeDef res = I2C_Manager_RegisterDevice(
@@ -472,8 +447,6 @@ int main(void)
 	         I2C_ADDR_MPU,
 	         MPU_DMA_Complete_I2CManager,
 	         MPU_GrantAccessCallback_I2CManager,
-	         MPU_DMARX_Complete_I2CManager,
-	         MPU_GrantAccessRXCallback_I2CManager,
 	         1
 	     );
 	     if (res == HAL_OK) {
@@ -482,13 +455,10 @@ int main(void)
 	             DEVICE_ID_MPU,
 	             I2C_ADDR_MPU,
 	             &hi2c1,
-	             &i2c_tx_busy_flag,
-	             &i2c_rx_busy_flag,
+	             &i2c_busy_flag,
 	             MPU_Data_Ready,                  // callback usuario
 	             MPU_RequestBusUse_I2CManager,
 	             MPU_ReleaseBusUse_I2CManager,
-	             MPU_RequestRXBusUse_I2CManager,
-	             MPU_ReleaseRXBusUse_I2CManager,
 	             &mpu_trigger
 	         );
 	         MPU6050_Configure(&mpuTask);
@@ -506,8 +476,6 @@ int main(void)
 			  I2C_ADDR_OLED,
 			  OLED_DMA_Complete_I2CManager,
 			  OLED_GrantAccess_I2CManager,
-			  NULL,
-			  NULL,
 			  1
 		  );
 		  if (result == HAL_OK) {
@@ -516,7 +484,7 @@ int main(void)
 			  OLED_Init(&oledTask,
 					   &hi2c1,
 					   I2C_ADDR_OLED,
-					   &i2c_tx_busy_flag,    // ← pasa la bandera DMA
+					   &i2c_busy_flag,    // ← pasa la bandera DMA
 					   OLED_RequestBusUse_I2CManager,
 					   OLED_ReleaseBusUse_I2CManager);
 			  initOLEDSequence(&oledTask);
@@ -1352,13 +1320,21 @@ void MPU_MainTask(void) {
         CLEAR_FLAG(systemFlags, MPU_GET_DATA);
 
         // obtener los valores ya convertidos
-        const MPU6050_IntData_t *d = MPU6050_GetData(&mpuTask);
+        MPU6050_GetData(&mpuTask);
         __NOP();
 
         // … aquí procesas d->accel_x_mg, d->gyro_z_mdps, etc. …
 
         // si quisieras volver a disparar automáticamente:
         // mpu_trigger = true;
+    }
+    if(IS_FLAG_SET(mpuTask.flags, DATA_READY)){
+    	CLEAR_FLAG(mpuTask.flags, DATA_READY);
+        MPU6050_Convert(&mpuTask);
+        //Llamar al Callback registrado en initMPU
+        if (mpuTask.on_data_ready_cb) {
+        	mpuTask.on_data_ready_cb();
+        }
     }
 }
 
@@ -1370,7 +1346,7 @@ void i2cManager_MainTask(){
 
 void OLED_MainTask(void) {
     if (oledTask.init_done && !IS_FLAG_SET(systemFlags, OLED_READY)) {
-        menuSystem.renderFn = renderValoresIR_Wrapper;
+        menuSystem.renderFn = renderValoresMPU_Wrapper;
         menuSystem.renderFlag = true;
         SET_FLAG(systemFlags, OLED_READY);
         __NOP();

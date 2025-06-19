@@ -14,85 +14,6 @@
 extern "C" {
 #endif
 
-// ====================== Máscaras ========================= //
-
-// --- Bits individuales ---
-#define BIT0_MASK   0x01  // 0000 0001
-#define BIT1_MASK   0x02  // 0000 0010
-#define BIT2_MASK   0x04  // 0000 0100
-#define BIT3_MASK   0x08  // 0000 1000
-#define BIT4_MASK   0x10  // 0001 0000
-#define BIT5_MASK   0x20  // 0010 0000
-#define BIT6_MASK   0x40  // 0100 0000
-#define BIT7_MASK   0x80  // 1000 0000
-
-// --- Pares de bits (si alguna vez los necesitas) ---
-#define BITS01_MASK 0x03  // 0000 0011
-#define BITS23_MASK 0x0C  // 0000 1100
-#define BITS45_MASK 0x30  // 0011 0000
-#define BITS67_MASK 0xC0  // 1100 0000
-
-// --- Nibbles ---
-#define NIBBLE_L_MASK 0x0F  // 0000 1111 (bits 0..3)
-#define NIBBLE_H_MASK 0xF0  // 1111 0000 (bits 4..7)
-
-// --------------------------------------------
-// FLAGS (parte baja del byte)
-// --------------------------------------------
-// Macros generales para manejar flags en Byte_Flag_Struct.
-
-// Setea (pone a 1) los bits indicados en BIT_MASK
-#define SET_FLAG(flag_struct, BIT_MASK)    ((flag_struct).byte |=  (uint8_t)(BIT_MASK))
-
-// Limpia (pone a 0) los bits indicados en BIT_MASK
-#define CLEAR_FLAG(flag_struct, BIT_MASK)  ((flag_struct).byte &= (uint8_t)(~(BIT_MASK)))
-
-// Invierte (toggle) los bits indicados en BIT_MASK
-#define TOGGLE_FLAG(flag_struct, BIT_MASK) ((flag_struct).byte ^=  (uint8_t)(BIT_MASK))
-
-// Verifica si al menos uno de los bits de BIT_MASK está a 1
-// Devuelve != 0 si alguno está activo
-#define IS_FLAG_SET(flag_struct, BIT_MASK) (((flag_struct).byte & (BIT_MASK)) != 0U)
-
-// --------------------------------------------
-// NIBBLES (parte alta y baja del byte)
-// --------------------------------------------
-// Permite codificar un “estado” de 4 bits en el nibble bajo (bits 0..3)
-// o en el nibble alto (bits 4..7). El parámetro 'state' debe entrar en 0..15.
-
-// Setea el nibble bajo (bits 0–3) con el valor 'state' (0..15),
-// preservando el nibble alto (bits 4..7).
-#define NIBBLEL_SET_STATE(object, state)  \
-    do { \
-        (object).byte = (uint8_t)(((object).byte & NIBBLE_H_MASK) | ((uint8_t)((state) & NIBBLE_L_MASK))); \
-    } while (0)
-
-// Setea el nibble alto (bits 4–7) con el valor 'state' (0..15),
-// preservando el nibble bajo (bits 0..3).
-#define NIBBLEH_SET_STATE(object, state)  \
-    do { \
-        (object).byte = (uint8_t)(((object).byte & NIBBLE_L_MASK) | ((uint8_t)(((state) & NIBBLE_L_MASK) << 4))); \
-    } while (0)
-
-// Obtiene el valor (0..15) almacenado en el nibble alto (bits 4–7)
-#define NIBBLEH_GET_STATE(object)  (uint8_t)(((object).byte & NIBBLE_H_MASK) >> 4)
-
-// Obtiene el valor (0..15) almacenado en el nibble bajo (bits 0–3)
-#define NIBBLEL_GET_STATE(object)  (uint8_t)((object).byte & NIBBLE_L_MASK)
-
-// ---------------- Máscaras para banderas de usuario (nibble bajo) ----------------
-// Estas máscaras usan bits 0..3 de Byte_Flag_Struct.byte:
-#define ENC_BTN_PREVSTATE     BIT0_MASK  // bit 0 → almacena el estado previo (0 o 1)
-#define ENC_BTN_SHORT_PRESS   BIT1_MASK  // bit 1 → pulsación corta detectada
-#define ENC_BTN_LONG_PRESS    BIT2_MASK  // bit 2 → pulsación larga detectada
-#define ENC_BTN_EASTER_EGG    BIT3_MASK  // Lo usaremos mas adelante para algo
-
-// ---------------- Valores máximos para overflow count (nibble alto) ----------------
-#define ENC_BTN_OVF_MAX       9U   // si nibbleH > 9, descartamos (equivale a 10 s presionado)
-
-// encoder.h (tras los otros #define)
-#define ENC_FLAG_UPDATED   BIT0_MASK  // bit0 → hay un nuevo paso
-
 typedef union {
     struct {
         uint8_t bit0: 1;  ///< Bit 0  (parte baja)
@@ -115,10 +36,57 @@ typedef union {
         uint8_t bitH: 4; ///< Nibble alto  (bits 4–7)
     } nibbles;           ///< Acceso a cada nibble
     uint8_t byte;        ///< Acceso completo a los 8 bits (0–255)
-} ENC_Byte_Flag_Struct;
+} ENC_Byte_Flag_Struct_t;
+
+#define BIT0_MASK   0x01  // 0000 0001
+#define BIT1_MASK   0x02  // 0000 0010
+#define BIT2_MASK   0x04  // 0000 0100
+#define BIT3_MASK   0x08  // 0000 1000
+#define BIT4_MASK   0x10  // 0001 0000
+#define BIT5_MASK   0x20  // 0010 0000
+#define BIT6_MASK   0x40  // 0100 0000
+#define BIT7_MASK   0x80  // 1000 0000
+
+// --- Pares de bits (si alguna vez los necesitas) ---
+#define BITS01_MASK 0x03  // 0000 0011
+#define BITS23_MASK 0x0C  // 0000 1100
+#define BITS45_MASK 0x30  // 0011 0000
+#define BITS67_MASK 0xC0  // 1100 0000
+
+// --- Nibbles ---
+#define NIBBLE_L_MASK 0x0F  // 0000 1111 (bits 0..3)
+#define NIBBLE_H_MASK 0xF0  // 1111 0000 (bits 4..7)
+
+#define SET_FLAG(flag_struct, BIT_MASK)    ((flag_struct).byte |=  (uint8_t)(BIT_MASK))
+#define CLEAR_FLAG(flag_struct, BIT_MASK)  ((flag_struct).byte &= (uint8_t)(~(BIT_MASK)))
+#define TOGGLE_FLAG(flag_struct, BIT_MASK) ((flag_struct).byte ^=  (uint8_t)(BIT_MASK))
+#define IS_FLAG_SET(flag_struct, BIT_MASK) (((flag_struct).byte & (BIT_MASK)) != 0U)
+#define NIBBLEL_SET_STATE(object, state)  \
+    do { \
+        (object).byte = (uint8_t)(((object).byte & NIBBLE_H_MASK) | ((uint8_t)((state) & NIBBLE_L_MASK))); \
+    } while (0)
+#define NIBBLEH_SET_STATE(object, state)  \
+    do { \
+        (object).byte = (uint8_t)(((object).byte & NIBBLE_L_MASK) | ((uint8_t)(((state) & NIBBLE_L_MASK) << 4))); \
+    } while (0)
+#define NIBBLEH_GET_STATE(object)  (uint8_t)(((object).byte & NIBBLE_H_MASK) >> 4)
+#define NIBBLEL_GET_STATE(object)  (uint8_t)((object).byte & NIBBLE_L_MASK)
+
+// ---------------- Máscaras para banderas de usuario (nibble bajo) ----------------
+// Estas máscaras usan bits 0..3 de Byte_Flag_Struct.byte:
+#define ENC_BTN_PREVSTATE     BIT0_MASK  // bit 0 → almacena el estado previo (0 o 1)
+#define ENC_BTN_SHORT_PRESS   BIT1_MASK  // bit 1 → pulsación corta detectada
+#define ENC_BTN_LONG_PRESS    BIT2_MASK  // bit 2 → pulsación larga detectada
+#define ENC_BTN_EASTER_EGG    BIT3_MASK  // Lo usaremos mas adelante para algo
+
+// ---------------- Valores máximos para overflow count (nibble alto) ----------------
+#define ENC_BTN_OVF_MAX       9U   // si nibbleH > 9, descartamos (equivale a 10 s presionado)
+
+// encoder.h (tras los otros #define)
+#define ENC_FLAG_UPDATED   BIT0_MASK  // bit0 → hay un nuevo paso
 
 typedef struct {
-	ENC_Byte_Flag_Struct flags;   ///< nibble bajo = flags; nibble alto = overflow counter
+	ENC_Byte_Flag_Struct_t flags;   ///< nibble bajo = flags; nibble alto = overflow counter
     uint8_t          counter; ///< cuenta en pasos de 10 ms (va 0..100)
     GPIO_TypeDef     *port;
     uint16_t 		pin;
@@ -148,7 +116,7 @@ typedef struct {
 	ENC_Direction_t    dir;        // Dirección actual
 	ENC_Data           data;       // Datos actuales (vel/acc)
 	ENC_Data           prevData;   // Datos previos para cálculo
-	ENC_Byte_Flag_Struct            flags;        // ← usamos bit0 = ENC_FLAG_UPDATED
+	ENC_Byte_Flag_Struct_t            flags;        // ← usamos bit0 = ENC_FLAG_UPDATED
 	uint16_t prevCount;
 	uint8_t           calibrateCountPerStep; ///< ¿Cuántos pulsos raw = 1 “paso”?
 	int8_t            accumCount;            ///< Acumula pulsos raw entre pasos

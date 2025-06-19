@@ -10,108 +10,129 @@ static I2C_HandleTypeDef *i2c_handle = NULL;
 static I2C_DeviceEntry device_table[I2C_MANAGER_MAX_DEVICES];
 static I2C_BusState bus_state = I2C_STATE_IDLE;
 static int8_t last_active_index = -1;
-static volatile uint8_t *external_tx_busy = NULL;
-static I2C_BusState      bus_state_rx = I2C_STATE_IDLE;
-static int8_t            last_active_index_rx = -1;
-static volatile uint8_t *external_rx_busy = NULL;
+static volatile uint8_t *external_busy = NULL;
 
-void I2C_Manager_Init(I2C_HandleTypeDef *hi2c, volatile uint8_t *tx_busy_flag, volatile uint8_t *rx_busy_flag) {
+void I2C_Manager_Init(I2C_HandleTypeDef *hi2c, volatile uint8_t *busy_flag) {
     i2c_handle = hi2c;
-    external_tx_busy = tx_busy_flag;
-    external_rx_busy = rx_busy_flag;
+    external_busy = busy_flag;
     bus_state = I2C_STATE_IDLE;
-    bus_state_rx = I2C_STATE_IDLE;
 
     for (int i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
-        device_table[i].type.id = I2C_MANAGER_INVALID_SLOT;
-        device_table[i].type.enabled = 0;
-        device_table[i].request_pending = 0;
+        device_table[i].type.id = I2C_MANAGER_NOINIT_DEVICEID;
+        CLEAR_FLAG(device_table[i].type.flags, I2C_DEV_ENABLED);
+        CLEAR_FLAG(device_table[i].flags, I2C_REQ_PENDING);
         device_table[i].transfer_complete_cb = NULL;
         device_table[i].request_approved_cb = NULL;
-        device_table[i].transfer_complete_cb_RX = NULL;
-		device_table[i].request_approved_cb_RX = NULL;
     }
 }
 
 HAL_StatusTypeDef I2C_Manager_RegisterDevice(I2C_DeviceID id, uint8_t address,
-                                             I2C_Callback transfer_complete_cb,
-                                             I2C_Callback request_approved_cb,
-											 I2C_Callback transfer_complete_cb_RX,
-											 I2C_Callback request_approved_cb_RX,
+											I2C_TransferCompleteCb transfer_complete_cb,
+											I2C_RequestApprovedCb request_approved_cb,
                                              uint8_t priority) {
     for (int i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
-        if (!device_table[i].type.enabled) {
+        if (!IS_FLAG_SET(device_table[i].type.flags, I2C_DEV_ENABLED)) {
             device_table[i].type.id = id;
             device_table[i].type.i2c_address = address;
-            device_table[i].type.priority = priority;
-            device_table[i].type.enabled = 1;
+            NIBBLEH_SET_STATE(device_table[i].type.flags, priority);
+            SET_FLAG(device_table[i].type.flags, I2C_DEV_ENABLED);
             device_table[i].transfer_complete_cb = transfer_complete_cb;
             device_table[i].request_approved_cb = request_approved_cb;
-            device_table[i].transfer_complete_cb_RX = transfer_complete_cb_RX;
-			device_table[i].request_approved_cb_RX = request_approved_cb_RX;
             return HAL_OK;
         }
     }
     return HAL_ERROR;
 }
 
-HAL_StatusTypeDef I2C_Manager_SetRequestPending(I2C_DeviceID id, uint8_t pending) {
-    for (int i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
-        if (device_table[i].type.id == id) {
-            device_table[i].request_pending = pending;
-            return HAL_OK;
+HAL_StatusTypeDef I2C_Manager_RequestAccess(I2C_DeviceID id, uint8_t req_type) {
+    uint8_t idx = 0xFF;
+
+    // 1) Busca el índice del dispositivo
+    for (uint8_t i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
+        if (IS_FLAG_SET(device_table[i].type.flags, I2C_DEV_ENABLED)
+         && device_table[i].type.id == id) {
+            idx = i;
+            break;
         }
     }
-    return HAL_ERROR;
-}
+    if (idx == 0xFF) {
+        return HAL_ERROR;  // no está registrado
+    }
 
-HAL_StatusTypeDef I2C_Manager_RequestAccess(I2C_DeviceID id) {
-    if (bus_state != I2C_STATE_IDLE || *external_tx_busy) {
+    // 2) Marca petición como pendiente y su tipo
+    SET_FLAG(device_table[idx].flags, I2C_REQ_PENDING);
+    switch(req_type){
+    	case I2C_REQ_TYPE_TX:
+			SET_FLAG(device_table[idx].flags, I2C_REQ_IS_TX);
+			CLEAR_FLAG(device_table[idx].flags, I2C_REQ_IS_RX);
+    		break;
+    	case I2C_REQ_TYPE_RX:
+    		CLEAR_FLAG(device_table[idx].flags, I2C_REQ_IS_TX);
+    		SET_FLAG(device_table[idx].flags, I2C_REQ_IS_RX);
+    		break;
+    	case I2C_REQ_TYPE_TX_RX:
+    		SET_FLAG(device_table[idx].flags, I2C_REQ_IS_TX);
+    		SET_FLAG(device_table[idx].flags, I2C_REQ_IS_RX);
+    		break;
+    }
+    // 3) Si el bus está ocupado, devolvemos BUSY (quedó en pending)
+    if (bus_state != I2C_STATE_IDLE || *external_busy) {
         return HAL_BUSY;
     }
 
-    for (int i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
-        if (device_table[i].type.id == id && device_table[i].type.enabled) {
-            bus_state = I2C_STATE_BUSY;
-            *external_tx_busy = 1;
-            last_active_index = i;
-
-            if (device_table[i].request_approved_cb) {
-                device_table[i].request_approved_cb();
-            }
-
-            return HAL_OK;
+    // 4) Bus libre: ¿cuántas peticiones pendientes hay?
+    uint8_t pending_count = 0;
+    for (uint8_t i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
+        if (IS_FLAG_SET(device_table[i].flags, I2C_REQ_PENDING)) {
+            pending_count++;
         }
     }
-    return HAL_ERROR;
+
+    uint8_t best_idx;
+    // 4a) Si hay más de una, hacemos búsqueda por prioridad
+    if (pending_count > 1) {
+        uint8_t best_prio = 0;
+        best_idx = 0xFF;
+        for (uint8_t i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
+            if (IS_FLAG_SET(device_table[i].type.flags, I2C_DEV_ENABLED) &&
+                IS_FLAG_SET(device_table[i].flags, I2C_REQ_PENDING))
+            {
+                uint8_t prio = NIBBLEH_GET_STATE(device_table[i].type.flags);
+                if (best_idx == 0xFF || prio > best_prio) {
+                    best_prio = prio;
+                    best_idx  = i;
+                }
+            }
+        }
+        // Por si algo raro… (aunque idx siempre está pending)
+        if (best_idx == 0xFF) {
+            best_idx = idx;
+        }
+    }
+    // 4b) Si solo hay una petición (pending_count == 1), se la damos a idx
+    else {
+        best_idx = idx;
+    }
+
+    // 5) Concedemos el bus al best_idx
+    CLEAR_FLAG(device_table[best_idx].flags, I2C_REQ_PENDING);
+    bus_state         = I2C_STATE_BUSY;
+    *external_busy    = 1;
+    last_active_index = best_idx;
+
+    if (device_table[best_idx].request_approved_cb) {
+        device_table[best_idx].request_approved_cb();
+    }
+    return HAL_OK;
 }
 
-void I2C_Manager_OnDMAComplete(void) {
-    // 1) Libera el bus de I2C antes de invocar el callback
-    //I2C_Manager_ReleaseBus();
-
-    // 2) Llama al callback de transferencia completa
+void I2C_Manager_OnDMAComplete(uint8_t is_tx) {
     int idx = last_active_index;
-    void (*cb)(void) = device_table[idx].transfer_complete_cb;
+    void (*cb)(uint8_t is_tx) = device_table[idx].transfer_complete_cb;
     __NOP();  // breakpoint opcional
 
     if (idx >= 0 && cb) {
-        cb();  // aquí es donde el wrapper OLED_DMA_Complete_I2CManager vuelve a pedir el bus
-    }
-}
-
-void I2C_Manager_OnRXDMAComplete(void) {
-    int idx = last_active_index_rx;
-    if (idx < 0 || !device_table[idx].type.enabled) {
-        return;
-    }
-
-    // 1) Liberar el bus RX
-    //I2C_Manager_ReleaseBusRX(device_table[idx].type.id);
-
-    // 2) Llamar al callback de transferencia completa RX
-    if (device_table[idx].transfer_complete_cb_RX) {
-        device_table[idx].transfer_complete_cb_RX();
+        cb(is_tx);  // 1 EN TX
     }
 }
 
@@ -122,46 +143,18 @@ uint8_t I2C_Manager_ReleaseBus(I2C_DeviceID id) {
 
     if (device_table[last_active_index].type.id == id) {
         bus_state = I2C_STATE_IDLE;
-        *external_tx_busy = 0;
+        *external_busy = 0;
         last_active_index = -1;
+        CLEAR_FLAG(device_table[last_active_index].flags, I2C_REQ_IS_TX);
+        CLEAR_FLAG(device_table[last_active_index].flags, I2C_REQ_IS_RX);
         return 1;  // Se liberó exitosamente
     }
 
     return 0;  // No correspondía liberar
 }
 
-HAL_StatusTypeDef I2C_Manager_RequestAccessRX(I2C_DeviceID id) {
-    if (bus_state_rx != I2C_STATE_IDLE || !external_rx_busy || *external_rx_busy) {
-        return HAL_BUSY;
-    }
-    for (int i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
-        if (device_table[i].type.id == id && device_table[i].type.enabled) {
-            bus_state_rx = I2C_STATE_BUSY;
-            *external_rx_busy = 1;
-            last_active_index_rx = i;
-            if (device_table[i].request_approved_cb_RX) {
-                device_table[i].request_approved_cb_RX();
-            }
-            return HAL_OK;
-        }
-    }
-    return HAL_ERROR;
-}
-
-uint8_t I2C_Manager_ReleaseBusRX(I2C_DeviceID id) {
-    if (last_active_index_rx < 0) return 0;
-    if (device_table[last_active_index_rx].type.id == id) {
-        bus_state_rx = I2C_STATE_IDLE;
-        *external_rx_busy = 0;
-        last_active_index_rx = -1;
-        return 1;
-    }
-    return 0;
-}
-
-
 uint8_t I2C_Manager_GetAddress(I2C_DeviceID id) {
-    for (int i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
+    for (uint8_t i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
         if (device_table[i].type.id == id) {
             return device_table[i].type.i2c_address;
         }
@@ -181,19 +174,19 @@ void I2C_Manager_ScanBus(void) {
 }
 
 void I2C_Manager_Update(void) {
-    if (bus_state != I2C_STATE_IDLE || !external_tx_busy || *external_tx_busy){
+    if (bus_state != I2C_STATE_IDLE || *external_busy){
     	__NOP();
         return;
     }
 
-    for (int i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
+    for (uint8_t i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
         if (i != last_active_index &&
-            device_table[i].type.enabled &&
-            device_table[i].request_pending) {
+        	IS_FLAG_SET(device_table[i].type.flags, I2C_DEV_ENABLED) &&
+			IS_FLAG_SET(device_table[i].flags, I2C_REQ_PENDING)) {
 
-            device_table[i].request_pending = 0;
+            CLEAR_FLAG(device_table[i].flags, I2C_REQ_PENDING);
             bus_state = I2C_STATE_BUSY;
-            *external_tx_busy = 1;
+            *external_busy = 1;
             last_active_index = i;
 
 			__NOP();

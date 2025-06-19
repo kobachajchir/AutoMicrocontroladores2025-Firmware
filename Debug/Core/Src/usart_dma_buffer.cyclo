@@ -1,5 +1,5 @@
-../Core/Src/usart_dma_buffer.c:40:19:USART1_PrintfBlocking	3
-../Core/Src/usart_dma_buffer.c:76:19:USART1_PrintValue	11
+../Core/Src/usart_dma_buffer.c:40:19:USART1_PrintfBlocking	2
+../Core/Src/usart_dma_buffer.c:76:19:USART1_PrintValue	10
 ../Core/Src/usart_dma_buffer.c:131:19:USART1_PrintBlocking	3
 ../Core/Src/usart_dma_buffer.c:146:19:USART1_RegisterHandle	2
 ../Core/Src/usart_dma_buffer.c:158:19:USART1_SetDMACallbacks	3

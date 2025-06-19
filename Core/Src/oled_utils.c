@@ -6,6 +6,8 @@
  */
 
 #include "oled_utils.h"
+#include "mpu6050.h"
+#include "globals.h"
 
 #define OLED_BAR_COUNT 8
 #define BAR_WIDTH 12
@@ -53,12 +55,7 @@ void renderValoresIR_Wrapper(void)
  */
 void renderValoresMPU_Wrapper(void)
 {
-	if(!oledTask.first_Fn_Draw){
-		renderValoresMPUScreen();
-		oledTask.first_Fn_Draw = true;
-	}else{
-		 //La siguiente solo las barras
-	}
+	renderValoresMPUScreen(&oledTask, &mpuTask.data);
 }
 
 /**
@@ -171,16 +168,15 @@ void renderDashboard(void)
     OLED_DrawStr(&oledTask, msg, false);
 }
 
-void renderValoresMPUScreen(void)
+void renderValoresMPUScreen(OLED_HandleTypeDef *oled, MPU6050_IntData_t *mpuData)
 {
-    OLED_ClearBuffer(&oledTask, false);
-    OLED_SetFont(&oledTask, &Font_11x18);
+    OLED_SetFont(oled, &Font_11x18);
     const char *msg = "VALORES MPU";
-    uint16_t w = strlen(msg) * oledTask.font->FontWidth;
+    uint16_t w = strlen(msg) * oled->font->FontWidth;
     uint8_t  x = (OLED_WIDTH  - w) / 2;
     uint8_t  y = 20;
-    OLED_SetCursor(&oledTask, x, y);
-    OLED_DrawStr(&oledTask, msg, false);
+    OLED_SetCursor(oled, x, y);
+    OLED_DrawStr(oled, msg, false);
 }
 
 /**

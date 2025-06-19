@@ -5,6 +5,7 @@
 #include "fonts.h"
 #include "globals.h"
 #include <string.h>
+#include <stdlib.h>
 #include "math.h"
 
 #if OLED_MAX_PAGES == 0
@@ -29,11 +30,6 @@ static void OLED_DequeuePage(OLED_HandleTypeDef *oled) {
     oled->current_page_index = oled->queue_head;
 
     __NOP();
-}
-
-
-void OLED_Is_Ready(OLED_HandleTypeDef *oled){
-	return oled->init_done;
 }
 
 void OLED_HideOverlayNow(OLED_HandleTypeDef *oled) {
@@ -200,7 +196,7 @@ void OLED_Update(OLED_HandleTypeDef *oled) {
         req->transfer_state = PAGE_REQ_COL_PENDING;
         __NOP();
         if (oled->requestBusCb) {
-            oled->requestBusCb();  // pide acceso al bus I2C
+            oled->requestBusCb(I2C_REQ_IS_TX);  // pide acceso al bus I2C
         }
     }
 }
@@ -208,7 +204,7 @@ void OLED_Update(OLED_HandleTypeDef *oled) {
 /**
  * @brief Callback para HAL-DMA (I2C_TX) cuando completa
  */
-void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled) {
+void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled, uint8_t is_tx) {
     if (!oled) return;
 
     if (oled->releaseBusCb) {
@@ -217,11 +213,11 @@ void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled) {
 
     if (!oled->init_done) {
         if (oled->init_idx < oled->init_len) {
-            if (oled->requestBusCb) oled->requestBusCb();
+            if (oled->requestBusCb) oled->requestBusCb(I2C_REQ_IS_TX);
             return;
         }else if (!oled->just_finished_init) {
             oled->just_finished_init = true;
-            if (oled->requestBusCb) oled->requestBusCb();
+            if (oled->requestBusCb) oled->requestBusCb(I2C_REQ_IS_TX);
             return;
         }
 
@@ -235,13 +231,13 @@ void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled) {
 		switch (req->transfer_state) {
 			case PAGE_REQ_COL_PENDING:
 				req->transfer_state = PAGE_REQ_PAGE_PENDING;
-				oled->requestBusCb();  // pedir acceso para el segundo comando
+				oled->requestBusCb(I2C_REQ_IS_TX);  // pedir acceso para el segundo comando
 				__NOP();
 				break;
 
 			case PAGE_REQ_PAGE_PENDING:
 				req->transfer_state = PAGE_REQ_DATA_PENDING;
-				oled->requestBusCb();  // pedir acceso para enviar los datos
+				oled->requestBusCb(I2C_REQ_IS_TX);  // pedir acceso para enviar los datos
 				__NOP();
 				break;
 
@@ -348,7 +344,7 @@ void initOLEDSequence(OLED_HandleTypeDef *oled)
 {
     if (!oled) return;
     //solicitamos el bus I2C y disparamos el primer comando de init
-    oled->requestBusCb();
+    oled->requestBusCb(I2C_REQ_IS_TX);
     __NOP();
 }
 

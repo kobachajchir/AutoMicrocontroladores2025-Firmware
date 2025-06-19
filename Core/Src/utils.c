@@ -12,15 +12,15 @@
 
 void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-	I2C_Manager_OnDMAComplete();
+	I2C_Manager_OnDMAComplete(1); //Es tx
 }
 
 void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c) {
-	I2C_Manager_OnDMAComplete();
+	I2C_Manager_OnDMAComplete(1); //Es tx
 }
 
 void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c) {
-  I2C_Manager_OnRXDMAComplete();
+	I2C_Manager_OnDMAComplete(0); //Es rx
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)

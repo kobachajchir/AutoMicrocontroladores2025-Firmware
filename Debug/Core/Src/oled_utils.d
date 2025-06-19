@@ -42,7 +42,7 @@ Core/Src/oled_utils.o: ../Core/Src/oled_utils.c ../Core/Inc/oled_utils.h \
  ../Core/Inc/utils/macros_utils.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/mpu6050.h \
- ../Core/Inc/i2c_manager.h
+ ../Core/Inc/i2c_manager.h ../Core/Inc/mpu6050.h
 ../Core/Inc/oled_utils.h:
 ../Core/Inc/menusystem.h:
 ../Core/Inc/oled_ssd1306_dma.h:
@@ -97,3 +97,4 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HA
 ../Core/Inc/motor_control.h:
 ../Core/Inc/mpu6050.h:
 ../Core/Inc/i2c_manager.h:
+../Core/Inc/mpu6050.h:
