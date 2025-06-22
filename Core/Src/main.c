@@ -310,6 +310,7 @@ void renderFnWrapper(void) {
 // Wrapper para I2C_Manager cuando termina el DMA
 void OLED_DMA_Complete_I2CManager(uint8_t is_tx) {
     // aquí puedes poner un breakpoint o togglear un LED para debug
+	__NOP();
     OLED_DMA_CompleteCallback(&oledTask, is_tx);
 }
 
@@ -330,6 +331,15 @@ void OLED_ReleaseBusUse_I2CManager(void) {
 	__NOP();
 }
 
+void OLED_Is_Ready(void) {
+    if (oledTask.just_finished_init && !IS_FLAG_SET(systemFlags, OLED_READY)) {
+        menuSystem.renderFn = renderDashboard_Wrapper;
+        menuSystem.renderFlag = true;
+        SET_FLAG(systemFlags, OLED_READY);
+        __NOP();
+    }
+}
+
 // Wrapper para I2C_Manager al completar TX (canal 6)
 void MPU_DMA_Complete_I2CManager(uint8_t is_tx) {
     // Aquí puedes poner un breakpoint o togglear un LED para depuración TX
@@ -341,7 +351,7 @@ void MPU_GrantAccessCallback_I2CManager(void) {
 	MPU_GrantAccessCallback(&mpuTask);
 }
 
-void MPU_RequestBusUse_I2CManager(int8_t is_tx) {
+void MPU_RequestBusUse_I2CManager(uint8_t is_tx) {
     // Pide acceso inmediato al manager
 	__NOP();
     I2C_Manager_RequestAccess(DEVICE_ID_MPU, I2C_REQ_TYPE_TX_RX);
@@ -486,7 +496,8 @@ int main(void)
 					   I2C_ADDR_OLED,
 					   &i2c_busy_flag,    // ← pasa la bandera DMA
 					   OLED_RequestBusUse_I2CManager,
-					   OLED_ReleaseBusUse_I2CManager);
+					   OLED_ReleaseBusUse_I2CManager,
+					   OLED_Is_Ready);
 			  initOLEDSequence(&oledTask);
 		  } else {
 			  // Falló al registrar (posiblemente sin espacio en la tabla)
@@ -1345,13 +1356,6 @@ void i2cManager_MainTask(){
 
 
 void OLED_MainTask(void) {
-    if (oledTask.init_done && !IS_FLAG_SET(systemFlags, OLED_READY)) {
-        menuSystem.renderFn = renderValoresMPU_Wrapper;
-        menuSystem.renderFlag = true;
-        SET_FLAG(systemFlags, OLED_READY);
-        __NOP();
-    }
-
     if (IS_FLAG_SET(systemFlags, OLED_READY)) {
     	if(IS_FLAG_SET(systemFlags, OLED_REFRESH)){
     		if(menuSystem.renderFn){
@@ -1383,8 +1387,6 @@ void OLED_MainTask(void) {
         if (menuSystem.renderFlag && menuSystem.renderFn) {
             menuSystem.renderFlag = false;
             menuSystem.renderFn();  // Esta función modifica el framebuffer
-            __NOP();
-            OLED_SendBuffer(&oledTask);  // Encola páginas dirty del buffer activo
         }
     }
 

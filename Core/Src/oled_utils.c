@@ -168,35 +168,57 @@ void renderDashboard(void)
     OLED_DrawStr(&oledTask, msg, false);
 }
 
+/**
+ * @brief  Dibuja “VALORES MPU” centrado tanto horizontal como verticalmente.
+ * @param  oled     Puntero al handle del driver OLED
+ * @param  mpuData  (no usado aquí, pero se deja por consistencia)
+ */
 void renderValoresMPUScreen(OLED_HandleTypeDef *oled, MPU6050_IntData_t *mpuData)
 {
+    if (!oled) return;
+
+    // 1) Limpiar toda la pantalla MAIN
+    OLED_ClearBuffer(oled, false);
+
+    // 2) Seleccionar fuente
     OLED_SetFont(oled, &Font_11x18);
+
+    // 3) Calcular posición para centrar
     const char *msg = "VALORES MPU";
-    uint16_t w = strlen(msg) * oled->font->FontWidth;
-    uint8_t  x = (OLED_WIDTH  - w) / 2;
-    uint8_t  y = 20;
+    uint16_t str_w  = strlen(msg) * oled->font->FontWidth;
+    uint8_t  str_h  = oled->font->FontHeight;
+    uint8_t  x      = (OLED_WIDTH  - str_w) / 2;
+    uint8_t  y      = (OLED_HEIGHT - str_h) / 2;
+
+    // 4) Dibujar el texto
     OLED_SetCursor(oled, x, y);
     OLED_DrawStr(oled, msg, false);
+
+    // 5) Iniciar envío de páginas pendientes
+    OLED_SendBuffer(oled);
 }
 
+
 /**
- * @brief  Dibuja todo el gráfico IR (leyenda + separador + barras) y envía el buffer.
+ * @brief  Dibuja todo el gráfico IR (leyenda + separador + barras) y arranca el envío.
  * @param  oled      Puntero al handle del driver OLED
  * @param  irValues  Array de OLED_BAR_COUNT valores (0…4095)
  */
 void OLED_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
 {
-    // 1) pantalla limpia y modos
+    if (!oled) return;
+
+    // 1) Limpiar toda la pantalla MAIN
     OLED_ClearBuffer(oled, false);
+
+    // 2) Ajustar modos de dibujo
     OLED_SetBitmapMode(oled, true);
     OLED_SetFontMode(oled,   true);
 
-    // 2) leyenda en 8x10
+    // 3) Leyenda "IR1"… "IR8" con fuente 8×10
     OLED_SetFont(oled, &Font_8x10);
     const uint8_t fh    = oled->font->FontHeight;
     const uint8_t sep_y = fh + 1;
-
-    // 3) "IR1"… "IR8"
     char label[5];
     for (int i = 0; i < OLED_BAR_COUNT; i++) {
         snprintf(label, sizeof(label), "IR%d", i+1);
@@ -206,59 +228,57 @@ void OLED_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
         OLED_DrawStr(oled, label, false);
     }
 
-    // 4) separador
+    // 4) Separador horizontal
     OLED_DrawLineXY(oled,
                     0,           sep_y,
                     OLED_WIDTH-1, sep_y,
                     false);
 
-    // 5) barras
+    // 5) Dibujar y enviar las barras IR
     OLED_DrawIRBars(oled, irValues);
-
 }
 
 /**
  * @brief  Dibuja las barras del gráfico IR.
+ *         Limpia la región de las barras y las redibuja.
  * @param  oled      Puntero al handle del driver OLED
  * @param  irValues  Array de OLED_BAR_COUNT valores (0…4095)
  */
 void OLED_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
 {
+    if (!oled) return;
+
+    // Cálculo de la zona de barras
     const uint8_t fh     = oled->font->FontHeight;
     const uint8_t sep_y  = fh + 2;
     const uint8_t bar_y0 = sep_y + 1;
     const uint8_t maxH   = OLED_HEIGHT - bar_y0;
 
-    // 1) Calcular páginas involucradas
-    const uint8_t page_start = bar_y0 / 8;
-    const uint8_t page_end   = (OLED_HEIGHT - 1) / 8;
+    // 1) Limpiar todo el área de barras (ancho completo, desde bar_y0 hasta abajo)
+    OLED_ClearBox(oled,
+                  0,        // x = 0
+                  bar_y0,   // y = inicio de barras
+                  OLED_WIDTH,
+                  maxH,
+                  false);   // MAIN
 
-    // 2) Limpiar área completa del recuadro de barras
-    for (uint8_t page = page_start; page <= page_end; page++) {
-        uint16_t offset = page * OLED_WIDTH;
-        memset(&oled->frame_buffer_main[offset], 0x00, OLED_WIDTH);
-        oled->page_dirty_main[page] = true;
-    }
-
-    // 3) Dibujar cada barra IR
+    // 2) Dibujar cada barra IR
     for (int i = 0; i < OLED_BAR_COUNT; i++) {
-        // Clamp del valor IR
-        uint16_t v = (irValues[i] > 4095) ? 4095 : irValues[i];
+        uint16_t v = irValues[i] > 4095 ? 4095 : irValues[i];
+        uint8_t  h = (uint32_t)v * maxH / 4095;
+        uint8_t  y0 = bar_y0 + (maxH - h);
 
-        // Mapeo a altura
-        uint8_t h = (uint32_t)v * maxH / 4095;
-
-        // Y de inicio (crece hacia arriba)
-        uint8_t y0 = bar_y0 + (maxH - h);
-
-        // Dibujo de la barra
         OLED_DrawBox(oled,
-                     bar_x[i],  // posición X según tabla
-                     y0,
-                     BAR_WIDTH, // ancho de barra = 12 px
+                     bar_x[i],  // posición X de la barra
+                     y0,        // posición Y calculada
+                     BAR_WIDTH, // ancho fijo
                      h,         // altura mapeada
-                     false);    // false = dibujar en frame_buffer_main
+                     false);    // MAIN
     }
+
+    // 3) Arrancar el envío de las páginas MAIN pendientes
+    OLED_SendBuffer(oled);
 }
+
 
 

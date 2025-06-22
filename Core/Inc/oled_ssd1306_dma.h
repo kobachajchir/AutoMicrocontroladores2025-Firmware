@@ -79,6 +79,10 @@ typedef union {
 #define OLED_MAX_PAGES        8
 #define OLED_QUEUE_DEPTH      16 // 8 páginas * 2 buffers
 #define OLED_PAGES      	  8
+#define MAIN_QDEPTH    8
+#define OVERLAY_QDEPTH 8
+#define OLED_QUEUE_DEPTH (MAIN_QDEPTH + OVERLAY_QDEPTH)
+
 
 #define MEMADD_SIZE_8BIT I2C_MEMADD_SIZE_8BIT
 
@@ -86,11 +90,12 @@ typedef union {
 
 typedef void (*I2C_Request_Bus_Use)(uint8_t req_is_tx);
 typedef void (*I2C_Release_Bus_Use)(void);
+typedef void (*On_OLED_Ready)(void);
 
 typedef enum {
     PAGE_REQ_WAITING = 0,
-    PAGE_REQ_COL_PENDING,
     PAGE_REQ_PAGE_PENDING,
+    PAGE_REQ_COL_PENDING,
     PAGE_REQ_DATA_PENDING,
     PAGE_REQ_DONE
 } OLED_TransferState;
@@ -104,52 +109,111 @@ typedef struct {
     OLED_TransferState transfer_state;
 } OLED_Page_t;
 
-/** Handle del driver OLED */
+/** Handle del driver OLED, refactorizado para sub-colas MAIN/OVERLAY */
 typedef struct {
-	const uint8_t *init_cmds;   // puntero a la tabla de comandos
-	uint8_t        init_len;    // longitud de la tabla
-	uint8_t        init_idx;    // índice actual en la init
-	bool           init_done;   // marca cuando la init terminó
-	bool           just_finished_init;
-	bool 		   first_Fn_Draw;
+    /* Secuencia de inicialización */
+    const uint8_t *init_cmds;   /**< Puntero a la tabla de comandos de init */
+    uint8_t        init_len;    /**< Longitud de la tabla de init */
+    uint8_t        init_idx;    /**< Índice actual en la init */
+    bool           init_done;   /**< true cuando la init finalizó */
+    bool           just_finished_init;
+    bool           first_Fn_Draw;
+
+    /* Frame buffers en RAM */
     uint8_t frame_buffer_main[OLED_BUFFER_SIZE];    /**< Contenido principal */
-    uint8_t frame_buffer_overlay[OLED_BUFFER_SIZE]; /**< Contenido temporal */
-    bool    page_dirty_main[OLED_MAX_PAGES];             /**< Flags de páginas modificadas */
-    bool    page_dirty_overlay[OLED_MAX_PAGES];             /**< Flags de páginas modificadas */
-    bool 	allow_overlay_transfer;
-    bool    overlay_active;      /**< Overlay activo */
-    bool    overlay_timeout_active; //Auto clear overlay
+    uint8_t frame_buffer_overlay[OLED_BUFFER_SIZE]; /**< Contenido overlay */
+
+    /* Control de overlay */
+    bool    allow_overlay_transfer;
+    bool    overlay_active;
+    bool    overlay_timeout_active;
     bool    overlay_hide_now;
-    uint16_t overlay_timer_ms;   /**< Tiempo restante (ms) */
+    uint16_t overlay_timer_ms;
     uint16_t overlay_time_in_ms;
-    /* Cola circular de requests de página */
+
+    /* Cola circular de solicitudes (0–7 MAIN, 8–15 OVERLAY) */
     OLED_Page_t page_queue[OLED_QUEUE_DEPTH];
-    uint8_t     queue_head;
-    uint8_t     queue_tail;
-    uint8_t     queue_count;
-    uint8_t page_count;
-	uint8_t current_page_index;
+    uint8_t     queue_head;    /**< Índice de extracción global */
+    uint8_t     queue_count;   /**< Número total de requests pendientes */
+    uint8_t     main_head;     /**< Head de sub-cola MAIN (0..7) */
+    uint8_t     main_count;    /**< Count de sub-cola MAIN */
+    uint8_t     ovl_head;      /**< Head de sub-cola OVERLAY (8..15) */
+    uint8_t     ovl_count;     /**< Count de sub-cola OVERLAY */
+
+    uint8_t     current_page_index; /**< Última entrada procesada */
+
     /* I2C y DMA */
-    I2C_HandleTypeDef *hi2c;           /**< Handle I2C (DMA) */
-    volatile uint8_t  *dma_busy_flag;  /**< Puntero a flag externo */
-    uint16_t oled_dev_address;
-    I2C_Request_Bus_Use requestBusCb;
-    I2C_Release_Bus_Use releaseBusCb;
-    // Fuentes y cursor
-	FontDef           *font;
-	uint8_t            cursor_x;
-	uint8_t            cursor_y;
-	bool        bitmap_opaque;    /**< true=bitmap cubre fondo; false=bitmap transparente */
-	bool        font_normal;      /**< true=texto normal; false=texto invertido */
+    I2C_HandleTypeDef    *hi2c;
+    volatile uint8_t     *dma_busy_flag;
+    uint16_t              oled_dev_address;
+    I2C_Request_Bus_Use   requestBusCb;
+    I2C_Release_Bus_Use   releaseBusCb;
+    On_OLED_Ready oled_just_init_fn;
+
+    /* Fuentes y cursor */
+    FontDef *font;
+    uint8_t  cursor_x;
+    uint8_t  cursor_y;
+    bool     bitmap_opaque;
+    bool     font_normal;
+    bool is_sending;
 } OLED_HandleTypeDef;
 
-static const uint8_t ssd1306_init_seq[] = {
-    0xAE,0xD5,0xF0,0xA8,0x3F,0xD3,0x00,0x40,0x8D,0x14,
-    0x20,0x00,0xA1,0xC8,0xDA,0x12,0x81,0xCF,0xD9,0xF1,
-    0xDB,0x40,0xA4,0xA6,0x2E,0xAF
-};
 
-#define SSD1306_INIT_LEN  (sizeof(ssd1306_init_seq))
+// Display commands
+#define CHARGEPUMP 			0x8D
+#define COLUMNADDR 			0x21
+#define COMSCANDEC 			0xC8
+#define COMSCANINC 			0xC0
+#define DISPLAYALLON 		0xA5
+#define DISPLAYALLON_RESUME 0xA4
+#define DISPLAYOFF 			0xAE
+#define DISPLAYON 			0xAF
+#define EXTERNALVCC 		0x1
+#define INVERTDISPLAY 		0xA7
+#define MEMORYMODE 			0x20
+#define NORMALDISPLAY 		0xA6
+#define PAGEADDR 			0x22
+#define SEGREMAP 			0xA0
+#define SETCOMPINS 			0xDA
+#define SETCONTRAST 		0x81
+#define SETDISPLAYCLOCKDIV 	0xD5
+#define SETDISPLAYOFFSET 	0xD3
+#define SETHIGHCOLUMN 		0x10
+#define SETLOWCOLUMN 		0x00
+#define SETMULTIPLEX 		0xA8
+#define SETPRECHARGE 		0xD9
+#define SETSEGMENTREMAP 	0xA1
+#define SETSTARTLINE		0x40
+#define SETVCOMDETECT 		0xDB
+#define SWITCHCAPVCC 		0x2
+#define DEACTIVATE_SCROLL 0x2E
+
+// Asegúrate de tener definido SSD1306_HEIGHT en 64 o 32 antes de incluir este array,
+// y opcionalmente un DEACTIVATE_SCROLL:
+// #define SSD1306_HEIGHT 64
+// #define DEACTIVATE_SCROLL 0x2E
+
+static const uint8_t ssd1306_init_seq_128x64[] = {
+    DISPLAYOFF,                // 0xAE: apaga pantalla
+    SETDISPLAYCLOCKDIV, 0xF0,  // 0xD5,0xF0: reloj al máximo (~96 Hz)
+    SETMULTIPLEX, 0x3F,        // 0xA8,0x3F: multiplexado = 64-1
+    SETDISPLAYOFFSET, 0x00,    // 0xD3,0x00: offset = 0
+    SETSTARTLINE,              // 0x40: start line = 0
+    CHARGEPUMP, 0x14,          // 0x8D,0x14: enable charge pump
+    MEMORYMODE, 0x00,          // 0x20,0x00: addressing mode = horizontal
+    SEGREMAP,                  // 0xA1: segment remap
+    COMSCANINC,                // 0xC0: COM scan direction increment
+    SETCOMPINS, 0x12,          // 0xDA,0x12: config pins for 128×64
+    SETCONTRAST, 0xCF,         // 0x81,0xCF: contraste para 128×64
+    SETPRECHARGE, 0xF1,        // 0xD9,0xF1: fase de pre-carga
+    SETVCOMDETECT, 0x40,       // 0xDB,0x40: nivel VCOM
+    DISPLAYALLON_RESUME,       // 0xA4: resume RAM display
+    NORMALDISPLAY,             // 0xA6: normal display
+    DEACTIVATE_SCROLL,         // 0x2E: detener scroll
+    DISPLAYON                  // 0xAF: enciende pantalla
+};
+#define SSD1306_INIT_LEN  (sizeof(ssd1306_init_seq_128x64))
 
 /**
  * @brief Inicializa el driver OLED
@@ -161,7 +225,9 @@ static const uint8_t ssd1306_init_seq[] = {
 HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
                             I2C_HandleTypeDef *hi2c,
 							uint16_t oled_dev_address,
-                            volatile uint8_t  *dma_busy_flag, I2C_Request_Bus_Use requestBusCbFn, I2C_Release_Bus_Use releaseBusUseFn);
+                            volatile uint8_t  *dma_busy_flag, I2C_Request_Bus_Use requestBusCbFn,
+							I2C_Release_Bus_Use releaseBusUseFn,
+							On_OLED_Ready on_ready_fn);
 
 /**
  * @brief   Lanza la secuencia de init por DMA (envío de ssd1306_init_seq).
@@ -178,6 +244,24 @@ void OLED_Update(OLED_HandleTypeDef *oled);
 
 /** Borra buffer principal u overlay y marca páginas dirty */
 void OLED_ClearBuffer(OLED_HandleTypeDef *oled, bool clear_overlay);
+
+/**
+ * @brief  Pone un píxel en el búfer (main o overlay) y encola inmediatamente
+ *         la página con el rango mínimo de columnas que contiene datos.
+ * @param  oled         Puntero al handle con buffers y colas.
+ * @param  x            Coordenada X (0..OLED_WIDTH-1).
+ * @param  y            Coordenada Y (0..OLED_HEIGHT-1).
+ * @param  use_overlay  true = usar frame_buffer_overlay; false = frame_buffer_main.
+ *
+ * Esta versión:
+ *  - Quita el uso de flags dirty y encola directamente aquí.
+ *  - Si la página ya estaba en cola (transfer_state == PAGE_REQ_WAITING),
+ *    actualiza column_start y length según el nuevo rango.
+ *  - Si no, añade la página al final de la cola.
+ */
+static void _setPixel(OLED_HandleTypeDef *oled,
+                      uint8_t x, uint8_t y,
+                      bool use_overlay);
 
 void OLED_DrawPixel(OLED_HandleTypeDef *oled,
                     uint8_t x, uint8_t y,

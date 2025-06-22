@@ -46,7 +46,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				Button_Task_10ms(&btnUser);
 				ENC_Task_N10ms(&encoder);
 			}
-            OLED_Task_10ms();
+            if (IS_FLAG_SET(systemFlags, OLED_READY)) {
+				OLED_Task_10ms();
+			}
         }
     }
 }
