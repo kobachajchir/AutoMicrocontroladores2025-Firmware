@@ -275,9 +275,6 @@ void OLED_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
                      h,         // altura mapeada
                      false);    // MAIN
     }
-
-    // 3) Arrancar el envío de las páginas MAIN pendientes
-    OLED_SendBuffer(oled);
 }
 
 

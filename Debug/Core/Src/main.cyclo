@@ -12,7 +12,7 @@
 ../Core/Src/main.c:349:6:MPU_GrantAccessCallback_I2CManager	1
 ../Core/Src/main.c:286:26:HAL_UART1_RxDMA_Wrapper	1
 ../Core/Src/main.c:281:26:HAL_UART1_TxDMA_Wrapper	1
-../Core/Src/main.c:334:6:OLED_Is_Ready	3
+../Core/Src/main.c:334:6:OLED_Is_Ready	2
 ../Core/Src/main.c:1267:6:My_TimerCalcFunc	6
 ../Core/Src/main.c:305:6:renderFnWrapper	1
 ../Core/Src/main.c:120:6:USART1_PrintString	1

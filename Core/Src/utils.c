@@ -92,7 +92,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 }
 
 void OLED_Task_10ms(){
-	if(oled10msCounter > 4){
+	if(oled10msCounter > 10){
 		oled10msCounter = 0;
 		SET_FLAG(systemFlags, OLED_REFRESH);
 	}else{

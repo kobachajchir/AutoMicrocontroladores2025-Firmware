@@ -77,12 +77,10 @@ typedef union {
 #define OLED_HEIGHT           64
 #define OLED_BUFFER_SIZE      (OLED_WIDTH * OLED_HEIGHT / 8)
 #define OLED_MAX_PAGES        8
-#define OLED_QUEUE_DEPTH      16 // 8 páginas * 2 buffers
 #define OLED_PAGES      	  8
 #define MAIN_QDEPTH    8
 #define OVERLAY_QDEPTH 8
-#define OLED_QUEUE_DEPTH (MAIN_QDEPTH + OVERLAY_QDEPTH)
-
+#define OLED_QUEUE_DEPTH 16
 
 #define MEMADD_SIZE_8BIT I2C_MEMADD_SIZE_8BIT
 
@@ -93,7 +91,8 @@ typedef void (*I2C_Release_Bus_Use)(void);
 typedef void (*On_OLED_Ready)(void);
 
 typedef enum {
-    PAGE_REQ_WAITING = 0,
+    PAGE_REQ_IDLE,        // slot libre, nada pendiente
+    PAGE_REQ_WAITING,     // datos nuevos en RAM, hay que enviar
     PAGE_REQ_PAGE_PENDING,
     PAGE_REQ_COL_PENDING,
     PAGE_REQ_DATA_PENDING,
@@ -161,58 +160,51 @@ typedef struct {
 
 
 // Display commands
-#define CHARGEPUMP 			0x8D
-#define COLUMNADDR 			0x21
-#define COMSCANDEC 			0xC8
-#define COMSCANINC 			0xC0
-#define DISPLAYALLON 		0xA5
-#define DISPLAYALLON_RESUME 0xA4
-#define DISPLAYOFF 			0xAE
-#define DISPLAYON 			0xAF
-#define EXTERNALVCC 		0x1
-#define INVERTDISPLAY 		0xA7
-#define MEMORYMODE 			0x20
-#define NORMALDISPLAY 		0xA6
-#define PAGEADDR 			0x22
-#define SEGREMAP 			0xA0
-#define SETCOMPINS 			0xDA
-#define SETCONTRAST 		0x81
-#define SETDISPLAYCLOCKDIV 	0xD5
-#define SETDISPLAYOFFSET 	0xD3
-#define SETHIGHCOLUMN 		0x10
-#define SETLOWCOLUMN 		0x00
-#define SETMULTIPLEX 		0xA8
-#define SETPRECHARGE 		0xD9
-#define SETSEGMENTREMAP 	0xA1
-#define SETSTARTLINE		0x40
-#define SETVCOMDETECT 		0xDB
-#define SWITCHCAPVCC 		0x2
-#define DEACTIVATE_SCROLL 0x2E
-
-// Asegúrate de tener definido SSD1306_HEIGHT en 64 o 32 antes de incluir este array,
-// y opcionalmente un DEACTIVATE_SCROLL:
-// #define SSD1306_HEIGHT 64
-// #define DEACTIVATE_SCROLL 0x2E
+#define CHARGEPUMP            0x8D
+#define COLUMNADDR            0x21
+#define PAGEADDR              0x22
+#define MEMORYMODE            0x20
+#define SEGREMAP_NORMAL       0xA0  // column address 0 → SEG0 (left-to-right)
+#define SEGREMAP_INVERT       0xA1  // column address 127 → SEG0 (right-to-left)
+#define COMSCANINC            0xC0  // COM scan direction: row 0 at top
+#define COMSCANDEC            0xC8  // COM scan direction: row 0 at bottom (vertical mirror)
+#define SETCOMPINS            0xDA
+#define SETCONTRAST           0x81
+#define SETDISPLAYCLOCKDIV    0xD5
+#define SETDISPLAYOFFSET      0xD3
+#define SETSTARTLINE          0x40
+#define CHARGEPUMP            0x8D
+#define SETMULTIPLEX          0xA8
+#define SETPRECHARGE          0xD9
+#define SETVCOMDETECT         0xDB
+#define DISPLAYALLON_RESUME   0xA4
+#define NORMALDISPLAY         0xA6
+#define INVERTDISPLAY         0xA7
+#define DISPLAYOFF            0xAE
+#define DISPLAYON             0xAF
+#define DEACTIVATE_SCROLL     0x2E
 
 static const uint8_t ssd1306_init_seq_128x64[] = {
-    DISPLAYOFF,                // 0xAE: apaga pantalla
+    DISPLAYOFF,                // 0xAE: apagar pantalla
     SETDISPLAYCLOCKDIV, 0xF0,  // 0xD5,0xF0: reloj al máximo (~96 Hz)
-    SETMULTIPLEX, 0x3F,        // 0xA8,0x3F: multiplexado = 64-1
-    SETDISPLAYOFFSET, 0x00,    // 0xD3,0x00: offset = 0
+    SETMULTIPLEX,       0x3F,  // 0xA8,0x3F: multiplexado = 64-1
+    SETDISPLAYOFFSET,   0x00,  // 0xD3,0x00: offset = 0
     SETSTARTLINE,              // 0x40: start line = 0
-    CHARGEPUMP, 0x14,          // 0x8D,0x14: enable charge pump
-    MEMORYMODE, 0x00,          // 0x20,0x00: addressing mode = horizontal
-    SEGREMAP,                  // 0xA1: segment remap
-    COMSCANINC,                // 0xC0: COM scan direction increment
-    SETCOMPINS, 0x12,          // 0xDA,0x12: config pins for 128×64
-    SETCONTRAST, 0xCF,         // 0x81,0xCF: contraste para 128×64
-    SETPRECHARGE, 0xF1,        // 0xD9,0xF1: fase de pre-carga
-    SETVCOMDETECT, 0x40,       // 0xDB,0x40: nivel VCOM
+    CHARGEPUMP,         0x14,  // 0x8D,0x14: enable charge pump
+    MEMORYMODE,         0x02,  // 0x20,0x02: addressing mode = page addressing
+    SEGREMAP_INVERT,           // 0xA0: column 0→SEG0 (normal, izquierda→derecha)
+    COMSCANDEC,                // 0xC0: COM scan dir = increment (fila 0 arriba)
+    SETCOMPINS,         0x12,  // 0xDA,0x12: config pins para 128×64
+    SETCONTRAST,        0xCF,  // 0x81,0xCF: contraste para 128×64
+    SETPRECHARGE,       0xF1,  // 0xD9,0xF1: fase de pre-carga
+    SETVCOMDETECT,      0x40,  // 0xDB,0x40: nivel VCOM
     DISPLAYALLON_RESUME,       // 0xA4: resume RAM display
-    NORMALDISPLAY,             // 0xA6: normal display
+    NORMALDISPLAY,             // 0xA6: display normal
     DEACTIVATE_SCROLL,         // 0x2E: detener scroll
-    DISPLAYON                  // 0xAF: enciende pantalla
+    DISPLAYON                  // 0xAF: encender pantalla
 };
+
+// Asegúrate de definir SSD1306_HEIGHT = 64 antes de incluir este array
 #define SSD1306_INIT_LEN  (sizeof(ssd1306_init_seq_128x64))
 
 /**
@@ -259,7 +251,7 @@ void OLED_ClearBuffer(OLED_HandleTypeDef *oled, bool clear_overlay);
  *    actualiza column_start y length según el nuevo rango.
  *  - Si no, añade la página al final de la cola.
  */
-static void _setPixel(OLED_HandleTypeDef *oled,
+void _setPixel(OLED_HandleTypeDef *oled,
                       uint8_t x, uint8_t y,
                       bool use_overlay);
 
@@ -371,6 +363,8 @@ void OLED_SendCommand_SetColumn(OLED_HandleTypeDef *oled, uint8_t col_start);
 void OLED_SendData(OLED_HandleTypeDef *oled, OLED_Page_t *req);
 
 void OLED_SendCommand_SetPage(OLED_HandleTypeDef *oled, uint8_t page);
+
+void OLED_DequeuePage(OLED_HandleTypeDef *oled);
 
 /**
  * @brief   Marca todas las páginas del buffer overlay como dirty y activa su envío.

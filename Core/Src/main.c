@@ -332,11 +332,11 @@ void OLED_ReleaseBusUse_I2CManager(void) {
 }
 
 void OLED_Is_Ready(void) {
-    if (oledTask.just_finished_init && !IS_FLAG_SET(systemFlags, OLED_READY)) {
+	__NOP();
+    if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
         menuSystem.renderFn = renderDashboard_Wrapper;
         menuSystem.renderFlag = true;
         SET_FLAG(systemFlags, OLED_READY);
-        __NOP();
     }
 }
 
