@@ -345,7 +345,7 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
     oled->init_done       = false;
 
     /* 4) Configuración inicial de dibujo */
-    oled->font            = &Font_7x10;
+    oled->font            = &Font_6x12_Min;
     oled->cursor_x        = 0;
     oled->cursor_y        = 0;
     oled->bitmap_opaque   = true;
@@ -474,7 +474,7 @@ void _setPixel(OLED_HandleTypeDef *oled,
     uint8_t *buf = use_overlay
         ? oled->frame_buffer_overlay
         : oled->frame_buffer_main;
-    buf[page * OLED_WIDTH + x] &= ~bit;  // Limpiar el bit
+    //buf[page * OLED_WIDTH + x] &= ~bit;  // Limpiar el bit
 	buf[page * OLED_WIDTH + x] |= bit;   // Poner el bit
 
     // 3) Rango mínimo de columnas que tienen datos
@@ -723,58 +723,75 @@ void OLED_DrawXBM(OLED_HandleTypeDef *oled,
                   const uint8_t *bitmap,
                   bool use_overlay)
 {
-    if (!oled) return;
-    for (uint8_t row = 0; row < h; row++) {
-        for (uint8_t col = 0; col < w; col++) {
-            uint8_t byte = bitmap[(col / 8) + row * (w / 8)];
-            if (byte & (1 << (col % 8))) {
+    if (!oled || !bitmap) return;
+
+    const uint8_t bytes_per_row = (w + 7) >> 3;          // ceil(w / 8)
+
+    for (uint8_t row = 0; row < h; ++row) {
+        const uint8_t *row_ptr = bitmap + row * bytes_per_row;
+
+        for (uint8_t col = 0; col < w; ++col) {
+            uint8_t byte = row_ptr[col >> 3];            // col / 8
+            if (byte & (1 << (col & 7)))                 // col % 8
                 OLED_DrawPixel(oled, x + col, y + row, use_overlay);
-            }
         }
     }
 }
 
+
 // --- Texto ----------------------------------------------------------------------------------
 
+/*  fonts_min.h aporta:
+ *  - FontMap[128]          (uint8_t)
+ *  - FONT_GLYPH_COUNT      (=70)
+ *  - Font5x10_Min …        (uint16_t[])
+ *  - FontDef { width, height, data }
+ *  - FONT_OFFSET_0 / _A / _a
+ */
+
+/* -------------------------------------------------------------------- */
 void OLED_DrawStr(OLED_HandleTypeDef *oled,
-                   const char *str,
-                   bool use_overlay)
+                  const char          *str,
+                  bool                use_overlay)
 {
     if (!oled || !str || !oled->font) return;
 
-    FontDef *f = oled->font;
-    uint8_t cx = oled->cursor_x;
-    uint8_t cy = oled->cursor_y;
+    const FontDef *f  = oled->font;
+    uint8_t        cx = oled->cursor_x;
+    uint8_t        cy = oled->cursor_y;
 
     while (*str) {
-        uint8_t c = (uint8_t)*str++;
-        if (c < 32 || c > 126) c = '?';
+        /* ---- 1. Traducir código ASCII a índice de glifo ---------------- */
+        uint8_t code = (uint8_t)*str++;
+        uint8_t idx  = FontMap[code];          // 0‥69  ó  0xFF
 
-        // Cada carácter ocupa f->FontHeight filas de 16 bits
-        const uint16_t *glyph = &f->data[(c - 32) * f->FontHeight];
+        if (idx == 0xFF) {                     // carácter no soportado
+            idx = FontMap[(uint8_t)'?'];       //  → usa '?'
+            if (idx == 0xFF) continue;         // (seguro, pero por si acaso)
+        }
 
-        // Para cada fila del glifo...
-        for (uint8_t row = 0; row < f->FontHeight; row++) {
+        const uint16_t *glyph = &f->data[idx * f->FontHeight];
+
+        /* ---- 2. Pintar el glifo ---------------------------------------- */
+        for (uint8_t row = 0; row < f->FontHeight; ++row) {
             uint16_t bits = glyph[row];
+            uint16_t mask = 0x8000;            // empezamos por el MSB
 
-            // CORRECCIÓN: Comenzar desde MSB (bit más significativo)
-            // y desplazar hacia la derecha
-            uint16_t mask = 0x8000;  // Bit 15 (MSB)
-            for (uint8_t col = 0; col < f->FontWidth; col++) {
-                if (bits & mask) {
+            for (uint8_t col = 0; col < f->FontWidth; ++col, mask >>= 1) {
+                if (bits & mask)
                     OLED_DrawPixel(oled, cx + col, cy + row, use_overlay);
-                }
-                mask >>= 1;  // Desplazar hacia la derecha
             }
         }
 
-        // Avanzamos el cursor horizontalmente
+        /* ---- 3. Avanzar cursor ---------------------------------------- */
         cx += f->FontWidth;
         if (cx + f->FontWidth > OLED_WIDTH) break;
     }
 
     oled->cursor_x = cx;
 }
+/* -------------------------------------------------------------------- */
+
 
 /**
  * @brief  Limpia un rectángulo de la pantalla y encola solo las regiones afectadas.
@@ -794,10 +811,10 @@ void OLED_ClearBox(OLED_HandleTypeDef *oled,
     if (x >= OLED_WIDTH || y >= OLED_HEIGHT) return;
 
     // 1) Ajustar límites
-    uint8_t x_end = (x + w > OLED_WIDTH)  ? OLED_WIDTH  : (x + w);
+    uint8_t x_end = (x + w > OLED_WIDTH) ? OLED_WIDTH : (x + w);
     uint8_t y_end = (y + h > OLED_HEIGHT) ? OLED_HEIGHT : (y + h);
 
-    // 2) Borrar bits en el framebuffer correspondiente
+    // 2) Borrar bits en el framebuffer
     uint8_t *buf = use_overlay
         ? oled->frame_buffer_overlay
         : oled->frame_buffer_main;
@@ -810,22 +827,53 @@ void OLED_ClearBox(OLED_HandleTypeDef *oled,
         }
     }
 
-    // 3) Calcular páginas afectadas y rango de columnas
+    // 3) Determinar páginas y columnas afectadas
     uint8_t page_start =  y      >> 3;
-    uint8_t page_last  = (y_end-1) >> 3;
+    uint8_t page_last  = (y_end - 1) >> 3;
     uint8_t first_col  = x;
     uint8_t length     = x_end - x;
 
-    // 4) Encolar cada página en su slot fijo
-    //    MAIN → slots 0..7, OVERLAY → slots 8..15
+    // 4) Encolar y actualizar contadores
     uint8_t baseIdx = use_overlay ? MAIN_QDEPTH : 0;
     for (uint8_t p = page_start; p <= page_last; p++) {
         OLED_Page_t *req = &oled->page_queue[baseIdx + p];
-        req->page           = p;
-        req->column_start   = first_col;
-        req->length         = length;
-        req->use_overlay    = use_overlay;
-        req->transfer_state = PAGE_REQ_WAITING;
+
+        if (req->transfer_state == PAGE_REQ_IDLE) {
+            // Nuevo encolado
+            req->page           = p;
+            req->column_start   = first_col;
+            req->length         = length;
+            req->use_overlay    = use_overlay;
+            req->transfer_state = PAGE_REQ_WAITING;
+
+            if (use_overlay) {
+                if (oled->ovl_count < OVERLAY_QDEPTH) {
+                    oled->ovl_count++;
+                    oled->queue_count++;
+                }
+            } else {
+                if (oled->main_count < MAIN_QDEPTH) {
+                    oled->main_count++;
+                    oled->queue_count++;
+                }
+            }
+
+        } else if (req->transfer_state == PAGE_REQ_WAITING) {
+            // Fusión con página ya encolada
+            uint8_t old_start = req->column_start;
+            uint8_t old_end   = old_start + req->length - 1;
+            uint8_t new_start = (old_start < first_col) ? old_start : first_col;
+            uint8_t new_end   = ((old_end   > (first_col + length - 1))
+                                  ? old_end
+                                  : (first_col + length - 1));
+            req->column_start = new_start;
+            req->length       = new_end - new_start + 1;
+        }
+    }
+
+    // 5) Arrancar envío si estaba idle
+    if (!oled->is_sending && oled->queue_count > 0) {
+        OLED_Update(oled);
     }
 }
 

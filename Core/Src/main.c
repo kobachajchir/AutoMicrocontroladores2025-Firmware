@@ -332,7 +332,6 @@ void OLED_ReleaseBusUse_I2CManager(void) {
 }
 
 void OLED_Is_Ready(void) {
-	__NOP();
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
         menuSystem.renderFn = renderDashboard_Wrapper;
         menuSystem.renderFlag = true;

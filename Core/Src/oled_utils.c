@@ -46,6 +46,7 @@ void renderValoresIR_Wrapper(void)
 		OLED_DrawIRGraph(&oledTask, sensor_raw_data); // La primera vez renderizo todo
 		oledTask.first_Fn_Draw = true;
 	}else{
+		__NOP();
 		OLED_DrawIRBars(&oledTask, sensor_raw_data); //La siguiente solo las barras
 	}
 }
@@ -83,7 +84,7 @@ void displayMenuCustom(MenuSystem *system)
     OLED_ClearBuffer(&oledTask, false);
     OLED_SetBitmapMode(&oledTask, true);
     OLED_SetFontMode(&oledTask,   true);
-    OLED_SetFont(&oledTask, &Font_11x18);
+    OLED_SetFont(&oledTask, &Font_6x12_Min);
 
     // 2) calculo dinámico de Y para anterior, actual y siguiente
     int16_t yPrev = Y_OFFSET + (idx - 1)*Y_SPACING;
@@ -158,14 +159,22 @@ void displayMenuCustom(MenuSystem *system)
 
 void renderDashboard(void)
 {
-    // 2) Selecciona fuente y centra texto
-    OLED_SetFont(&oledTask, &Font_11x18);
-    const char *msg = "DASHBOARD";
-    uint16_t w = strlen(msg) * oledTask.font->FontWidth;
-    uint8_t  x = (OLED_WIDTH  - w) / 2;
-    uint8_t  y = (OLED_HEIGHT - oledTask.font->FontHeight) / 2;
-    OLED_SetCursor(&oledTask, x, y);
-    OLED_DrawStr(&oledTask, msg, false);
+    /* 1) Icono (15×16 px) */
+    OLED_DrawXBM(&oledTask,           /* destino      */
+                 4, 44,               /* x , y        */
+                 15, 16,              /* w , h        */
+                 userBtn_Icon,
+                 false);              /* sin overlay  */
+
+    /* 2) Texto “Menu” (fuente 6×12) */
+    OLED_SetFont(&oledTask, &Font_6x12_Min);
+    OLED_SetCursor(&oledTask, 24, 47);
+    OLED_DrawStr(&oledTask, "Menu", false);
+
+    /* 3) Texto “Inicio” (fuente 14×17) */
+    OLED_SetFont(&oledTask, &Font_16x29_Min);
+    OLED_SetCursor(&oledTask, 22, 10);
+    OLED_DrawStr(&oledTask, "Inicio", false);
 }
 
 /**
@@ -181,7 +190,7 @@ void renderValoresMPUScreen(OLED_HandleTypeDef *oled, MPU6050_IntData_t *mpuData
     OLED_ClearBuffer(oled, false);
 
     // 2) Seleccionar fuente
-    OLED_SetFont(oled, &Font_11x18);
+    OLED_SetFont(oled, &Font_6x12_Min);
 
     // 3) Calcular posición para centrar
     const char *msg = "VALORES MPU";
@@ -216,7 +225,7 @@ void OLED_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
     OLED_SetFontMode(oled,   true);
 
     // 3) Leyenda "IR1"… "IR8" con fuente 8×10
-    OLED_SetFont(oled, &Font_8x10);
+    OLED_SetFont(oled, &Font_5x10_Min);
     const uint8_t fh    = oled->font->FontHeight;
     const uint8_t sep_y = fh + 1;
     char label[5];
@@ -255,19 +264,19 @@ void OLED_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
     const uint8_t maxH   = OLED_HEIGHT - bar_y0;
 
     // 1) Limpiar todo el área de barras (ancho completo, desde bar_y0 hasta abajo)
-    OLED_ClearBox(oled,
-                  0,        // x = 0
-                  bar_y0,   // y = inicio de barras
-                  OLED_WIDTH,
-                  maxH,
-                  false);   // MAIN
 
     // 2) Dibujar cada barra IR
-    for (int i = 0; i < OLED_BAR_COUNT; i++) {
+    for (uint8_t i = 0; i < OLED_BAR_COUNT; i++) {
         uint16_t v = irValues[i] > 4095 ? 4095 : irValues[i];
         uint8_t  h = (uint32_t)v * maxH / 4095;
         uint8_t  y0 = bar_y0 + (maxH - h);
-
+        OLED_ClearBox(oled,
+                    bar_x[i],  // posición X de la barra
+                    bar_y0,    // siempre desde el inicio de las barras
+                    BAR_WIDTH, // ancho fijo
+                    maxH,      // altura máxima de la zona de barras
+                    false      // MAIN
+                );
         OLED_DrawBox(oled,
                      bar_x[i],  // posición X de la barra
                      y0,        // posición Y calculada
@@ -275,6 +284,7 @@ void OLED_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
                      h,         // altura mapeada
                      false);    // MAIN
     }
+    __NOP();
 }
 
 
