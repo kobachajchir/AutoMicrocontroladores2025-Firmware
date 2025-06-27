@@ -5,7 +5,7 @@
 ../Core/Src/oled_ssd1306_dma.c:308:6:OLED_DequeuePage	12
 ../Core/Src/oled_ssd1306_dma.c:372:19:OLED_Init	1
 ../Core/Src/oled_ssd1306_dma.c:435:6:OLED_ClearBuffer	6
-../Core/Src/oled_ssd1306_dma.c:165:6:OLED_DMA_CompleteCallback	19
+../Core/Src/oled_ssd1306_dma.c:165:6:OLED_DMA_CompleteCallback	20
 ../Core/Src/oled_ssd1306_dma.c:493:6:OLED_SetCursor	2
 ../Core/Src/oled_ssd1306_dma.c:499:6:OLED_SetFont	3
 ../Core/Src/oled_ssd1306_dma.c:512:6:_setPixel	15

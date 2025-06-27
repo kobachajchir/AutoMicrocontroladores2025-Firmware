@@ -259,7 +259,7 @@ void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled, uint8_t is_tx) {
 				// desencolar y preparar siguiente página
 				OLED_DequeuePage(oled);
 				oled->is_sending = false;
-			    if (oled->requestBusCb) {
+			    if (oled->queue_count > 0 && oled->requestBusCb) {
 			        oled->requestBusCb(I2C_REQ_IS_TX);
 			    }
 				break;
@@ -423,7 +423,7 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
     oled->current_page_index = 0;
     oled->just_finished_init = false;
 
-    oled->pages_to_send     = OLED_PAGES_TO_SEND;
+    oled->pages_to_send     = OLED_PAGES_TO_SEND_HALF_QUEUE; //Primero solo limpia 8 (paginas)
     oled->pages_sent_count  = 0;
     return HAL_OK;
 }

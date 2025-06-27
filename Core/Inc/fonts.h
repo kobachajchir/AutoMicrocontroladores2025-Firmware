@@ -42,6 +42,7 @@ extern const uint8_t Icon_Lock_bits[];
 extern const uint8_t Icon_Volver_bits[];
 extern const uint8_t Icon_APWifi_bits[];
 extern const uint8_t Icon_USB_bits[];
+extern const uint8_t Icon_RF_bits[];
 
 #endif
 

@@ -145,14 +145,14 @@ void OledUtils_RenderDashboard_Wrapper(void)
 	}else{
 		encoder.allowEncoderInput = false;
 	}
-	oledTask.pages_to_send    = OLED_PAGES_TO_SEND;
+	oledTask.pages_to_send    = OLED_PAGES_TO_SEND_HALF_QUEUE;
 	oledTask.pages_sent_count = 0;
 	OledUtils_RenderDashboard(&oledTask);
 }
 void MenuSys_RenderMenu_Wrapper(){
 	menuSystem.allowPeriodicRefresh = false;
 	encoder.allowEncoderInput = true;
-	oledTask.pages_to_send    = OLED_PAGES_TO_SEND;
+	oledTask.pages_to_send    = OLED_PAGES_TO_SEND_HALF_QUEUE;
 	oledTask.pages_sent_count = 0;
 	MenuSys_RenderMenu(&menuSystem);
 }
@@ -173,6 +173,7 @@ void onMenuRenderComplete() {
 	if(IS_FLAG_SET(systemFlags, OLED_READY)){
 		if(menuSystem.allowPeriodicRefresh && oledTask.pages_to_send != OLED_PAGES_TO_SEND_NO_LIMIT){
 			menuSystem.allowPeriodicRefresh = false;
+			__NOP();
 		}
 	}
 }
@@ -1139,6 +1140,9 @@ void initCarMode(){
 	ENC_Init(&encoder, &htim4, 1, 2, EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
+	SET_FLAG(systemFlags2, AP_ACTIVE);
+	SET_FLAG(systemFlags2, USB_ACTIVE);
+	SET_FLAG(systemFlags2, RF_ACTIVE);
 }
 
 void UserBtn_MainTask(ButtonState_t *h){

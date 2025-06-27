@@ -1,4 +1,4 @@
-../Core/Src/oled_utils.c:317:6:OledUtils_RenderValoresMPUScreen.part.0	1
+../Core/Src/oled_utils.c:340:6:OledUtils_RenderValoresMPUScreen.part.0	1
 ../Core/Src/oled_utils.c:25:6:OledUtils_RenderLockState	2
 ../Core/Src/oled_utils.c:44:6:OledUtils_DrawIRBars	4
 ../Core/Src/oled_utils.c:83:6:OledUtils_DrawIRGraph.part.0	2
@@ -7,7 +7,7 @@
 ../Core/Src/oled_utils.c:138:6:OledUtils_RenderValoresMPU_Wrapper	1
 ../Core/Src/oled_utils.c:148:6:OledUtils_RenderVerticalMenu	4
 ../Core/Src/oled_utils.c:209:6:OledUtils_Clear	1
-../Core/Src/oled_utils.c:216:6:OledUtils_DrawItem	3
-../Core/Src/oled_utils.c:235:6:displayMenuCustom	1
-../Core/Src/oled_utils.c:241:6:OledUtils_RenderDashboard	1
-../Core/Src/oled_utils.c:317:6:OledUtils_RenderValoresMPUScreen	2
+../Core/Src/oled_utils.c:216:6:OledUtils_DrawItem	6
+../Core/Src/oled_utils.c:249:6:displayMenuCustom	1
+../Core/Src/oled_utils.c:255:6:OledUtils_RenderDashboard	5
+../Core/Src/oled_utils.c:340:6:OledUtils_RenderValoresMPUScreen	2

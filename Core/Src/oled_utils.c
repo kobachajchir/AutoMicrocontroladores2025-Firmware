@@ -215,17 +215,31 @@ void OledUtils_Clear(OLED_HandleTypeDef *oled, bool is_overlay) {
  */
 void OledUtils_DrawItem(OLED_HandleTypeDef *oled, const MenuItem *item, uint8_t y, bool selected) {
     // 1) icono (directo del MenuItem)
+	OLED_DrawFrame(oled, 0, y-3, 128, 20, false);
+	uint8_t iconHeight;
+	uint8_t iconWidth;
     if (item->icon) {
-        OLED_DrawXBM(oled, 6, y - 3, 16, 16, item->icon, false);
+    	if      (item->icon == Icon_Wifi_bits)   { iconWidth = 19; iconHeight = 16; }
+    	else if (item->icon == Icon_Volver_bits) { iconWidth = 18; iconHeight = 15; }
+    	else if (item->icon == Icon_Sensors_bits){ iconWidth = 14; iconHeight = 16; }
+    	else if (item->icon == Icon_Config_bits) { iconWidth = 16; iconHeight = 16; }
+    	else {
+    	    // valores por defecto si no coincide ningún icono
+    	    iconWidth = 16; iconHeight = 16;
+    	}
+    	// luego lo dibujas:
+    	OLED_DrawXBM(oled, 6, y, iconWidth, iconHeight, item->icon, false);
     }
 
     // 2) texto
-    OLED_SetCursor(oled, 31, y + 6);
+    OLED_SetCursor(oled, 31, y);
     OLED_DrawStr(oled, (char*)item->name, false);
 
     // 3) cursor si está seleccionado
     if (selected) {
-        OLED_DrawXBM(oled, 110, y - 3, 16, 16, Icon_Cursor_bits, false);
+		iconWidth = 7;
+		iconHeight = 16;
+        OLED_DrawXBM(oled, 117, y, iconWidth, iconHeight, Icon_Cursor_bits, false);
     }
 }
 
@@ -240,7 +254,52 @@ void displayMenuCustom(MenuSystem *system)
 
 void OledUtils_RenderDashboard(OLED_HandleTypeDef *oled)
 {
-    /* 1) Icono “UserBtn” (15×16 px) */
+    OLED_SetFont(oled, &Font_6x12_Min);
+	if(IS_FLAG_SET(systemFlags2, WIFI_ACTIVE)){
+	    OLED_DrawXBM(oled,  1,  2, 19, 16, Icon_Wifi_bits,   false);
+	    OLED_SetCursor(oled,
+	                   21,
+	                   10  - oled->font->FontHeight);
+	    OLED_DrawStr(oled, "Wifi name", false);
+
+	    /* Texto “192.168.1.1” (fuente 6×12, baseline y=18) */
+	    OLED_SetCursor(oled,
+	                   18,
+	                   20 - oled->font->FontHeight);
+	    OLED_DrawStr(oled, "192.168.1.1", false);
+	}else if(IS_FLAG_SET(systemFlags2, AP_ACTIVE)){
+		OLED_DrawXBM(oled,	1,  2, 15, 16, Icon_APWifi_bits, false);
+	    OLED_SetCursor(oled,
+	                   21,
+	                   10  - oled->font->FontHeight);
+	    OLED_DrawStr(oled, "AP name", false);
+
+	    /* Texto “192.168.1.1” (fuente 6×12, baseline y=18) */
+	    OLED_SetCursor(oled,
+	                   18,
+	                   20 - oled->font->FontHeight);
+	    OLED_DrawStr(oled, "10.100.100.1", false);
+	}
+	if(IS_FLAG_SET(systemFlags2, USB_ACTIVE)){
+		OLED_DrawXBM(oled, 91,  2, 16, 16, Icon_USB_bits,    false);
+	}
+	if(IS_FLAG_SET(systemFlags2, RF_ACTIVE)){
+		OLED_DrawXBM(oled, 110,  2, 17, 16, Icon_RF_bits,    false);
+	}
+    /* Texto “Wifi name” (fuente 6×12, baseline y=8) */
+    /* Línea horizontal en y=20, de x=1 a x=125 */
+    OLED_DrawHLine(oled,
+                   1,    /* x */
+                   20,   /* y */
+                   125,  /* width = 125 pixels (1..125 inclusive) */
+                   false);
+    /* Texto “Inicio” (fuente 14×17, baseline y=37) */
+    OLED_SetFont(oled, &Font_14x17_Min);
+    OLED_SetCursor(oled,
+                   25,
+                   42 - oled->font->FontHeight);
+    OLED_DrawStr(oled, "Inicio", false);
+    /* Icono “UserBtn” (15×16 px) */
     OLED_DrawXBM(oled,
                  4,    /* x */
                  44,   /* y */
@@ -249,20 +308,20 @@ void OledUtils_RenderDashboard(OLED_HandleTypeDef *oled)
                  Icon_UserBtn_bits,
                  false);
 
-    /* 2) Texto “Menu” (fuente 6×12, baseline y=55) */
+    /* Texto “Menu” (fuente 6×12, baseline y=55) */
     OLED_SetFont(oled, &Font_6x12_Min);
     OLED_SetCursor(oled,
                    24,        /* x */
                    58 - oled->font->FontHeight /* y = baseline - font height */);
     OLED_DrawStr(oled, "Menu", false);
 
-    /* 3) Texto “Modo” (misma fuente, baseline y=55) */
+    /* Texto “Modo” (misma fuente, baseline y=55) */
     OLED_SetCursor(oled,
                    83,
                    58 - oled->font->FontHeight);
     OLED_DrawStr(oled, "Modo", false);
 
-    /* 4) Icono “Encoder” (13×13 px) */
+    /* Icono “Encoder” (13×13 px) */
     OLED_DrawXBM(oled,
                  111,
                  45,
@@ -270,42 +329,6 @@ void OledUtils_RenderDashboard(OLED_HandleTypeDef *oled)
                  13,
                  Icon_Encoder_bits,
                  false);
-
-    /* 5) Línea horizontal en y=20, de x=1 a x=125 */
-    OLED_DrawHLine(oled,
-                   1,    /* x */
-                   20,   /* y */
-                   125,  /* width = 125 pixels (1..125 inclusive) */
-                   false);
-
-    /* 6) Texto “Inicio” (fuente 14×17, baseline y=37) */
-    OLED_SetFont(oled, &Font_14x17_Min);
-    OLED_SetCursor(oled,
-                   25,
-                   42 - oled->font->FontHeight);
-    OLED_DrawStr(oled, "Inicio", false);
-
-    /* 7) Iconos superior:
-     *    - Wifi   (19×16 @ 1,2)
-     *    - USB    (16×16 @ 92,2)
-     *    - APWifi (15×16 @ 111,2)
-     */
-    OLED_DrawXBM(oled,  1,  2, 19, 16, Icon_Wifi_bits,   false);
-    OLED_DrawXBM(oled, 92,  2, 16, 16, Icon_USB_bits,    false);
-    OLED_DrawXBM(oled,111,  2, 15, 16, Icon_APWifi_bits, false);
-
-    /* 8) Texto “Wifi name” (fuente 6×12, baseline y=8) */
-    OLED_SetFont(oled, &Font_6x12_Min);
-    OLED_SetCursor(oled,
-                   23,
-                   10  - oled->font->FontHeight);
-    OLED_DrawStr(oled, "Wifi name", false);
-
-    /* 9) Texto “192.168.1.1” (fuente 6×12, baseline y=18) */
-    OLED_SetCursor(oled,
-                   23,
-                   20 - oled->font->FontHeight);
-    OLED_DrawStr(oled, "192.168.1.1", false);
 }
 
 
