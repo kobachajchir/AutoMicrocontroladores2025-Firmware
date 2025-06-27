@@ -33,7 +33,8 @@
 #define OLED_READY BIT5_MASK
 #define OLED_TENMS_PASSED BIT6_MASK
 #define OLED_REFRESH BIT7_MASK
-//#define A BIT2_MASK
+//SYS FLAG 2
+#define OLED_ACTIVE BIT0_MASK
 
 //Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
@@ -49,6 +50,27 @@
 #define I2C_REQ_IS_RX  BIT2_MASK
 /*#define UNUSED  BIT3_MASK*/
 
+#define OLED_ACTIVE_TIME 500
+
+#define OLED_BAR_COUNT 8
+#define BAR_WIDTH 12
+#define Y_OFFSET    5    // margen superior
+#define Y_SPACING   22   // separación vertical entre ítems
+#define ITEM_HEIGHT 21   // altura del recuadro de selección
+
+#define MENU_VISIBLE_ITEMS    3
+#define MENU_ITEM_Y0          4
+#define MENU_ITEM_SPACING     21
+#define CURSOR_X              0
+#define CURSOR_WIDTH          8
+#define CURSOR_HEIGHT         16
+
+// Ajusta estos valores si tus iconos son de otro tamaño
+#define ICON_X                8
+#define ICON_WIDTH            16
+#define ICON_HEIGHT           16
+// Offset vertical para centrar el icono en la "línea" del item
+#define ICON_Y_OFFSET         -13
 
 //Variables globales
 extern volatile bool  procesar_flag;
@@ -58,6 +80,7 @@ extern volatile uint16_t tim3_overflow_count;
 extern volatile uint32_t contador;
 extern volatile LedStatus_t ledStatus;
 extern volatile Byte_Flag_Struct systemFlags;
+extern volatile Byte_Flag_Struct systemFlags2;
 extern volatile CarMode_t carMode;
 extern volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 extern TCRT_LightConfig_t myLight;

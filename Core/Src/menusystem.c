@@ -14,149 +14,154 @@
 #include "globals.h"         // USART1_PrintString
 #include "menusystem.h"
 
-#ifndef MAX_VISIBLE_ITEMS
-#define MAX_VISIBLE_ITEMS 2  ///< Cantidad máxima visible por pantalla (puede redefinirse)
-#endif
+
+void MenuSys_Init(MenuSystem *ms) {
+    if (!ms || !ms->currentMenu) return;
+    ms->currentMenu->currentItemIndex = 0;
+    ms->currentMenu->firstVisibleItem = 0;
+    ms->renderFlag = false;
+    ms->allowPeriodicRefresh = false;
+}
+
+void MenuSys_SetCallbacks(MenuSystem *ms,
+                          ClearFunction    clear,
+                          DrawItemFunction draw,
+                          RenderFunction   render,
+                          volatile uint8_t *insideFlag)
+{
+    if (!ms) return;
+    ms->clearScreen    = clear;
+    ms->drawItem       = draw;
+    ms->renderFn       = render;
+    ms->insideMenuFlag = insideFlag;
+}
+
 
 /**
- * @brief  Reinicia índices y bandera "insideMenu" al cambiar de menú.
+ * @brief  Mueve el cursor hacia arriba (si puede), ajusta el “bucket” de 3 ítems
+ *         y no levanta renderFlag (lo hace el llamador).
  */
-static void changeMenu(MenuSystem *system, SubMenu *newMenu) {
-    if (!system || !newMenu) return;
-    system->currentMenu = newMenu;
-    newMenu->currentItemIndex = 0;
-    newMenu->firstVisibleItem = 0;
-    // Si volvemos al mainMenu, activamos la bandera
-    if (newMenu == &mainMenu && system->insideMenuFlag) {
-        *(system->insideMenuFlag) = 1;
-    }
-    if (newMenu == &mainMenu) {
-    	system->renderFn   = newMenu->items[newMenu->currentItemIndex].screenRenderFn;
-    }else{
-    	system->renderFn   = newMenu->items[newMenu->currentItemIndex].screenRenderFn;
-    }
-}
 
-/**
- * @brief  Asigna renderFn según el ítem actual y levanta renderFlag.
- */
-static void updateRender(MenuSystem *system) {
-    if (!system || !system->currentMenu) return;
-    SubMenu *menu = system->currentMenu;
-    if (!menu->items || menu->itemCount == 0) return;
-    uint8_t idx = menu->currentItemIndex;
-    if (idx >= menu->itemCount) return;
-    MenuItem *it = &menu->items[idx];
-    if (it->screenRenderFn) {
-        system->renderFn   = it->screenRenderFn;
-        system->renderFlag = true;
-    }
-}
+void MenuSys_MoveCursorUp(MenuSystem *ms) {
+    if (!ms || !ms->currentMenu) return;
+    SubMenu *m = ms->currentMenu;
 
-void initMenuSystem(MenuSystem *system) {
-    if (!system || !system->currentMenu) return;
-
-    SubMenu *menu = system->currentMenu;
-    menu->currentItemIndex = 0;
-    menu->firstVisibleItem = 0;
-    system->renderFlag = false;
-}
-
-void MenuSystem_SetCallbacks(MenuSystem *system,
-                             ClearFunction clear,
-                             DrawItemFunction draw,
-                             RenderFunction render,
-                             volatile uint8_t *insideFlag) {
-    system->clearScreen    = clear;
-    system->drawItem       = draw;
-    system->renderFn       = render;
-    system->insideMenuFlag = insideFlag;
-}
-
-/**
- * Mueve el cursor al ítem anterior, ajusta scroll si es necesario
- * y dispara el render de la nueva pantalla asociada.
- */
-void moveCursorUp(MenuSystem *system) {
-    SubMenu *menu = system->currentMenu;
-    if (menu->currentItemIndex > 0) {
-        menu->currentItemIndex--;
-        if (menu->currentItemIndex < menu->firstVisibleItem) {
-            menu->firstVisibleItem = menu->currentItemIndex;
-        }
+    if (m->currentItemIndex > 0) {
+        m->currentItemIndex--;
+        // recalcula la primera visible como el múltiplo de 3 más cercano por debajo
+        m->firstVisibleItem =
+            (m->currentItemIndex / MENU_VISIBLE_ITEMS) * MENU_VISIBLE_ITEMS;
     }
 }
 
 /**
- * Mueve el cursor al siguiente ítem, ajusta scroll si es necesario
- * y dispara el render de la nueva pantalla asociada.
+ * @brief  Mueve el cursor hacia abajo (si puede), ajusta el “bucket” de 3 ítems
+ *         y no levanta renderFlag (lo hace el llamador).
  */
-void moveCursorDown(MenuSystem *system) {
-    SubMenu *menu = system->currentMenu;
-    if (menu->currentItemIndex + 1 < menu->itemCount) {
-        menu->currentItemIndex++;
-        if (menu->currentItemIndex >= menu->firstVisibleItem + MAX_VISIBLE_ITEMS) {
-            menu->firstVisibleItem = menu->currentItemIndex - (MAX_VISIBLE_ITEMS - 1);
-        }
+void MenuSys_MoveCursorDown(MenuSystem *ms) {
+    if (!ms || !ms->currentMenu) return;
+    SubMenu *m = ms->currentMenu;
+
+    if (m->currentItemIndex + 1 < m->itemCount) {
+        m->currentItemIndex++;
+        // recalcula la primera visible como el múltiplo de 3 correspondiente
+        m->firstVisibleItem =
+            (m->currentItemIndex / MENU_VISIBLE_ITEMS) * MENU_VISIBLE_ITEMS;
     }
 }
 
 
+/**
+ * @brief  abre un submenú, reinicia índices y levanta renderFlag.
+ */
+void MenuSys_OpenSubMenu(MenuSystem *ms, SubMenu *submenu) {
+    if (!ms || !submenu) return;
+    // Si abrimos el menú principal, marcamos insideFlag...
+    if (submenu == &mainMenu && ms->insideMenuFlag) {
+        *(ms->insideMenuFlag) = true;
+    }
+    ms->currentMenu            = submenu;
+    submenu->currentItemIndex  = 0;
+    submenu->firstVisibleItem  = 0;
+    ms->renderFlag             = true;
+}
+
 
 /**
- * @brief  Selecciona el ítem actual: navega o ejecuta acción, luego renderiza.
+ * @brief  sube un nivel o sale al main, y levanta renderFlag.
  */
-void selectCurrentItem(MenuSystem *system) {
-    if (!system || !system->currentMenu) return;
-    SubMenu *menu = system->currentMenu;
-    if (!menu->items || menu->itemCount == 0) return;
-    uint8_t idx = menu->currentItemIndex;
-    if (idx >= menu->itemCount) return;
-    MenuItem *it = &menu->items[idx];
+void MenuSys_NavigateBack(MenuSystem *ms) {
+    if (!ms || !ms->currentMenu) return;
+    SubMenu *parent = ms->currentMenu->parent;
+    if (parent) {
+        MenuSys_OpenSubMenu(ms, parent);
+    } else {
+        // salimos del menú
+        if (ms->insideMenuFlag) *(ms->insideMenuFlag) = false;
+        // reabrimos el main
+        MenuSys_OpenSubMenu(ms, &mainMenu);
+    }
+}
 
+/**
+ * @brief  va directamente al menú principal, levanta renderFlag.
+ */
+void MenuSys_NavigateToMain(MenuSystem *ms) {
+    MenuSys_OpenSubMenu(ms, &mainMenu);
+}
+
+/**
+ * @brief  renderiza el menú actual usando los callbacks.
+ */
+void MenuSys_RenderMenu(MenuSystem *ms) {
+    // Validaciones iniciales
+    if (!ms ||
+        !ms->currentMenu ||
+        !ms->clearScreen ||
+        !ms->drawItem ||
+        !ms->renderFn)
+    {
+        return;
+    }
+
+    // 1) Limpiar pantalla
+	ms->clearScreen();
+
+    // 2) Determinar rango de ítems a dibujar
+    SubMenu *m    = ms->currentMenu;
+    uint8_t first = m->firstVisibleItem;
+    uint8_t last  = first + MENU_VISIBLE_ITEMS;
+    if (last > m->itemCount) last = m->itemCount;
+
+    // 3) Dibujar cada ítem visible
+    for (uint8_t i = first; i < last; i++) {
+        uint8_t local    = i - first;                             // 0..(MENU_VISIBLE_ITEMS-1)
+        uint8_t     y        = MENU_ITEM_Y0 + local * MENU_ITEM_SPACING;
+        bool    selected = (i == m->currentItemIndex);
+        const MenuItem *it = &m->items[i];
+
+        ms->drawItem(it, y, selected);
+    }
+}
+
+/**
+ * @brief  maneja “select”: abre submenú o llama action, luego re-renderiza menú.
+ */
+void MenuSys_HandleClick(MenuSystem *ms) {
+    if (!ms || !ms->currentMenu) return;
+    SubMenu *m = ms->currentMenu;
+    uint8_t idx = m->currentItemIndex;
+    if (idx >= m->itemCount) return;
+
+    MenuItem *it = &m->items[idx];
     if (it->submenu) {
-        changeMenu(system, it->submenu);
-    } else if (it->action) {
+        MenuSys_OpenSubMenu(ms, it->submenu);
+    }
+    else if (it->action) {
         it->action();
     }
-    updateRender(system);
-}
 
-/**
- * @brief  Sube un nivel o sale al main, luego renderiza el ítem activo.
- */
-void navigateBackInMenu(MenuSystem *system) {
-    if (!system || !system->currentMenu) return;
-    SubMenu *parent = system->currentMenu->parent;
-    if (parent) {
-        changeMenu(system, parent);
-    } else {
-        if (system->insideMenuFlag) {
-            *(system->insideMenuFlag) = 0;
-        }
-        changeMenu(system, &mainMenu);
-    }
-    updateRender(system);
-}
-
-/**
- * @brief  Regresa siempre al menú principal y renderiza su primer ítem.
- */
-void navigateToMainMenu(MenuSystem *system) {
-    if (!system) return;
-    if (system->insideMenuFlag) {
-        *(system->insideMenuFlag) = 1;
-    }
-    changeMenu(system, &mainMenu);
-    updateRender(system);
-}
-
-/**
- * @brief  Abre un submenú dado y renderiza su primer ítem.
- */
-void submenuFn(MenuSystem *system, SubMenu *submenu) {
-    if (!system || !submenu) return;
-    changeMenu(system, submenu);
-    updateRender(system);
+    // re-render
+    MenuSys_RenderMenu(ms);
 }
 

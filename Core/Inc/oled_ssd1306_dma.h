@@ -81,6 +81,8 @@ typedef union {
 #define MAIN_QDEPTH    8
 #define OVERLAY_QDEPTH 8
 #define OLED_QUEUE_DEPTH 16
+#define OLED_PAGES_TO_SEND 16
+#define OLED_PAGES_TO_SEND_NO_LIMIT 99
 
 #define MEMADD_SIZE_8BIT I2C_MEMADD_SIZE_8BIT
 
@@ -89,6 +91,7 @@ typedef union {
 typedef void (*I2C_Request_Bus_Use)(uint8_t req_is_tx);
 typedef void (*I2C_Release_Bus_Use)(void);
 typedef void (*On_OLED_Ready)(void);
+typedef void (*On_OLED_RenderPagesComplete)(void);
 
 typedef enum {
     PAGE_REQ_IDLE,        // slot libre, nada pendiente
@@ -156,6 +159,9 @@ typedef struct {
     bool     bitmap_opaque;
     bool     font_normal;
     bool is_sending;
+    uint8_t pages_to_send;      // cuántas páginas está intentando enviar ahora
+	uint8_t pages_sent_count;   // cuántas ya se han marcado DONE
+	On_OLED_RenderPagesComplete renderCompleteCb;
 } OLED_HandleTypeDef;
 
 
@@ -216,17 +222,12 @@ static const uint8_t ssd1306_init_seq_128x64[] = {
  */
 HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
                             I2C_HandleTypeDef *hi2c,
-							uint16_t oled_dev_address,
-                            volatile uint8_t  *dma_busy_flag, I2C_Request_Bus_Use requestBusCbFn,
-							I2C_Release_Bus_Use releaseBusUseFn,
-							On_OLED_Ready on_ready_fn);
-
-/**
- * @brief   Lanza la secuencia de init por DMA (envío de ssd1306_init_seq).
- *          Debe llamarse justo después de OLED_Init().
- * @param   oled  puntero al handle ya inicializado.
- */
-void initOLEDSequence(OLED_HandleTypeDef *oled);
+                            uint16_t oled_dev_address,
+                            volatile uint8_t *dma_busy_flag,
+                            I2C_Request_Bus_Use requestBusCbFn,
+                            I2C_Release_Bus_Use releaseBusUseFn,
+							On_OLED_Ready on_ready_fn,
+							On_OLED_RenderPagesComplete on_render_cmplt_fn);
 
 /**
  * @brief Función periódica no bloqueante que gestiona el envío de páginas.
@@ -381,7 +382,9 @@ HAL_StatusTypeDef OLED_SendOverlayBuffer(OLED_HandleTypeDef *oled);
  * @brief Oculta inmediatamente el overlay y reenvía el contenido del buffer main.
  * @param oled Puntero al handler del OLED
  */
-void OLED_HideOverlayNow(OLED_HandleTypeDef *oled);
+void OLED_HideOverlayNow(OLED_HandleTypeDef *oled,
+                         uint8_t x, uint8_t y,
+                         uint8_t w, uint8_t h);
 
 /**
  * @brief Activa el overlay y configura el modo de ocultamiento (manual o por timeout).
@@ -392,5 +395,9 @@ void OLED_HideOverlayNow(OLED_HandleTypeDef *oled);
 void OLED_ActivateOverlay(OLED_HandleTypeDef *oled, uint16_t duration_ms);
 
 void OLED_ChangeOverlayTime(OLED_HandleTypeDef *oled, uint16_t duration_ms);
+
+void OLED_RefreshBoxFromMain(OLED_HandleTypeDef *oled,
+                                    uint8_t x, uint8_t y,
+                                    uint8_t w, uint8_t h);
 
 #endif /* INC_OLED_SSD1306_DMA_H_ */

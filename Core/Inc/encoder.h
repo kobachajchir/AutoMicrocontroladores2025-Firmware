@@ -9,6 +9,7 @@
 #define INC_ENCODER_H_
 
 #include "stm32f1xx_hal.h"
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,13 +78,10 @@ typedef union {
 #define ENC_BTN_PREVSTATE     BIT0_MASK  // bit 0 → almacena el estado previo (0 o 1)
 #define ENC_BTN_SHORT_PRESS   BIT1_MASK  // bit 1 → pulsación corta detectada
 #define ENC_BTN_LONG_PRESS    BIT2_MASK  // bit 2 → pulsación larga detectada
-#define ENC_BTN_EASTER_EGG    BIT3_MASK  // Lo usaremos mas adelante para algo
+#define ENC_FLAG_UPDATED    BIT3_MASK  // Lo usaremos mas adelante para algo
 
 // ---------------- Valores máximos para overflow count (nibble alto) ----------------
 #define ENC_BTN_OVF_MAX       9U   // si nibbleH > 9, descartamos (equivale a 10 s presionado)
-
-// encoder.h (tras los otros #define)
-#define ENC_FLAG_UPDATED   BIT0_MASK  // bit0 → hay un nuevo paso
 
 typedef struct {
 	ENC_Byte_Flag_Struct_t flags;   ///< nibble bajo = flags; nibble alto = overflow counter
@@ -120,6 +118,7 @@ typedef struct {
 	uint16_t prevCount;
 	uint8_t           calibrateCountPerStep; ///< ¿Cuántos pulsos raw = 1 “paso”?
 	int8_t            accumCount;            ///< Acumula pulsos raw entre pasos
+	bool 			allowEncoderInput;
 } ENC_Handle_t;
 
 /**

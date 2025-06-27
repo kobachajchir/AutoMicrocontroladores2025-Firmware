@@ -80,6 +80,7 @@ volatile bool lanzar_ADC_trigger_flag = false;
 volatile bool mpu_trigger = false;
 volatile LedStatus_t ledStatus;
 volatile Byte_Flag_Struct systemFlags;
+volatile Byte_Flag_Struct systemFlags2;
 volatile CarMode_t carMode;
 volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 TCRT_LightConfig_t tcrtLight;
@@ -96,6 +97,7 @@ volatile uint8_t oled10msCounter = 0;
 
 // Bandera para I2C_Manager (bus ocupado)
 volatile uint8_t i2c_busy_flag = 0;
+uint16_t oledTime;
 
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
@@ -121,21 +123,61 @@ void USART1_PrintString(const char *msg) {
     USART1_PushTxString(&usart1Buf, msg);
 }
 
-extern void    clearScreenWrapper(void);
-extern void    drawItemWrapper(const char *name, int y, bool selected);
-extern void    renderFnWrapper(void);
-void submenu1_Open(void) {
-	submenuFn(&menuSystem, &submenu1);
-	USART1_PrintString("Submenu1");
+void OledUtils_Clear_Wrapper(){
+	OledUtils_Clear(&oledTask, oledTask.overlay_active);
 }
-void submenu2_Open(void) {
-	submenuFn(&menuSystem, &submenu2);
-	USART1_PrintString("Submenu2");
+
+void OledUtils_DrawItem_Wrapper(const MenuItem *item,
+                                int               y,
+                                bool              selected)
+{
+    // llamamos a la versión “completa” pasándole el handle
+    OledUtils_DrawItem(&oledTask, item, y, selected);
 }
-void submenu3_Open(void) {
-	submenuFn(&menuSystem, &submenu3);
-	USART1_PrintString("Submenu3");
+/**
+ * @brief  Wrapper para la pantalla principal (dashboard).
+ */
+void OledUtils_RenderDashboard_Wrapper(void)
+{
+	menuSystem.allowPeriodicRefresh = false;
+	if(IS_FLAG_SET(systemFlags2, OLED_ACTIVE)){
+		encoder.allowEncoderInput = true;
+	}else{
+		encoder.allowEncoderInput = false;
+	}
+	oledTask.pages_to_send    = OLED_PAGES_TO_SEND;
+	oledTask.pages_sent_count = 0;
+	OledUtils_RenderDashboard(&oledTask);
 }
+void MenuSys_RenderMenu_Wrapper(){
+	menuSystem.allowPeriodicRefresh = false;
+	encoder.allowEncoderInput = true;
+	oledTask.pages_to_send    = OLED_PAGES_TO_SEND;
+	oledTask.pages_sent_count = 0;
+	MenuSys_RenderMenu(&menuSystem);
+}
+void MenuSys_GoBack_Wrapper(){
+	MenuSys_NavigateBack(&menuSystem);
+}
+
+void OLED_Is_Ready(void) {
+    if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
+        menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+        menuSystem.renderFlag = true;
+        SET_FLAG(systemFlags, OLED_READY);
+        __NOP();
+    }
+}
+
+void onMenuRenderComplete() {
+	if(IS_FLAG_SET(systemFlags, OLED_READY)){
+		if(menuSystem.allowPeriodicRefresh && oledTask.pages_to_send != OLED_PAGES_TO_SEND_NO_LIMIT){
+			menuSystem.allowPeriodicRefresh = false;
+		}
+	}
+}
+
+
 void setMode_IDLE(void){
 	carMode = IDLE_MODE;
 	USART1_PrintString("IDLE");
@@ -153,24 +195,24 @@ void setMode_TEST(void){
 // Sistema de menú
 MenuSystem menuSystem = {
     .currentMenu      = &mainMenu,
-    .clearScreen      = clearScreenWrapper,
-    .drawItem         = drawItemWrapper,
-    .renderFn         = renderFnWrapper,
+    .clearScreen      = OledUtils_Clear_Wrapper,
+    .drawItem         = OledUtils_DrawItem_Wrapper,
+    .renderFn         = OledUtils_RenderDashboard_Wrapper,
     .insideMenuFlag   = &inside_menu_flag,
     .renderFlag       = false
 };
 
 // Ítems del menú principal
 MenuItem mainMenuItems[] = {
-    {"Modo",      submenu1_Open,      NULL, NULL, renderMenu_Wrapper},
-    {"Pantallas", submenu2_Open,      NULL, NULL, renderMenu_Wrapper},
-    {"Config.",   submenu3_Open,      NULL, NULL, renderMenu_Wrapper},
-    {"VOLVER",    navigateBackInMenu, NULL, NULL, renderMenu_Wrapper}
+    // nombre     acción          submenú        icono             pantalla render
+    { "Wifi",      NULL,           &submenu1,     Icon_Wifi_bits,   MenuSys_RenderMenu_Wrapper },
+    { "Sensores",  NULL,           &submenu2,     Icon_Sensors_bits, MenuSys_RenderMenu_Wrapper },
+    { "Config.",   NULL,           &submenu3,     Icon_Config_bits, MenuSys_RenderMenu_Wrapper },
+    { "Volver",    MenuSys_GoBack_Wrapper, NULL,      Icon_Volver_bits, MenuSys_RenderMenu_Wrapper }
 };
-
 // Menú principal
 SubMenu mainMenu = {
-    .name                = "Main Menu",
+    .name                = "Principal",
     .items               = mainMenuItems,
     .itemCount           = sizeof(mainMenuItems)/sizeof(mainMenuItems[0]),
     .currentItemIndex    = 0,
@@ -184,11 +226,11 @@ MenuItem submenu1Items[] = {
     {"IDLE",   setMode_IDLE,       NULL, NULL, NULL},
     {"FOLLOW", setMode_FOLLOW,     NULL, NULL, NULL},
     {"TEST",   setMode_TEST,       NULL, NULL, NULL},
-    {"VOLVER", navigateBackInMenu, &mainMenu, NULL, renderMenu_Wrapper}
+    {"VOLVER", MenuSys_GoBack_Wrapper, &mainMenu, NULL, MenuSys_RenderMenu_Wrapper}
 };
 
 SubMenu submenu1 = {
-    .name                = "Modo",
+    .name                = "Wifi",
     .items               = submenu1Items,
     .itemCount           = sizeof(submenu1Items)/sizeof(submenu1Items[0]),
     .currentItemIndex    = 0,
@@ -199,13 +241,13 @@ SubMenu submenu1 = {
 
 // Ítems del submenu 2 (“Pantallas”)
 MenuItem submenu2Items[] = {
-    {"Valores IR",     NULL,               NULL, NULL, renderValoresIR_Wrapper},
-	{"Valores MPU",     NULL,               NULL, NULL, renderValoresMPU_Wrapper},
-    {"VOLVER",         navigateBackInMenu, &mainMenu, NULL, renderMenu_Wrapper}
+    {"Valores IR",     NULL,               NULL, NULL, OledUtils_RenderValoresIR_Wrapper},
+	{"Valores MPU",     NULL,               NULL, NULL, OledUtils_RenderValoresMPU_Wrapper},
+    {"VOLVER",         MenuSys_GoBack_Wrapper, &mainMenu, NULL, MenuSys_RenderMenu_Wrapper}
 };
 
 SubMenu submenu2 = {
-    .name                = "Pantallas",
+    .name                = "Sensores",
     .items               = submenu2Items,
     .itemCount           = sizeof(submenu2Items)/sizeof(submenu2Items[0]),
     .currentItemIndex    = 0,
@@ -218,11 +260,11 @@ SubMenu submenu2 = {
 MenuItem submenu3Items[] = {
     {"Option 1", NULL,               NULL, NULL, NULL},
     {"Option 2", NULL,               NULL, NULL, NULL},
-    {"VOLVER",   navigateBackInMenu, &mainMenu, NULL, renderMenu_Wrapper}
+    {"VOLVER",   MenuSys_GoBack_Wrapper, &mainMenu, NULL, MenuSys_RenderMenu_Wrapper}
 };
 
 SubMenu submenu3 = {
-    .name                = "Configuración",
+    .name                = "Config.",
     .items               = submenu3Items,
     .itemCount           = sizeof(submenu3Items)/sizeof(submenu3Items[0]),
     .currentItemIndex    = 0,
@@ -330,15 +372,6 @@ void OLED_ReleaseBusUse_I2CManager(void) {
 	I2C_Manager_ReleaseBus(DEVICE_ID_OLED);
 	__NOP();
 }
-
-void OLED_Is_Ready(void) {
-    if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
-        menuSystem.renderFn = renderDashboard_Wrapper;
-        menuSystem.renderFlag = true;
-        SET_FLAG(systemFlags, OLED_READY);
-    }
-}
-
 // Wrapper para I2C_Manager al completar TX (canal 6)
 void MPU_DMA_Complete_I2CManager(uint8_t is_tx) {
     // Aquí puedes poner un breakpoint o togglear un LED para depuración TX
@@ -496,8 +529,12 @@ int main(void)
 					   &i2c_busy_flag,    // ← pasa la bandera DMA
 					   OLED_RequestBusUse_I2CManager,
 					   OLED_ReleaseBusUse_I2CManager,
-					   OLED_Is_Ready);
-			  initOLEDSequence(&oledTask);
+					   OLED_Is_Ready,
+					   onMenuRenderComplete);
+				if (oledTask.requestBusCb) {
+					oledTask.requestBusCb(I2C_REQ_IS_TX);
+				}
+			  oledTime = OLED_ACTIVE_TIME;
 		  } else {
 			  // Falló al registrar (posiblemente sin espacio en la tabla)
 			  USART1_PushTxString(&usart1Buf, "OLED NO Registrado");
@@ -1112,76 +1149,69 @@ void UserBtn_MainTask(ButtonState_t *h){
 	if (IS_FLAG_SET(h->flags, BTN_USER_LONG_PRESS)) { // Acción long, entra y sale del menu
 		//Handle_ModeChange_ByButton(h, &ledStatus);
 		if(INSIDE_MENU){
-			menuSystem.renderFn = renderDashboard_Wrapper;
+			OledUtils_Clear_Wrapper();
+			menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
 			menuSystem.renderFlag = true;
-			inside_menu_flag = 0;
+			INSIDE_MENU = 0;
 		}else{
-			menuSystem.renderFn = renderMenu_Wrapper;
+			OledUtils_Clear_Wrapper();
+			menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
 			menuSystem.renderFlag = true;
-			inside_menu_flag = 1;
+			INSIDE_MENU = 1;
 		}
 		__NOP();
 		CLEAR_FLAG(h->flags, BTN_USER_LONG_PRESS);
 	}
 }
 
-void Encoder_MainTask(ENC_Handle_t *h)
-{
-    // ROTARY: si hubo giro, avanzamos o retrocedemos en el menú
-    if (IS_FLAG_SET(h->flags, ENC_FLAG_UPDATED)) {
-        CLEAR_FLAG(h->flags, ENC_FLAG_UPDATED);
+void Encoder_MainTask(ENC_Handle_t *h) {
+  if (IS_FLAG_SET(h->flags, ENC_FLAG_UPDATED)) {
+    CLEAR_FLAG(h->flags, ENC_FLAG_UPDATED);
+    if (IS_FLAG_SET(systemFlags2, OLED_ACTIVE)) {
+		if (INSIDE_MENU) {
+			if (h->dir == ENC_DIR_CW) {
+				MenuSys_MoveCursorDown(&menuSystem);
+				__NOP();
+			} else {
+				MenuSys_MoveCursorUp(&menuSystem);
+				__NOP();
+			}
+			menuSystem.renderFn   = MenuSys_RenderMenu_Wrapper;
+			menuSystem.renderFlag = true;
+		}else{
+			// fuera del menú → aquí podrías hacer otra cosa
+		}
+	}
+  }
 
-        if (INSIDE_MENU) {
-            if (h->dir == ENC_DIR_CW) {
-                moveCursorDown(&menuSystem);
-                menuSystem.renderFn = renderMenu_Wrapper;
-                menuSystem.renderFlag = true;
-            }
-            else if (h->dir == ENC_DIR_CCW) {
-                moveCursorUp(&menuSystem);
-                menuSystem.renderFn = renderMenu_Wrapper;
-                menuSystem.renderFlag = true;
-            }
+  if (IS_FLAG_SET(h->btnState.flags, ENC_BTN_SHORT_PRESS)) {
+    CLEAR_FLAG(h->btnState.flags, ENC_BTN_SHORT_PRESS);
+    if(!IS_FLAG_SET(systemFlags2, OLED_ACTIVE)){
+    	SET_FLAG(systemFlags2, OLED_ACTIVE);
+    	oledTime = OLED_ACTIVE_TIME;
+    	OledUtils_RenderLockState(&oledTask, 0); //Unlocked
+    }else{
+		if (INSIDE_MENU) {
+		  MenuSys_HandleClick(&menuSystem, &oledTask);
+		  // HandleClick internally navega o ejecuta acción y vuelve a poner renderFlag
+		}
+    }
+  }
 
-            // Imprimir el nombre del item actual
-            const char *name = menuSystem.currentMenu
-                               ->items[menuSystem.currentMenu->currentItemIndex]
-                               .name;
-        }
-        else {
-            // fuera del menú, podrías usar el encoder para otra cosa
-        }
+  if (IS_FLAG_SET(h->btnState.flags, ENC_BTN_LONG_PRESS)) {
+    CLEAR_FLAG(h->btnState.flags, ENC_BTN_LONG_PRESS);
+    if(!IS_FLAG_SET(systemFlags2, OLED_ACTIVE)){
+    	SET_FLAG(systemFlags2, OLED_ACTIVE);
+    	oledTime = OLED_ACTIVE_TIME;
+    	OledUtils_RenderLockState(&oledTask, 0); //Unlocked
+    }else{
+		// Long-press te lleva siempre al menú principal
+		MenuSys_NavigateToMain(&menuSystem);
+		menuSystem.renderFn  = MenuSys_RenderMenu_Wrapper;
+		menuSystem.renderFlag = true;
     }
 
-    // SHORT PRESS: dentro del menú ejecuta acción
-    if (IS_FLAG_SET(h->btnState.flags, ENC_BTN_SHORT_PRESS)) {
-        CLEAR_FLAG(h->btnState.flags, ENC_BTN_SHORT_PRESS);
-
-        if (INSIDE_MENU) {
-            // nuevamente, recuperamos el nombre actual
-            const char *name = menuSystem.currentMenu
-                               ->items[menuSystem.currentMenu->currentItemIndex]
-                               .name;
-
-            selectCurrentItem(&menuSystem);
-            // Aquí podrías llamar al render del nuevo item
-        }
-        else {
-            // fuera del menú: nada
-        }
-    }
-
-    // LONG PRESS: dentro vuelve al menú principal
-    if (IS_FLAG_SET(h->btnState.flags, ENC_BTN_LONG_PRESS)) {
-        CLEAR_FLAG(h->btnState.flags, ENC_BTN_LONG_PRESS);
-
-        if (INSIDE_MENU) {
-            navigateToMainMenu(&menuSystem);
-        }
-        else {
-            // fuera del menú: nada
-        }
-    }
+  }
 }
 
 void initTCRTLib(void)
@@ -1355,51 +1385,73 @@ void i2cManager_MainTask(){
 
 
 void OLED_MainTask(void) {
-    if (IS_FLAG_SET(systemFlags, OLED_READY)) {
-    	if(IS_FLAG_SET(systemFlags, OLED_REFRESH)){
-    		if(menuSystem.renderFn){
-    			menuSystem.renderFlag = true;
-    		}
-    		CLEAR_FLAG(systemFlags, OLED_REFRESH);
-    	}
-        // 1) Compruebo si han pasado 10 ms:
-        if (IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED)) {
+    // 0) Esperamos a que el SSD esté listo
+    if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
+        return;
+    }
 
-            // 2) Si hay overlay activo y cuenta regresiva activa
-            if (oledTask.overlay_active && oledTask.overlay_timeout_active) {
-                if (oledTask.overlay_timer_ms >= 10) {
-                    oledTask.overlay_timer_ms -= 10;
-                } else {
-                    OLED_HideOverlayNow(&oledTask);
-                }
-            }
-            // 3) Si se solicitó ocultar el overlay de inmediato
-            else if (oledTask.overlay_active && oledTask.overlay_hide_now) {
-                oledTask.overlay_hide_now = false;
-                OLED_HideOverlayNow(&oledTask);
-            }
+    // 1) Cada 10 ms
+    if (IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED)) {
+        CLEAR_FLAG(systemFlags, OLED_TENMS_PASSED);
 
-            CLEAR_FLAG(systemFlags, OLED_TENMS_PASSED);
+        // — overlay con timeout —
+        if (oledTask.overlay_active && oledTask.overlay_timeout_active) {
+            if (oledTask.overlay_timer_ms >= 10) {
+                oledTask.overlay_timer_ms -= 10;
+            } else {
+                OLED_HideOverlayNow(&oledTask,
+                                   LOCK_ICON_X, LOCK_ICON_Y,
+                                   LOCK_ICON_W, LOCK_ICON_H);
+            }
+        }
+        // — hide-overlay inmediato —
+        else if (oledTask.overlay_active && oledTask.overlay_hide_now) {
+            oledTask.overlay_hide_now = false;
+            OLED_HideOverlayNow(&oledTask,
+                               LOCK_ICON_X, LOCK_ICON_Y,
+                               LOCK_ICON_W, LOCK_ICON_H);
         }
 
-        // 4) Si hay algo que renderizar (ej. menú)
-        if (menuSystem.renderFlag && menuSystem.renderFn) {
-            menuSystem.renderFlag = false;
-            menuSystem.renderFn();  // Esta función modifica el framebuffer
+        // — temporizador de inactividad (lock) —
+        if (IS_FLAG_SET(systemFlags2, OLED_ACTIVE)) {
+            if (oledTime > 10) {
+                oledTime -= 10;
+            } else {
+                // llega a 0 → bloquea y pinta candado
+                CLEAR_FLAG(systemFlags2, OLED_ACTIVE);
+                __NOP();
+                OledUtils_RenderLockState(&oledTask, 1);
+            }
         }
     }
 
-    // 5) Siempre, intento avanzar el flujo no bloqueante
+    // 2) Refresco periódico SIEMPRE que se pida
+    if (IS_FLAG_SET(systemFlags, OLED_REFRESH) && menuSystem.allowPeriodicRefresh) {
+        if (menuSystem.renderFn) {
+            menuSystem.renderFlag = true;
+        }
+        CLEAR_FLAG(systemFlags, OLED_REFRESH);
+    }
+
+    // 3) Ejecutamos el renderFn() SIEMPRE que esté solicitado
+    if (menuSystem.renderFlag && menuSystem.renderFn) {
+        menuSystem.renderFlag = false;
+        __NOP();
+        menuSystem.renderFn();
+    }
+
+    // 4) Avanzamos el flujo no bloqueante de páginas
     OLED_Update(&oledTask);
 }
 
 
+
 void initMenuSystemTask(void) {
-    initMenuSystem(&menuSystem);
-    MenuSystem_SetCallbacks(&menuSystem,
-        clearScreenWrapper,
-        drawItemWrapper,
-        renderFnWrapper,
+    MenuSys_Init(&menuSystem);
+    MenuSys_SetCallbacks(&menuSystem,
+        OledUtils_Clear_Wrapper,
+        OledUtils_DrawItem_Wrapper,
+        NULL,
         &inside_menu_flag);
 }
 

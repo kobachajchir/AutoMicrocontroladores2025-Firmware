@@ -21,17 +21,6 @@
 #include <string.h>
 #include <stdio.h>
 
-// ─── Wrappers de render ──────────────────────────────────────────────────────
-
-/** Renderiza el menú actual con displayMenuCustom */
-void renderMenu_Wrapper(void);
-
-/** Renderiza el menú padre tras llamar a volver() */
-void renderBack_Wrapper(void);
-
-/** Renderiza la pantalla de valores IR */
-void renderValoresIR_Wrapper(void);
-
 /**
  * @brief  Wrapper para la pantalla de Valores MPU.
  */
@@ -48,21 +37,23 @@ void renderDashboard_Wrapper(void);
  */
 void displayMenuCustom(MenuSystem *system);
 
-/**
- * @brief  Versión básica de displayMenu: limpia con clearScreen y llama a renderFn.
- * @param  system  Puntero al MenuSystem activo
- */
-void displayMenu(MenuSystem *system);
+void OledUtils_RenderVerticalMenu(OLED_HandleTypeDef *oled, MenuSystem *ms);
 
-void renderDashboard(void);
+void OledUtils_RenderDashboard(OLED_HandleTypeDef *oled);
 
-void renderValoresIR(void);
+void OledUtils_Clear(OLED_HandleTypeDef *oled, bool is_overlay);
 
-void renderValoresMPUScreen(OLED_HandleTypeDef *oled, MPU6050_IntData_t *mpuData);
+void OledUtils_DrawItem(OLED_HandleTypeDef *oled, const MenuItem *item, uint8_t y, bool selected);
 
-void OLED_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
+void OledUtils_RenderValoresMPUScreen(OLED_HandleTypeDef *oled, MPU6050_IntData_t *mpuData);
 
-void OLED_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
+void OledUtils_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
+
+void OledUtils_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
+
+void OledUtils_RenderValoresIR_Wrapper(void);
+
+void OledUtils_RenderValoresMPU_Wrapper(void);
 
 #endif // OLED_MENU_H
 

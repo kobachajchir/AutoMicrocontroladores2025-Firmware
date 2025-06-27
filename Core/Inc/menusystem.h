@@ -31,11 +31,10 @@ extern "C" {
 
 	/**
 	 * @brief Tipo de función para dibujar un ítem del menú.
-	 * @param name Nombre del ítem
+	 * @param *item Item
 	 * @param y Posición vertical
 	 * @param selected Verdadero si el ítem está seleccionado
 	 */
-	typedef void (*DrawItemFunction)(const char *name, int y, bool selected);
 
 	/**
 	 * @brief Tipo de función para renderizar el menú completo (flush final).
@@ -55,6 +54,7 @@ extern "C" {
 		RenderScreenFunction screenRenderFn;             ///< Puntero a la pantalla asociada (si existe)
 	} MenuItem;
 
+	typedef void (*DrawItemFunction)(const MenuItem *item, int y, bool selected);
 	// Estructura para un submenú
 	typedef struct SubMenu {
 		const char *name;             ///< Nombre del submenú
@@ -71,9 +71,10 @@ extern "C" {
 		SubMenu *currentMenu;               ///< Submenú actual
 		ClearFunction clearScreen;          ///< Callback para limpiar la pantalla
 		DrawItemFunction drawItem;          ///< Callback para dibujar ítems del menú
-		RenderFunction renderFn;            ///< Callback para renderizar la pantalla (flush)
+		RenderFunction renderFn;            ///< Callback para renderizar la pantalla
 		volatile uint8_t *insideMenuFlag;   ///< Puntero a una bandera externa que indica si estamos dentro del menú
 		bool renderFlag;
+		bool allowPeriodicRefresh;
 	} MenuSystem;
 
 	// =================== PROTOTIPOS ===================
@@ -82,7 +83,7 @@ extern "C" {
 	 * @brief Inicializa el sistema de menú apuntando al menú actual.
 	 * @param system Puntero al sistema de menú
 	 */
-	void initMenuSystem(MenuSystem *system);
+	void MenuSys_Init(MenuSystem *system);
 
 	/**
 	 * @brief Configura los callbacks del sistema de menú.
@@ -92,61 +93,20 @@ extern "C" {
 	 * @param render Función para renderizar la pantalla completa
 	 * @param insideFlag Puntero a la bandera de estado dentro del menú
 	 */
-	void MenuSystem_SetCallbacks(MenuSystem *system,
+	void MenuSys_SetCallbacks(MenuSystem *system,
 	                             ClearFunction clear,
 	                             DrawItemFunction draw,
 	                             RenderFunction render,
 	                             volatile uint8_t *insideFlag);
 
-	/**
-	 * @brief Mueve el cursor una posición hacia arriba.
-	 * @param system Puntero al sistema de menú
-	 */
-	void moveCursorUp(MenuSystem *system);
+	void MenuSys_MoveCursorDown(MenuSystem *ms) ;
+	void MenuSys_MoveCursorUp(MenuSystem *ms) ;
 
-	/**
-	 * @brief Mueve el cursor una posición hacia abajo.
-	 * @param system Puntero al sistema de menú
-	 */
-	void moveCursorDown(MenuSystem *system);
+	void MenuSys_RenderMenu(MenuSystem *ms);
+	void MenuSys_NavigateBack(MenuSystem *ms);
+	void MenuSys_NavigateToMain(MenuSystem *ms);
 
-	/**
-	 * @brief Ejecuta la acción del ítem actualmente seleccionado.
-	 * @param system Puntero al sistema de menú
-	 */
-	void selectCurrentItem(MenuSystem *system);
 
-	/**
-	 * @brief Cambia al submenú pasado y actualiza la pantalla.
-	 * @param system Puntero al sistema de menú y al submenu
-	 */
-	void submenuFn(MenuSystem *system, SubMenu *submenu);
-
-	/**
-	 * @brief Vuelve al menú padre del menú actual, si existe.
-	 *        Si se encuentra en el menú principal, no hace nada.
-	 * @param system Puntero al sistema de menú
-	 */
-	void volver(MenuSystem *system);
-	/**
-	 * @brief Selecciona un ítem del menú actual por índice.
-	 * @param system Puntero al sistema de menú
-	 * @param index Índice del ítem a ejecutar
-	 */
-	void selectMenuItem(MenuSystem *system, int index);
-
-	/**
-	 * @brief Cambia el menú actual al menú principal y reinicia la posición del cursor.
-	 * @param system Puntero al sistema de menú
-	 */
-	void navigateToMainMenu(MenuSystem *system);
-
-	/**
-	 * @brief Vuelve al menú padre o sale del menú si ya está en el menú principal.
-	 *        Limpia la pantalla y llama a renderFn si está configurado.
-	 * @param system Puntero al sistema de menú
-	 */
-	void navigateBackInMenu(MenuSystem *system);
 
 	static inline bool
 	Menu_IsCurrentItem(const MenuSystem *sys,
