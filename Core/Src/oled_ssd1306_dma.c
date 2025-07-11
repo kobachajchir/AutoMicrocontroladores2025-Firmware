@@ -8,6 +8,42 @@
 #include <stdlib.h>
 #include "math.h"
 
+/// Encola las 8 páginas completas del buffer MAIN u OVERLAY
+/// para su envío ininterrumpido.
+/// @param oled        Puntero al handle OLED.
+/// @param use_overlay false = imprimir MAIN; true = imprimir OVERLAY.
+void OLED_PrintBuffer(OLED_HandleTypeDef *oled, bool use_overlay)
+{
+    if (!oled) return;
+
+    // 1) Para cada página fija (0..7), arma la entrada en la cola
+    for (uint8_t p = 0; p < OLED_MAX_PAGES; p++) {
+        uint8_t idx = use_overlay ? (MAIN_QDEPTH + p) : p;
+
+        oled->page_queue[idx].page           = p;
+        oled->page_queue[idx].column_start   = 0;
+        oled->page_queue[idx].length         = OLED_WIDTH;
+        oled->page_queue[idx].use_overlay    = use_overlay;
+        oled->page_queue[idx].transfer_state = PAGE_REQ_WAITING;
+    }
+
+    // 2) Actualiza los contadores
+    if (use_overlay) {
+        oled->ovl_count = OLED_MAX_PAGES;
+    } else {
+        oled->main_count = OLED_MAX_PAGES;
+    }
+    oled->queue_count = oled->main_count + oled->ovl_count;
+
+    // 3) Reinicia índices de cola para forzar envío desde la página 0
+    oled->main_head           = 0;
+    oled->ovl_head            = 0;
+    oled->current_page_index  = 0xFF;
+
+    // 4) Arranca el envío (no bloqueante)
+    OLED_Update(oled);
+}
+
 void OLED_RefreshBoxFromMain(OLED_HandleTypeDef *oled,
                                     uint8_t x, uint8_t y,
                                     uint8_t w, uint8_t h)
@@ -65,22 +101,13 @@ void OLED_RefreshBoxFromMain(OLED_HandleTypeDef *oled,
  * @brief Oculta inmediatamente el overlay en el rectángulo [x..x+w, y..y+h]
  *        y repone la capa MAIN sólo en esa zona.
  */
-void OLED_HideOverlayNow(OLED_HandleTypeDef *oled,
-                         uint8_t x, uint8_t y,
-                         uint8_t w, uint8_t h)
+void OLED_HideOverlayNow(OLED_HandleTypeDef *oled)
 {
     if (!oled) return;
 
     // 1) desactivar overlay
     oled->overlay_active         = false;
     oled->overlay_timeout_active = false;
-    oled->allow_overlay_transfer = false;
-
-    // 2) limpiar sólo la región overlay
-    OLED_ClearBox(oled, x, y, w, h, true);
-
-    // 3) re-enviar sólo esa misma región desde el MAIN
-    OLED_RefreshBoxFromMain(oled, x, y, w, h);
 }
 
 /**
@@ -89,69 +116,46 @@ void OLED_HideOverlayNow(OLED_HandleTypeDef *oled,
  *         pendientes en la sub-cola activa (MAIN u OVERLAY).
  */
 void OLED_Update(OLED_HandleTypeDef *oled) {
-    if (!oled || !oled->init_done) return;
-    if (oled->is_sending)          return;
-    if (oled->queue_count == 0)    return;  // nada que enviar
-    // pedimos bus para arrancar el GrantAccess → SendBuffer()
+    if (!oled || !oled->init_done)     return;
+    if (!oled->auto_flush)             return;
+    if (oled->is_sending)              return;
+    if (!OLED_HasPendingPages(oled))   return;
     if (oled->requestBusCb) {
         oled->requestBusCb(I2C_REQ_IS_TX);
     }
 }
 
+
 HAL_StatusTypeDef OLED_SendBuffer(OLED_HandleTypeDef *oled) {
-    if (!oled)                 return HAL_ERROR;
-    if (!oled->init_done)      return HAL_BUSY;
-    if (oled->is_sending)      return HAL_BUSY;
+    if (!oled || !oled->init_done)   return HAL_BUSY;
+    if (oled->is_sending)            return HAL_BUSY;
+    bool useOvl = oled->overlay_active && oled->allow_overlay_transfer;
+    uint8_t base = useOvl ? MAIN_QDEPTH : 0;
+    uint8_t end  = base + MAIN_QDEPTH;
 
-    // 1) Determina la sección de la cola fija
-    bool useOvl   = oled->overlay_active && oled->allow_overlay_transfer;
-    uint8_t baseIdx = useOvl ? MAIN_QDEPTH : 0;           // 0 o 8
-    uint8_t endIdx  = baseIdx + MAIN_QDEPTH;              // 8 o 16
-
-    // ← **Breakpoint #1** aquí, justo al entrar:
-    //    revisá baseIdx, endIdx, overlay_active, allow_overlay_transfer,
-    //    init_done, is_sending
-
-    // 2) Busca linealmente el primer slot WAITING
-    uint8_t idxFound = 0xFF;
-    for (uint8_t idx = baseIdx; idx < endIdx; idx++) {
-    	__NOP();
-        // ← **Breakpoint #2** dentro del bucle, para cada idx:
-        //    mirá oled->page_queue[idx].transfer_state
-        if (oled->page_queue[idx].transfer_state == PAGE_REQ_WAITING) {
-            idxFound = idx;
-            break;
+    // buscamos primer slot WAITING
+    for (uint8_t idx = base; idx < end; idx++) {
+        OLED_Page_t *r = &oled->page_queue[idx];
+        if (r->transfer_state == PAGE_REQ_WAITING) {
+            // arrancamos el Page Addressing
+            uint8_t page_cmd = 0xB0 | (r->page & 0x07);
+            if (HAL_I2C_Mem_Write_DMA(
+                    oled->hi2c,
+                    oled->oled_dev_address << 1,
+                    0x00, MEMADD_SIZE_8BIT,
+                    &page_cmd, 1
+                ) == HAL_OK)
+            {
+                oled->current_page_index = idx;
+                r->transfer_state        = PAGE_REQ_PAGE_PENDING;
+                oled->is_sending         = true;
+                return HAL_OK;
+            } else {
+                return HAL_ERROR;
+            }
         }
     }
-    if (idxFound == 0xFF) {
-    	__NOP();
-        // ← **Aquí ves** que idxFound nunca cambió: no hay ningún PAGE_REQ_WAITING
-        return HAL_OK;
-    }
-
-    // 3) Prepara y lanza el comando SET PAGE
-    OLED_Page_t *req = &oled->page_queue[idxFound];
-    oled->current_page_index = idxFound;
-    __NOP();
-    // ← **Breakpoint #3** justo después de asignar current_page_index:
-    //    comprobá que idxFound ≠ 0xFF y req->page tenga el valor de página correcto.
-
-    uint8_t page_cmd = 0xB0 | (req->page & 0x07);
-    if (HAL_I2C_Mem_Write_DMA(
-            oled->hi2c,
-            oled->oled_dev_address << 1,
-            0x00,               // control byte: COMANDO
-            MEMADD_SIZE_8BIT,
-            &page_cmd,          // un solo byte de comando
-            1
-        ) == HAL_OK) {
-        req->transfer_state = PAGE_REQ_PAGE_PENDING;
-        oled->is_sending    = true;
-        __NOP();
-    } else {
-        return HAL_ERROR;
-    }
-
+    // nada en WAITING
     return HAL_OK;
 }
 
@@ -229,40 +233,36 @@ void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled, uint8_t is_tx) {
 			}
 
 			case PAGE_REQ_DATA_PENDING: {
-				// terminamos DATA → DONE
-				req->transfer_state = PAGE_REQ_DONE;
+			    // 1) Marcamos DONE en la página actual
+			    req->transfer_state = PAGE_REQ_DONE;
 
-
-				// liberamos bus
-				if (oled->releaseBusCb) {
-					oled->releaseBusCb();
-				}
-				__NOP();
-
-				if(oled->init_done && !oled->just_finished_init){
-					// aumentamos contador de páginas enviadas
-					if(oled->pages_to_send != OLED_PAGES_TO_SEND_NO_LIMIT){
-						if (oled->pages_sent_count < oled->pages_to_send) {
-							oled->pages_sent_count++;
-							__NOP();
-						}
-						// si ya enviamos todas las páginas, avisamos
-						if (oled->pages_sent_count == oled->pages_to_send) {
-							if (oled->renderCompleteCb) {
-								__NOP();
-								oled->renderCompleteCb();
-							}
-							oled->pages_sent_count = 0;
-						}
-					}
-				}
-				// desencolar y preparar siguiente página
-				OLED_DequeuePage(oled);
-				oled->is_sending = false;
-			    if (oled->queue_count > 0 && oled->requestBusCb) {
-			        oled->requestBusCb(I2C_REQ_IS_TX);
+			    // 2) Liberamos el bus I2C
+			    if (oled->releaseBusCb) {
+			        oled->releaseBusCb();
 			    }
-				break;
+			    __NOP();
+
+			    // 3) Desencolamos este slot y actualizamos contadores
+			    OLED_DequeuePage(oled);
+
+			    // 4) No estamos enviando nada en este momento
+			    oled->is_sending = false;
+
+			    // 6) ¿Quedan más páginas WAITING?
+			    if (oled->auto_flush && OLED_HasPendingPages(oled)) {
+			        // Sí → arrancamos la siguiente transferencia
+			        OLED_Update(oled);
+			    }
+			    else if (oled->auto_flush) {
+			        // No → ¡flush de usuario completo!
+			        oled->first_Fn_Draw = false;
+			        oled->auto_flush    = false;
+			        __NOP();
+			        if (oled->renderCompleteCb) {
+			            oled->renderCompleteCb();
+			        }
+			    }
+			    break;
 			}
 
 			default:
@@ -271,14 +271,23 @@ void OLED_DMA_CompleteCallback(OLED_HandleTypeDef *oled, uint8_t is_tx) {
     }
 }
 
+bool OLED_HasPendingPages(OLED_HandleTypeDef *oled) {
+  for (uint8_t i = 0; i < MAIN_QDEPTH; ++i)
+    if (oled->page_queue[i].transfer_state == PAGE_REQ_WAITING) return true;
+  if (oled->overlay_active)
+    for (uint8_t i = MAIN_QDEPTH; i < MAIN_QDEPTH+OVERLAY_QDEPTH; ++i)
+      if (oled->page_queue[i].transfer_state == PAGE_REQ_WAITING) return true;
+  return false;
+}
+
 
 void OLED_GrantAccessCallback(OLED_HandleTypeDef *oled) {
-    __NOP();
     if (!oled) return;
-
+	__NOP();
     // 1) ¿Sigue en la fase de init?
     if (!oled->init_done) {
         if (oled->init_idx < oled->init_len) {
+        	__NOP();
             uint8_t cmd = oled->init_cmds[oled->init_idx++];
             HAL_I2C_Mem_Write_DMA(
                 oled->hi2c,
@@ -288,7 +297,6 @@ void OLED_GrantAccessCallback(OLED_HandleTypeDef *oled) {
                 &cmd,
                 1
             );
-            __NOP();
         }
         return;
     }
@@ -344,6 +352,7 @@ void OLED_DequeuePage(OLED_HandleTypeDef *oled)
         __NOP();
         oled->just_finished_init = false;
         if (oled->oled_just_init_fn) {
+        	__NOP();
             oled->oled_just_init_fn();
         }
     }
@@ -385,7 +394,11 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
     oled->requestBusCb    = requestBusCbFn;
     oled->releaseBusCb    = releaseBusUseFn;
     oled->oled_just_init_fn = on_ready_fn;
-    oled->renderCompleteCb  = on_render_cmplt_fn;
+    if(on_render_cmplt_fn){
+		oled->renderCompleteCb  = on_render_cmplt_fn;
+    }else{
+    	oled->renderCompleteCb = NULL;
+    }
 
     /* 2) Inicializar cola circular MAIN (0–7) y OVERLAY (8–15) */
     oled->queue_head      = 0;
@@ -422,9 +435,8 @@ HAL_StatusTypeDef OLED_Init(OLED_HandleTypeDef *oled,
     oled->ovl_count  = 0;   // ← inicializar también el contador de overlay
     oled->current_page_index = 0;
     oled->just_finished_init = false;
+    oled->auto_flush = true;
 
-    oled->pages_to_send     = OLED_PAGES_TO_SEND_HALF_QUEUE; //Primero solo limpia 8 (paginas)
-    oled->pages_sent_count  = 0;
     return HAL_OK;
 }
 
@@ -802,8 +814,8 @@ void OLED_DrawXBM(OLED_HandleTypeDef *oled,
 
 /* -------------------------------------------------------------------- */
 void OLED_DrawStr(OLED_HandleTypeDef *oled,
-                  const char          *str,
-                  bool                use_overlay)
+                  const char *str,
+                  bool use_overlay)
 {
     if (!oled || !str || !oled->font) return;
 
@@ -812,21 +824,35 @@ void OLED_DrawStr(OLED_HandleTypeDef *oled,
     uint8_t        cy = oled->cursor_y;
 
     while (*str) {
-        /* ---- 1. Traducir código ASCII a índice de glifo ---------------- */
+        /* ---- 1. Leer código ASCII ---------------- */
         uint8_t code = (uint8_t)*str++;
-        uint8_t idx  = FontMap[code];          // 0‥69  ó  0xFF
 
+        /* ---- 1a. Caso especial '-' ---------------- */
+        if (code == '-') {
+            // Dibujamos un guión centrado verticalmente
+            uint8_t row_dash = f->FontHeight / 2;
+            for (uint8_t col = 0; col < f->FontWidth; ++col) {
+                OLED_DrawPixel(oled, cx + col, cy + row_dash, use_overlay);
+            }
+            // avanzamos el cursor y seguimos
+            cx += f->FontWidth;
+            if (cx + f->FontWidth > OLED_WIDTH) break;
+            continue;
+        }
+
+        /* ---- 1b. Traducir ASCII a índice de glifo ---------- */
+        uint8_t idx = FontMap[code];          // 0‥69  o  0xFF
         if (idx == 0xFF) {                     // carácter no soportado
             idx = FontMap[(uint8_t)'?'];       //  → usa '?'
-            if (idx == 0xFF) continue;         // (seguro, pero por si acaso)
+            if (idx == 0xFF) continue;
         }
 
         const uint16_t *glyph = &f->data[idx * f->FontHeight];
 
-        /* ---- 2. Pintar el glifo ---------------------------------------- */
+        /* ---- 2. Pintar el glifo ------------------------------- */
         for (uint8_t row = 0; row < f->FontHeight; ++row) {
             uint16_t bits = glyph[row];
-            uint16_t mask = 0x8000;            // empezamos por el MSB
+            uint16_t mask = 0x8000;            // MSB primero
 
             for (uint8_t col = 0; col < f->FontWidth; ++col, mask >>= 1) {
                 if (bits & mask)
@@ -834,13 +860,14 @@ void OLED_DrawStr(OLED_HandleTypeDef *oled,
             }
         }
 
-        /* ---- 3. Avanzar cursor ---------------------------------------- */
+        /* ---- 3. Avanzar cursor ------------------------------- */
         cx += f->FontWidth;
         if (cx + f->FontWidth > OLED_WIDTH) break;
     }
 
     oled->cursor_x = cx;
 }
+
 /* -------------------------------------------------------------------- */
 
 
@@ -968,6 +995,12 @@ void OLED_ActivateOverlay(OLED_HandleTypeDef *oled, uint16_t duration_ms) {
         oled->overlay_time_in_ms     = duration_ms;
         oled->overlay_timer_ms       = duration_ms;
     }
+}
+
+// Pone el callback que se llamará al terminar el render “one-shot”
+// Si pasas NULL, nunca se llamará al finalizar el envío de páginas.
+void OLED_SetRenderCompleteCb(OLED_HandleTypeDef *oled, On_OLED_RenderPagesComplete cb) {
+    oled->renderCompleteCb = cb;
 }
 
 

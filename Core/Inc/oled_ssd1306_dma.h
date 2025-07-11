@@ -81,9 +81,6 @@ typedef union {
 #define MAIN_QDEPTH    8
 #define OVERLAY_QDEPTH 8
 #define OLED_QUEUE_DEPTH 16
-#define OLED_PAGES_TO_SEND_HALF_QUEUE 8
-#define OLED_PAGES_TO_SEND_FULL_QUEUE 16
-#define OLED_PAGES_TO_SEND_NO_LIMIT 99
 
 #define MEMADD_SIZE_8BIT I2C_MEMADD_SIZE_8BIT
 
@@ -121,6 +118,7 @@ typedef struct {
     bool           init_done;   /**< true cuando la init finalizó */
     bool           just_finished_init;
     bool           first_Fn_Draw;
+    bool auto_flush;            // ¡nuevo!
 
     /* Frame buffers en RAM */
     uint8_t frame_buffer_main[OLED_BUFFER_SIZE];    /**< Contenido principal */
@@ -160,8 +158,6 @@ typedef struct {
     bool     bitmap_opaque;
     bool     font_normal;
     bool is_sending;
-    uint8_t pages_to_send;      // cuántas páginas está intentando enviar ahora
-	uint8_t pages_sent_count;   // cuántas ya se han marcado DONE
 	On_OLED_RenderPagesComplete renderCompleteCb;
 } OLED_HandleTypeDef;
 
@@ -383,9 +379,7 @@ HAL_StatusTypeDef OLED_SendOverlayBuffer(OLED_HandleTypeDef *oled);
  * @brief Oculta inmediatamente el overlay y reenvía el contenido del buffer main.
  * @param oled Puntero al handler del OLED
  */
-void OLED_HideOverlayNow(OLED_HandleTypeDef *oled,
-                         uint8_t x, uint8_t y,
-                         uint8_t w, uint8_t h);
+void OLED_HideOverlayNow(OLED_HandleTypeDef *oled);
 
 /**
  * @brief Activa el overlay y configura el modo de ocultamiento (manual o por timeout).
@@ -400,5 +394,11 @@ void OLED_ChangeOverlayTime(OLED_HandleTypeDef *oled, uint16_t duration_ms);
 void OLED_RefreshBoxFromMain(OLED_HandleTypeDef *oled,
                                     uint8_t x, uint8_t y,
                                     uint8_t w, uint8_t h);
+
+bool OLED_HasPendingPages(OLED_HandleTypeDef *oled);
+
+void OLED_PrintBuffer(OLED_HandleTypeDef *oled, bool use_overlay);
+
+void OLED_SetRenderCompleteCb(OLED_HandleTypeDef *oled, On_OLED_RenderPagesComplete cb);
 
 #endif /* INC_OLED_SSD1306_DMA_H_ */

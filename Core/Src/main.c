@@ -1,4 +1,4 @@
-// 8 páginas * 2 buffers/* USER CODE BEGIN Header */
+/* USER CODE BEGIN Header */
 /**
  ******************************************************************************
  * @file           : main.c
@@ -85,6 +85,7 @@ volatile CarMode_t carMode;
 volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 TCRT_LightConfig_t tcrtLight;
 volatile uint8_t cnt_adc_trigger = 0;
+volatile uint16_t cnt_250us_MPU = 0;
 volatile uint16_t cnt_10ms = 0;
 volatile uint32_t cnt_10us = 0;
 volatile uint32_t tcrt_calib_cnt_phase = 0;
@@ -119,6 +120,15 @@ MPU6050_Handle_t mpuTask;
 ButtonState_t btnUser;
 ENC_Handle_t encoder;
 
+void onRenderComplete(void) {
+	__NOP();
+	if(IS_FLAG_SET(systemFlags, OLED_READY)){
+		menuSystem.allowPeriodicRefresh = false;
+		 //oledTask.auto_flush = false;
+		__NOP();
+	}
+}
+
 void USART1_PrintString(const char *msg) {
     USART1_PushTxString(&usart1Buf, msg);
 }
@@ -139,45 +149,97 @@ void OledUtils_DrawItem_Wrapper(const MenuItem *item,
  */
 void OledUtils_RenderDashboard_Wrapper(void)
 {
-	menuSystem.allowPeriodicRefresh = false;
-	if(IS_FLAG_SET(systemFlags2, OLED_ACTIVE)){
-		encoder.allowEncoderInput = true;
-	}else{
-		encoder.allowEncoderInput = false;
-	}
-	oledTask.pages_to_send    = OLED_PAGES_TO_SEND_HALF_QUEUE;
-	oledTask.pages_sent_count = 0;
-	OledUtils_RenderDashboard(&oledTask);
+    // 1) Deshabilito el refresco periódico
+	OledUtils_DisableContinuousRender(&oledTask, onRenderComplete);
+
+    // 2) Marco que esta es la primera pasada para full-refresh
+    oledTask.first_Fn_Draw = true;
+
+    // 3) Bloqueo / desbloqueo encoder según el flag
+    encoder.allowEncoderInput = IS_FLAG_SET(systemFlags2, OLED_ACTIVE);
+
+    // 4) Llamo a la función que pinta TODO en el buffer
+    OledUtils_RenderDashboard(&oledTask);
+
+    // 5) Arranco el flush: que el MainTask (a través de OLED_Update)
+    //    vaya enviando página a página hasta que queue_count==0
+    oledTask.auto_flush = true;
+
+    // ¡no vuelvo a tocar menuSystem.renderFlag!
 }
+
+
 void MenuSys_RenderMenu_Wrapper(){
-	menuSystem.allowPeriodicRefresh = false;
+	OledUtils_DisableContinuousRender(&oledTask, onRenderComplete);
 	encoder.allowEncoderInput = true;
-	oledTask.pages_to_send    = OLED_PAGES_TO_SEND_HALF_QUEUE;
-	oledTask.pages_sent_count = 0;
+	oledTask.first_Fn_Draw = true;
 	MenuSys_RenderMenu(&menuSystem);
+	oledTask.auto_flush = true;
 }
+
 void MenuSys_GoBack_Wrapper(){
 	MenuSys_NavigateBack(&menuSystem);
 }
 
+void OledUtils_RenderRadar_Wrapper(void) {
+	OledUtils_EnableContinuousRender(&oledTask);
+	if(!oledTask.first_Fn_Draw){
+		encoder.allowEncoderInput = false;
+		menuSystem.renderFlag = true;
+		OledUtils_RenderRadarGraph(&oledTask, sensor_raw_data); // La primera vez renderizo todo
+		oledTask.first_Fn_Draw = true;
+	}else{
+		__NOP();
+		OledUtils_RenderRadarGraph_Objs(&oledTask, sensor_raw_data); //La siguiente solo los objetos
+	}
+	oledTask.auto_flush = true;
+}
+
+/**
+ * @brief  Wrapper para la pantalla de Valores IR.
+ */
+void OledUtils_RenderValoresIR_Wrapper(void) {
+    // cada vez que entrenamos aquí, nos aseguramos de tener auto_flush
+    OledUtils_EnableContinuousRender(&oledTask);
+    oledTask.auto_flush = true;
+    if (!oledTask.first_Fn_Draw) {
+        // primera pasada → gráfico completo
+        OledUtils_DrawIRGraph(&oledTask, sensor_raw_data);
+        // señalizamos que ya no estamos en la primera pasada
+        oledTask.first_Fn_Draw = false;
+    } else {
+        // siguientes pasadas → sólo barras
+        OledUtils_DrawIRBars(&oledTask, sensor_raw_data);
+    }
+}
+
+
+/**
+ * @brief  Wrapper para la pantalla de Valores MPU.
+ */
+void OledUtils_RenderValoresMPU_Wrapper(void)
+{
+	OledUtils_EnableContinuousRender(&oledTask);
+	encoder.allowEncoderInput = false;
+	if(!oledTask.first_Fn_Draw){
+		oledTask.first_Fn_Draw = true;
+		OledUtils_RenderValoresMPUScreen(&oledTask, &mpuTask);
+	}else{
+		__NOP();
+		OledUtils_RenderValoresMPUScreen(&oledTask, &mpuTask); //Despues cambiar esta por la que imprime solo los valores
+	}
+	oledTask.auto_flush = true;
+}
+
+
 void OLED_Is_Ready(void) {
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
-        menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+        menuSystem.renderFn = OledUtils_RenderValoresMPU_Wrapper;
         menuSystem.renderFlag = true;
         SET_FLAG(systemFlags, OLED_READY);
         __NOP();
     }
 }
-
-void onMenuRenderComplete() {
-	if(IS_FLAG_SET(systemFlags, OLED_READY)){
-		if(menuSystem.allowPeriodicRefresh && oledTask.pages_to_send != OLED_PAGES_TO_SEND_NO_LIMIT){
-			menuSystem.allowPeriodicRefresh = false;
-			__NOP();
-		}
-	}
-}
-
 
 void setMode_IDLE(void){
 	carMode = IDLE_MODE;
@@ -353,25 +415,25 @@ void renderFnWrapper(void) {
 // Wrapper para I2C_Manager cuando termina el DMA
 void OLED_DMA_Complete_I2CManager(uint8_t is_tx) {
     // aquí puedes poner un breakpoint o togglear un LED para debug
-	__NOP();
     OLED_DMA_CompleteCallback(&oledTask, is_tx);
 }
 
 // Wrapper para I2C_Manager cuando concede acceso al bus
 void OLED_GrantAccess_I2CManager(void) {
     // breakpoint / LED toggle aquí si quieres
+	__NOP();
     OLED_GrantAccessCallback(&oledTask);
 }
 
 void OLED_RequestBusUse_I2CManager(uint8_t is_tx) {
     // Pide acceso inmediato al manager
+	__NOP();
     I2C_Manager_RequestAccess(DEVICE_ID_OLED, I2C_REQ_TYPE_TX); //Es TX
 }
 
 void OLED_ReleaseBusUse_I2CManager(void) {
     // Pide acceso inmediato al manager
 	I2C_Manager_ReleaseBus(DEVICE_ID_OLED);
-	__NOP();
 }
 // Wrapper para I2C_Manager al completar TX (canal 6)
 void MPU_DMA_Complete_I2CManager(uint8_t is_tx) {
@@ -381,6 +443,7 @@ void MPU_DMA_Complete_I2CManager(uint8_t is_tx) {
 // Wrapper para I2C_Manager cuando concede acceso TX
 void MPU_GrantAccessCallback_I2CManager(void) {
     // Aquí breakpoint/LED para depuración TX grant
+	__NOP();
 	MPU_GrantAccessCallback(&mpuTask);
 }
 
@@ -397,7 +460,7 @@ void MPU_ReleaseBusUse_I2CManager(void) {
 }
 
 void MPU_Data_Ready(void) {
-    SET_FLAG(systemFlags, MPU_GET_DATA); //Setea bandera de data
+    SET_FLAG(systemFlags, MPU_GET_DATA); //Setea bandera de data para volver a pedir
 }
 
 
@@ -429,40 +492,40 @@ if (USART1_PrintBlocking("Mensaje bloqueante por USART1\r\n") != HAL_OK) {
   * @retval int
   */
 int main(void)
-	{
+{
 
-	 /* USER CODE BEGIN 1 */
+  /* USER CODE BEGIN 1 */
 
-	 /* USER CODE END 1 */
+  /* USER CODE END 1 */
 
-	 /* MCU Configuration--------------------------------------------------------*/
+  /* MCU Configuration--------------------------------------------------------*/
 
-	 /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-	 HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
-	 /* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 
-	 /* USER CODE END Init */
+  /* USER CODE END Init */
 
-	 /* Configure the system clock */
-	 SystemClock_Config();
+  /* Configure the system clock */
+  SystemClock_Config();
 
-	 /* USER CODE BEGIN SysInit */
+  /* USER CODE BEGIN SysInit */
 
-	 /* USER CODE END SysInit */
+  /* USER CODE END SysInit */
 
-	 /* Initialize all configured peripherals */
-	 MX_GPIO_Init();
-	 MX_DMA_Init();
-	 MX_TIM3_Init();
-	 MX_ADC1_Init();
-	 MX_USB_DEVICE_Init();
-	 MX_USART1_UART_Init();
-	 MX_I2C1_Init();
-	 MX_TIM2_Init();
-	 MX_SPI2_Init();
-	 MX_TIM4_Init();
-	 /* USER CODE BEGIN 2 */
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_TIM3_Init();
+  MX_ADC1_Init();
+  MX_USB_DEVICE_Init();
+  MX_USART1_UART_Init();
+  MX_I2C1_Init();
+  MX_TIM2_Init();
+  MX_SPI2_Init();
+  MX_TIM4_Init();
+  /* USER CODE BEGIN 2 */
 	 HAL_StatusTypeDef result;
 	 if (USART1_RegisterHandle(&huart1) != HAL_OK){
 		 Error_Handler();
@@ -505,6 +568,8 @@ int main(void)
 	             &mpu_trigger
 	         );
 	         MPU6050_Configure(&mpuTask);
+	         MPU6050_CalibrateGyro(&mpuTask, 250);
+	         SET_FLAG(systemFlags, MPU_GET_DATA);
 		 } else {
 			  // Falló al registrar (posiblemente sin espacio en la tabla)
 			  USART1_PushTxString(&usart1Buf, "MPU NO Registrado");
@@ -531,9 +596,10 @@ int main(void)
 					   OLED_RequestBusUse_I2CManager,
 					   OLED_ReleaseBusUse_I2CManager,
 					   OLED_Is_Ready,
-					   onMenuRenderComplete);
+					   NULL);
 				if (oledTask.requestBusCb) {
 					oledTask.requestBusCb(I2C_REQ_IS_TX);
+					__NOP();
 				}
 			  oledTime = OLED_ACTIVE_TIME;
 		  } else {
@@ -1052,20 +1118,26 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, LED_Pin|nRF24_CE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, IR_LED_Pin|nRF24_CSN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, nRF24_CSN_Pin|Motor_Enable_Pin|Luces_IR_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(ESP_ENABLE_GPIO_Port, ESP_ENABLE_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : LED_Pin */
-  GPIO_InitStruct.Pin = LED_Pin;
+  /*Configure GPIO pins : LED_Pin nRF24_CE_Pin */
+  GPIO_InitStruct.Pin = LED_Pin|nRF24_CE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : nRF24_IRQ_Pin */
+  GPIO_InitStruct.Pin = nRF24_IRQ_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(nRF24_IRQ_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : EncoderSW_Pin */
   GPIO_InitStruct.Pin = EncoderSW_Pin;
@@ -1079,8 +1151,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(User_BTN_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : IR_LED_Pin nRF24_CSN_Pin */
-  GPIO_InitStruct.Pin = IR_LED_Pin|nRF24_CSN_Pin;
+  /*Configure GPIO pins : nRF24_CSN_Pin Motor_Enable_Pin Luces_IR_Pin */
+  GPIO_InitStruct.Pin = nRF24_CSN_Pin|Motor_Enable_Pin|Luces_IR_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -1156,11 +1228,13 @@ void UserBtn_MainTask(ButtonState_t *h){
 			OledUtils_Clear_Wrapper();
 			menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
 			menuSystem.renderFlag = true;
+			oledTask.first_Fn_Draw = false;
 			INSIDE_MENU = 0;
 		}else{
 			OledUtils_Clear_Wrapper();
 			menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
 			menuSystem.renderFlag = true;
+			oledTask.first_Fn_Draw = false;
 			INSIDE_MENU = 1;
 		}
 		__NOP();
@@ -1211,6 +1285,7 @@ void Encoder_MainTask(ENC_Handle_t *h) {
     }else{
 		// Long-press te lleva siempre al menú principal
 		MenuSys_NavigateToMain(&menuSystem);
+		oledTask.first_Fn_Draw = false;
 		menuSystem.renderFn  = MenuSys_RenderMenu_Wrapper;
 		menuSystem.renderFlag = true;
     }
@@ -1221,8 +1296,8 @@ void Encoder_MainTask(ENC_Handle_t *h) {
 void initTCRTLib(void)
 {
     // 1) Configuro el LED (opcional). Si no tienes LED, pasa NULL en TCRT5000_Create.
-    tcrtLight.port  = IR_LED_GPIO_Port;
-    tcrtLight.pin   = IR_LED_Pin;
+    tcrtLight.port  = Luces_IR_GPIO_Port;
+    tcrtLight.pin   = Luces_IR_Pin;
     tcrtLight.state = true;
 
     // 2) Creo la instancia del TCRT5000. Pasa USART1_PrintString (o NULL si no quieres debug).
@@ -1352,36 +1427,62 @@ void Motor_MainTask(void)
 }
 
 void MPU_MainTask(void) {
-    // 1) Si el trigger periódico (mpu_trigger) está activo, disparamos la lectura
+    // ——————————————————————————————————————————
+    // 1) Trigger periódico
+    // ——————————————————————————————————————————
     if (mpu_trigger) {
-        __NOP();                       // breakpoint: detectó trigger en MainTask
+        __NOP();              // BREAKPOINT #1
         MPU6050_CheckTrigger(&mpuTask);
+        mpu_trigger = false;  // consumimos
     }
 
-    // 2) Cuando el callback MPU_Data_Ready() levantó la bandera MPU_GET_DATA,
-    //    procesamos los datos convertidos
-    if (IS_FLAG_SET(systemFlags, MPU_GET_DATA)) {
-        CLEAR_FLAG(systemFlags, MPU_GET_DATA);
+    // ——————————————————————————————————————————
+    // 2) DATA_READY (RX DMA complete)
+    // ——————————————————————————————————————————
+    if (IS_FLAG_SET(mpuTask.flags, DATA_READY)) {
+        CLEAR_FLAG(mpuTask.flags, DATA_READY);
+        __NOP();              // BREAKPOINT #2
 
-        // obtener los valores ya convertidos
-        MPU6050_GetData(&mpuTask);
-        __NOP();
+        // ————————————————— Calibración —————————————————
+        if (!IS_FLAG_SET(mpuTask.flags, CALIBRATED)) {
+            // acumulamos muestras
+            mpuTask.calib_sum_x += mpuTask.data.gyro_x_mdps;
+            mpuTask.calib_sum_y += mpuTask.data.gyro_y_mdps;
+            mpuTask.calib_sum_z += mpuTask.data.gyro_z_mdps;
+            mpuTask.calib_count++;
 
-        // … aquí procesas d->accel_x_mg, d->gyro_z_mdps, etc. …
+            if (mpuTask.calib_count >= mpuTask.calib_target) {
+                // calculamos bias y marcamos calibrado
+                mpuTask.gyro_bias_x = mpuTask.calib_sum_x / mpuTask.calib_target;
+                mpuTask.gyro_bias_y = mpuTask.calib_sum_y / mpuTask.calib_target;
+                mpuTask.gyro_bias_z = mpuTask.calib_sum_z / mpuTask.calib_target;
+                SET_FLAG(mpuTask.flags, CALIBRATED);
+                __NOP();  // BREAKPOINT #3
 
-        // si quisieras volver a disparar automáticamente:
-        // mpu_trigger = true;
-    }
-    if(IS_FLAG_SET(mpuTask.flags, DATA_READY)){
-    	CLEAR_FLAG(mpuTask.flags, DATA_READY);
+                // **rearmamos un nuevo ciclo de lectura**
+                mpu_trigger = true;
+                MPU6050_CheckTrigger(&mpuTask);
+                return;
+            } else {
+                // pedimos siguiente muestra de calibración
+                mpu_trigger = true;
+                MPU6050_CheckTrigger(&mpuTask);
+                __NOP();  // breakpoint opcional
+                return;
+            }
+        }
+
+        // ————————————————— Fase normal ————————————————
         MPU6050_Convert(&mpuTask);
-        //Llamar al Callback registrado en initMPU
+        __NOP();              // BREAKPOINT #4: conversión + ángulo listos
+
+        // ————————————————— Callback usuario ————————————
         if (mpuTask.on_data_ready_cb) {
-        	mpuTask.on_data_ready_cb();
+            __NOP();          // BREAKPOINT #5
+            mpuTask.on_data_ready_cb();
         }
     }
 }
-
 
 void i2cManager_MainTask(){
 	I2C_Manager_Update();
@@ -1394,61 +1495,62 @@ void OLED_MainTask(void) {
         return;
     }
 
-    // 1) Cada 10 ms
+    // 1) Cada 10 ms procesamos temporizadores
+    /*
     if (IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED)) {
         CLEAR_FLAG(systemFlags, OLED_TENMS_PASSED);
 
-        // — overlay con timeout —
+        // 1.a) Overlay con timeout
         if (oledTask.overlay_active && oledTask.overlay_timeout_active) {
-            if (oledTask.overlay_timer_ms >= 10) {
+            if (oledTask.overlay_timer_ms > 10) {
                 oledTask.overlay_timer_ms -= 10;
             } else {
-                OLED_HideOverlayNow(&oledTask,
-                                   LOCK_ICON_X, LOCK_ICON_Y,
-                                   LOCK_ICON_W, LOCK_ICON_H);
+                // en lugar de ocultar directo, señalamos hide-now
+                oledTask.overlay_timeout_active = false;
+                oledTask.overlay_hide_now       = true;
             }
         }
-        // — hide-overlay inmediato —
-        else if (oledTask.overlay_active && oledTask.overlay_hide_now) {
-            oledTask.overlay_hide_now = false;
-            OLED_HideOverlayNow(&oledTask,
-                               LOCK_ICON_X, LOCK_ICON_Y,
-                               LOCK_ICON_W, LOCK_ICON_H);
+
+        // 1.b) Procesar hide-now tan pronto no queden páginas de overlay en vuelo
+        if (oledTask.overlay_active && oledTask.overlay_hide_now && oledTask.ovl_count == 0) {
+            oledTask.overlay_hide_now      = false;
+            // Aquí pasas tu región concreta de overlay a limpiar:
+            OLED_HideOverlayNow(&oledTask);
+        }
+        // si ya no quedaban páginas de overlay, deshabilitamos transfer
+        else if (oledTask.overlay_active && oledTask.ovl_count == 0) {
+            oledTask.allow_overlay_transfer = false;
         }
 
-        // — temporizador de inactividad (lock) —
+        // 1.c) Temporizador de inactividad (lock)
         if (IS_FLAG_SET(systemFlags2, OLED_ACTIVE)) {
             if (oledTime > 10) {
                 oledTime -= 10;
             } else {
-                // llega a 0 → bloquea y pinta candado
                 CLEAR_FLAG(systemFlags2, OLED_ACTIVE);
-                __NOP();
                 OledUtils_RenderLockState(&oledTask, 1);
             }
         }
-    }
+    }*/
 
-    // 2) Refresco periódico SIEMPRE que se pida
+    // 2) Refresco periódico si está permitido
     if (IS_FLAG_SET(systemFlags, OLED_REFRESH) && menuSystem.allowPeriodicRefresh) {
+    	__NOP();
         if (menuSystem.renderFn) {
             menuSystem.renderFlag = true;
         }
         CLEAR_FLAG(systemFlags, OLED_REFRESH);
     }
 
-    // 3) Ejecutamos el renderFn() SIEMPRE que esté solicitado
+    // 3) Ejecutar la rutina de render si alguien la pidió
     if (menuSystem.renderFlag && menuSystem.renderFn) {
         menuSystem.renderFlag = false;
-        __NOP();
         menuSystem.renderFn();
     }
 
-    // 4) Avanzamos el flujo no bloqueante de páginas
+    // 4) Avanzar la state-machine no bloqueante de páginas
     OLED_Update(&oledTask);
 }
-
-
 
 void initMenuSystemTask(void) {
     MenuSys_Init(&menuSystem);

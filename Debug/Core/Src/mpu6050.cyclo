@@ -1,8 +1,9 @@
-../Core/Src/mpu6050.c:19:19:MPU6050_Init	5
-../Core/Src/mpu6050.c:56:19:MPU6050_Configure	3
-../Core/Src/mpu6050.c:86:6:MPU6050_CheckTrigger	3
-../Core/Src/mpu6050.c:97:26:MPU6050_GetData	1
-../Core/Src/mpu6050.c:101:6:MPU6050_Convert	4
-../Core/Src/mpu6050.c:115:6:MPU_DMA_CompleteCallback	3
-../Core/Src/mpu6050.c:137:6:MPU_GrantAccessCallback	1
-../Core/Src/mpu6050.c:157:19:MPU6050_ReadWhoAmI	1
+../Core/Src/mpu6050.c:21:19:MPU6050_Init	5
+../Core/Src/mpu6050.c:59:19:MPU6050_Configure	3
+../Core/Src/mpu6050.c:89:6:MPU6050_CheckTrigger	3
+../Core/Src/mpu6050.c:100:26:MPU6050_GetData	1
+../Core/Src/mpu6050.c:104:6:MPU6050_Convert	4
+../Core/Src/mpu6050.c:140:6:MPU_DMA_CompleteCallback	3
+../Core/Src/mpu6050.c:163:6:MPU_GrantAccessCallback	1
+../Core/Src/mpu6050.c:175:19:MPU6050_ReadWhoAmI	1
+../Core/Src/mpu6050.c:186:6:MPU6050_CalibrateGyro	1

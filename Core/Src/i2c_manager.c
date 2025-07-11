@@ -47,7 +47,7 @@ HAL_StatusTypeDef I2C_Manager_RegisterDevice(I2C_DeviceID id, uint8_t address,
 HAL_StatusTypeDef I2C_Manager_RequestAccess(I2C_DeviceID id, uint8_t req_type) {
     uint8_t idx = 0xFF;
 
-    // 1) Busca el índice del dispositivo
+    // 1) Buscar índice del dispositivo
     for (uint8_t i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
         if (IS_FLAG_SET(device_table[i].type.flags, I2C_DEV_ENABLED)
          && device_table[i].type.id == id) {
@@ -56,74 +56,63 @@ HAL_StatusTypeDef I2C_Manager_RequestAccess(I2C_DeviceID id, uint8_t req_type) {
         }
     }
     if (idx == 0xFF) {
-        return HAL_ERROR;  // no está registrado
+        return HAL_ERROR;  // No está registrado
     }
 
-    // 2) Marca petición como pendiente y su tipo
+    // 2) Marcar petición como pendiente y tipo
     SET_FLAG(device_table[idx].flags, I2C_REQ_PENDING);
-    switch(req_type){
-    	case I2C_REQ_TYPE_TX:
-			SET_FLAG(device_table[idx].flags, I2C_REQ_IS_TX);
-			CLEAR_FLAG(device_table[idx].flags, I2C_REQ_IS_RX);
-    		break;
-    	case I2C_REQ_TYPE_RX:
-    		CLEAR_FLAG(device_table[idx].flags, I2C_REQ_IS_TX);
-    		SET_FLAG(device_table[idx].flags, I2C_REQ_IS_RX);
-    		break;
-    	case I2C_REQ_TYPE_TX_RX:
-    		SET_FLAG(device_table[idx].flags, I2C_REQ_IS_TX);
-    		SET_FLAG(device_table[idx].flags, I2C_REQ_IS_RX);
-    		break;
+    switch (req_type) {
+        case I2C_REQ_TYPE_TX:
+            SET_FLAG(device_table[idx].flags, I2C_REQ_IS_TX);
+            CLEAR_FLAG(device_table[idx].flags, I2C_REQ_IS_RX);
+            break;
+        case I2C_REQ_TYPE_RX:
+            CLEAR_FLAG(device_table[idx].flags, I2C_REQ_IS_TX);
+            SET_FLAG(device_table[idx].flags, I2C_REQ_IS_RX);
+            break;
+        case I2C_REQ_TYPE_TX_RX:
+            SET_FLAG(device_table[idx].flags, I2C_REQ_IS_TX);
+            SET_FLAG(device_table[idx].flags, I2C_REQ_IS_RX);
+            break;
     }
-    // 3) Si el bus está ocupado, devolvemos BUSY (quedó en pending)
-    if (bus_state != I2C_STATE_IDLE || *external_busy) {
+
+    // 3) Si el bus está ocupado, devolvemos BUSY
+    if (*external_busy) {
         return HAL_BUSY;
     }
 
-    // 4) Bus libre: ¿cuántas peticiones pendientes hay?
-    uint8_t pending_count = 0;
-    for (uint8_t i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
-        if (IS_FLAG_SET(device_table[i].flags, I2C_REQ_PENDING)) {
-            pending_count++;
-        }
-    }
+    // 4) Buscar la primera petición pendiente distinta del último activo
+    for (uint8_t offset = 1; offset <= I2C_MANAGER_MAX_DEVICES; offset++) {
+        uint8_t i = (last_active_index + offset) % I2C_MANAGER_MAX_DEVICES;
 
-    uint8_t best_idx;
-    // 4a) Si hay más de una, hacemos búsqueda por prioridad
-    if (pending_count > 1) {
-        uint8_t best_prio = 0;
-        best_idx = 0xFF;
-        for (uint8_t i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
-            if (IS_FLAG_SET(device_table[i].type.flags, I2C_DEV_ENABLED) &&
-                IS_FLAG_SET(device_table[i].flags, I2C_REQ_PENDING))
-            {
-                uint8_t prio = NIBBLEH_GET_STATE(device_table[i].type.flags);
-                if (best_idx == 0xFF || prio > best_prio) {
-                    best_prio = prio;
-                    best_idx  = i;
-                }
+        if (IS_FLAG_SET(device_table[i].type.flags, I2C_DEV_ENABLED) &&
+            IS_FLAG_SET(device_table[i].flags, I2C_REQ_PENDING))
+        {
+            // 5) Conceder acceso al nuevo dispositivo
+            CLEAR_FLAG(device_table[i].flags, I2C_REQ_PENDING);
+            *external_busy = 1;
+            last_active_index = i;
+
+            if (device_table[i].request_approved_cb) {
+                device_table[i].request_approved_cb();
             }
-        }
-        // Por si algo raro… (aunque idx siempre está pending)
-        if (best_idx == 0xFF) {
-            best_idx = idx;
+            return HAL_OK;
         }
     }
-    // 4b) Si solo hay una petición (pending_count == 1), se la damos a idx
-    else {
-        best_idx = idx;
+
+    // 6) Si nadie más tiene pendiente, volver a conceder al mismo (si tenía pendiente)
+    if (IS_FLAG_SET(device_table[idx].flags, I2C_REQ_PENDING)) {
+        CLEAR_FLAG(device_table[idx].flags, I2C_REQ_PENDING);
+        *external_busy = 1;
+        last_active_index = idx;
+
+        if (device_table[idx].request_approved_cb) {
+            device_table[idx].request_approved_cb();
+        }
+        return HAL_OK;
     }
 
-    // 5) Concedemos el bus al best_idx
-    CLEAR_FLAG(device_table[best_idx].flags, I2C_REQ_PENDING);
-    bus_state         = I2C_STATE_BUSY;
-    *external_busy    = 1;
-    last_active_index = best_idx;
-
-    if (device_table[best_idx].request_approved_cb) {
-        device_table[best_idx].request_approved_cb();
-    }
-    return HAL_OK;
+    return HAL_BUSY;
 }
 
 void I2C_Manager_OnDMAComplete(uint8_t is_tx) {

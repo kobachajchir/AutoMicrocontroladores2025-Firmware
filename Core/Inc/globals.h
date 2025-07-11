@@ -90,6 +90,7 @@ extern volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 extern TCRT_LightConfig_t myLight;
 extern bool pull_cfg[ TCRT5000_NUM_SENSORS ];
 extern volatile uint8_t cnt_adc_trigger;
+extern volatile uint16_t cnt_250us_MPU;
 extern volatile uint16_t cnt_10ms;
 extern volatile uint32_t cnt_10us;
 extern volatile uint32_t tcrt_calib_cnt_phase;  // contador de 10 µs para la fase actual

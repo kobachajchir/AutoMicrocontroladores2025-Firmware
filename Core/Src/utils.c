@@ -27,11 +27,19 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM3)
     {
+    	cnt_250us_MPU++;
+		if (cnt_250us_MPU >= 32) {        // 32 × 250 µs = 8 ms
+			cnt_250us_MPU = 0;            // reiniciamos el contador
+
+			// sólo disparamos un nuevo trigger si no estamos
+			// ya esperando a procesar datos pendientes
+			if ( IS_FLAG_SET(systemFlags, MPU_GET_DATA) ) {
+				CLEAR_FLAG(systemFlags, MPU_GET_DATA);
+				mpu_trigger = true;
+				__NOP();  // <— BREAKPOINT #1: programó trigger a 8 ms
+			}
+		}
     	cnt_10ms++;
-    	if ((cnt_10ms % 4) == 0 && !IS_FLAG_SET(systemFlags, MPU_GET_DATA)) {
-    	    mpu_trigger = true;
-    	    __NOP();
-    	}
 		//Según el modo actual de tcrt, contar o no hacer nada
 		TCRTCalibCounter_Task();
         // Cada vez que TIM3 desborda (250 µs), entramos aquí

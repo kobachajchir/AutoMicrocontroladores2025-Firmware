@@ -45,15 +45,13 @@ void OledUtils_Clear(OLED_HandleTypeDef *oled, bool is_overlay);
 
 void OledUtils_DrawItem(OLED_HandleTypeDef *oled, const MenuItem *item, uint8_t y, bool selected);
 
-void OledUtils_RenderValoresMPUScreen(OLED_HandleTypeDef *oled, MPU6050_IntData_t *mpuData);
+void OledUtils_RenderValoresMPUScreen(OLED_HandleTypeDef *oled, MPU6050_Handle_t *mpu);
 
 void OledUtils_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
 
 void OledUtils_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
 
-void OledUtils_RenderValoresIR_Wrapper(void);
-
-void OledUtils_RenderValoresMPU_Wrapper(void);
+void OledUtils_RenderLockScreen(OLED_HandleTypeDef *oled);
 
 #endif // OLED_MENU_H
 

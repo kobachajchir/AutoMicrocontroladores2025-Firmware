@@ -76,8 +76,8 @@ typedef union {
 //Defines para el i2cDeviceType
 #define DATA_READY BIT0_MASK
 #define TX_SENT  BIT1_MASK
-/*#define UNUSED  BIT2_MASK
-#define UNUSED  BIT3_MASK*/
+#define CALIBRATED  BIT2_MASK
+//#define UNUSED  BIT3_MASK*/
 //Otra parte (Alta) guarda la prioridad
 
 /** Callback que se ejecuta cuando los datos del MPU6050 están listos. */
@@ -120,7 +120,14 @@ typedef struct {
     I2C_Request_Bus_Use      request_cb;   ///< Wrapper: I2C_Manager_RequestAccessRX
     I2C_Release_Bus_Use      release_cb;   ///< Wrapper: I2C_Manager_ReleaseBusRX
 
+    uint16_t dt_div;
+
     volatile bool     *trigger;         ///< Señal externa de disparo
+    int32_t gyro_bias_x, gyro_bias_y, gyro_bias_z;
+	int32_t calib_sum_x,  calib_sum_y,  calib_sum_z;
+    int32_t angle_x_md,  angle_y_md,  angle_z_md;
+    int32_t rem_x, rem_y, rem_z;
+	uint16_t calib_count,   calib_target;
 } MPU6050_Handle_t;
 
 /**
@@ -143,6 +150,8 @@ HAL_StatusTypeDef MPU6050_Init(
  * @brief Configura el MPU: WHO_AM_I, wakeup, 1 kHz, DLPF=3, ±250 °/s, ±2g
  */
 HAL_StatusTypeDef MPU6050_Configure(MPU6050_Handle_t *hmpu);
+
+void MPU6050_CalibrateGyro(MPU6050_Handle_t *h, uint16_t samples);
 
 /**
  * @brief Revisa la señal @p trigger; si está activa, la limpia y pide TX bus.

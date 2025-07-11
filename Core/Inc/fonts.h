@@ -22,10 +22,10 @@ typedef struct {
 #define Font16x29_WIDTH  16
 #define Font16x29_HEIGHT 29
 
-#define LOCK_ICON_X   112
-#define LOCK_ICON_Y    45
+#define LOCK_ICON_X   56
+#define LOCK_ICON_Y    8
 #define LOCK_ICON_W    13
-#define LOCK_ICON_H    13
+#define LOCK_ICON_H    16
 
 extern const uint8_t FontMap[128];
 extern const FontDef Font_5x10_Min;
@@ -43,6 +43,7 @@ extern const uint8_t Icon_Volver_bits[];
 extern const uint8_t Icon_APWifi_bits[];
 extern const uint8_t Icon_USB_bits[];
 extern const uint8_t Icon_RF_bits[];
+extern const uint8_t Icon_Car_bits[];
 
 #endif
 

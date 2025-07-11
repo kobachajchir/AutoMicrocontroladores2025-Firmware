@@ -11,6 +11,8 @@
 #define MPU6050_REG_GYRO_CFG   0x1B
 #define MPU6050_REG_ACCEL_CFG  0x1C
 #define MPU6050_BURST_REG      0x3B
+#define MPU_DT_MS 8
+#define MERGE(i) ((int16_t)(hmpu->rx_buffer[i] << 8 | hmpu->rx_buffer[i+1]))
 
 /* -------------------------------------------------------------------------
  * API pública:
@@ -39,12 +41,13 @@ HAL_StatusTypeDef MPU6050_Init(
     hmpu->expected_rx_len  = sizeof(hmpu->rx_buffer);
     memset(&hmpu->data, 0, sizeof(hmpu->data));
 
-    CLEAR_FLAG(hmpu->flags, DATA_READY);
+    hmpu->flags.byte = 0;
     hmpu->on_data_ready_cb = on_data_ready;
 
     hmpu->request_cb    = req_cb;
     hmpu->release_cb    = rel_cb;
     hmpu->trigger          = trigger;
+    hmpu->dt_div = 125;
 
     /* Registramos internamente nuestros callbacks en I2C Manager */
     /* (esto ya lo hizo el usuario externamente al llamar I2C_Manager_RegisterDevice,
@@ -99,16 +102,38 @@ const MPU6050_IntData_t* MPU6050_GetData(MPU6050_Handle_t *hmpu) {
 }
 
 void MPU6050_Convert(MPU6050_Handle_t *hmpu) {
-    #define MERGE(i) ((int16_t)(hmpu->rx_buffer[i] << 8 | hmpu->rx_buffer[i+1]))
+    // 1) Extraer lecturas raw
     int16_t ax = MERGE(0), ay = MERGE(2), az = MERGE(4);
     int16_t t  = MERGE(6), gx = MERGE(8), gy = MERGE(10), gz = MERGE(12);
+
+    // 2) Convertir a unidades humanas
     hmpu->data.accel_x_mg             = ax * 1000 / 16384;
     hmpu->data.accel_y_mg             = ay * 1000 / 16384;
     hmpu->data.accel_z_mg             = az * 1000 / 16384;
-    hmpu->data.temperature_celsius_x100 = t  * 100 / 340 + 3653;
+    hmpu->data.temperature_celsius_x100 = t  * 100  / 340 + 3653;
     hmpu->data.gyro_x_mdps            = gx * 1000 / 131;
     hmpu->data.gyro_y_mdps            = gy * 1000 / 131;
     hmpu->data.gyro_z_mdps            = gz * 1000 / 131;
+
+    // 3) Integrar para obtener ángulo (mdeg), sin perder precision:
+    //    v = velocidad*dt(ms) + resto_prev
+    int32_t v_x = (hmpu->data.gyro_x_mdps - hmpu->gyro_bias_x) * MPU_DT_MS + hmpu->rem_x;
+    int32_t v_y = (hmpu->data.gyro_y_mdps - hmpu->gyro_bias_y) * MPU_DT_MS + hmpu->rem_y;
+    int32_t v_z = (hmpu->data.gyro_z_mdps - hmpu->gyro_bias_z) * MPU_DT_MS + hmpu->rem_z;
+
+    // delta de ángulo (mdeg) y nuevo resto
+    int32_t d_x = v_x / 1000;
+    int32_t d_y = v_y / 1000;
+    int32_t d_z = v_z / 1000;
+
+    hmpu->rem_x = v_x % 1000;
+    hmpu->rem_y = v_y % 1000;
+    hmpu->rem_z = v_z % 1000;
+
+    // acumular el ángulo en milidegrados
+    hmpu->angle_x_md += d_x;
+    hmpu->angle_y_md += d_y;
+    hmpu->angle_z_md += d_z;
 }
 
 /** TX DMA complete (canal 6) – llamado desde el wrapper en main */
@@ -131,19 +156,12 @@ void MPU_DMA_CompleteCallback(MPU6050_Handle_t *hmpu, uint8_t is_tx) {
     		hmpu->release_cb();
     	}
     	SET_FLAG(hmpu->flags, DATA_READY);
+    	__NOP();
     }
 }
 
 void MPU_GrantAccessCallback(MPU6050_Handle_t *hmpu) {
     __NOP();  // <— BREAKPOINT #3: TX bus granted
-    /*HAL_I2C_Mem_Write_DMA(
-        hmpu->hi2c,
-        (hmpu->i2c_address << 1),    // dirección I²C del dispositivo
-        hmpu->tx_buffer[0],          // registro de memoria (0x3B)
-        I2C_MEMADD_SIZE_8BIT,        // tamaño del puntero de registro (8-bit)
-        NULL,                        // puntero a datos a escribir (ninguno)
-        0                            // longitud de datos (0)
-    );*/
     HAL_I2C_Master_Transmit_DMA(
         hmpu->hi2c,
         (hmpu->i2c_address << 1),
@@ -164,5 +182,20 @@ HAL_StatusTypeDef MPU6050_ReadWhoAmI(MPU6050_Handle_t *hmpu, uint8_t *whoami) {
         HAL_MAX_DELAY
     );
 }
+
+void MPU6050_CalibrateGyro(MPU6050_Handle_t *h, uint16_t samples) {
+    // 1) Reiniciar acumuladores y contador
+    h->calib_sum_x  = 0;
+    h->calib_sum_y  = 0;
+    h->calib_sum_z  = 0;
+    h->calib_count  = 0;
+    h->calib_target = samples;
+    CLEAR_FLAG(h->flags, CALIBRATED);
+
+    // 2) Disparar primer trigger (desde el init o aquí)
+    *(h->trigger) = true;
+    __NOP();
+}
+
 
 
