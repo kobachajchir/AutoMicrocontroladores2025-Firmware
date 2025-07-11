@@ -18,6 +18,7 @@
 void MenuSys_Init(MenuSystem *ms) {
     if (!ms || !ms->currentMenu) return;
     ms->currentMenu->currentItemIndex = 0;
+    ms->currentMenu->lastSelectedItemIndex = 0;
     ms->currentMenu->firstVisibleItem = 0;
     ms->renderFlag = false;
     ms->allowPeriodicRefresh = false;
@@ -47,29 +48,30 @@ void MenuSys_MoveCursorUp(MenuSystem *ms) {
     SubMenu *m = ms->currentMenu;
 
     if (m->currentItemIndex > 0) {
+        m->lastSelectedItemIndex = m->currentItemIndex;
+        m->lastVisibleItem       = m->firstVisibleItem;   // ← guardo bucket viejo
+
         m->currentItemIndex--;
-        // recalcula la primera visible como el múltiplo de 3 más cercano por debajo
         m->firstVisibleItem =
-            (m->currentItemIndex / MENU_VISIBLE_ITEMS) * MENU_VISIBLE_ITEMS;
+            (m->currentItemIndex / MENU_VISIBLE_ITEMS)
+            * MENU_VISIBLE_ITEMS;
     }
 }
 
-/**
- * @brief  Mueve el cursor hacia abajo (si puede), ajusta el “bucket” de 3 ítems
- *         y no levanta renderFlag (lo hace el llamador).
- */
 void MenuSys_MoveCursorDown(MenuSystem *ms) {
     if (!ms || !ms->currentMenu) return;
     SubMenu *m = ms->currentMenu;
 
     if (m->currentItemIndex + 1 < m->itemCount) {
+        m->lastSelectedItemIndex = m->currentItemIndex;
+        m->lastVisibleItem       = m->firstVisibleItem;   // ← guardo bucket viejo
+
         m->currentItemIndex++;
-        // recalcula la primera visible como el múltiplo de 3 correspondiente
         m->firstVisibleItem =
-            (m->currentItemIndex / MENU_VISIBLE_ITEMS) * MENU_VISIBLE_ITEMS;
+            (m->currentItemIndex / MENU_VISIBLE_ITEMS)
+            * MENU_VISIBLE_ITEMS;
     }
 }
-
 
 /**
  * @brief  abre un submenú, reinicia índices y levanta renderFlag.

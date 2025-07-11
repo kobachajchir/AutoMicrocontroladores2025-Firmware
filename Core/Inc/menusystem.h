@@ -61,7 +61,9 @@ extern "C" {
 		MenuItem *items;              ///< Lista de ítems del submenú
 		uint8_t itemCount;                ///< Cantidad de ítems
 		uint8_t currentItemIndex;         ///< Índice del ítem seleccionado actualmente
+		uint8_t lastSelectedItemIndex;
 		uint8_t firstVisibleItem;         ///< Primer ítem visible para scroll
+		uint8_t  lastVisibleItem;
 		struct SubMenu *parent;       ///< Puntero al submenú padre (para 'Volver')
 		const uint8_t *icon;          ///< Icono asociado (opcional)
 	} SubMenu;

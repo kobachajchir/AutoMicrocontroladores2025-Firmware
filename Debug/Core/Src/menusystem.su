@@ -1,9 +1,9 @@
 ../Core/Src/menusystem.c:18:6:MenuSys_Init	0	static
-../Core/Src/menusystem.c:26:6:MenuSys_SetCallbacks	0	static
-../Core/Src/menusystem.c:45:6:MenuSys_MoveCursorUp	0	static
+../Core/Src/menusystem.c:27:6:MenuSys_SetCallbacks	0	static
+../Core/Src/menusystem.c:46:6:MenuSys_MoveCursorUp	0	static
 ../Core/Src/menusystem.c:61:6:MenuSys_MoveCursorDown	0	static
-../Core/Src/menusystem.c:77:6:MenuSys_OpenSubMenu	0	static
-../Core/Src/menusystem.c:93:6:MenuSys_NavigateBack	0	static
-../Core/Src/menusystem.c:109:6:MenuSys_NavigateToMain	0	static
-../Core/Src/menusystem.c:116:6:MenuSys_RenderMenu	32	static
-../Core/Src/menusystem.c:150:6:MenuSys_HandleClick	8	static
+../Core/Src/menusystem.c:79:6:MenuSys_OpenSubMenu	0	static
+../Core/Src/menusystem.c:95:6:MenuSys_NavigateBack	0	static
+../Core/Src/menusystem.c:111:6:MenuSys_NavigateToMain	0	static
+../Core/Src/menusystem.c:118:6:MenuSys_RenderMenu	32	static
+../Core/Src/menusystem.c:152:6:MenuSys_HandleClick	8	static

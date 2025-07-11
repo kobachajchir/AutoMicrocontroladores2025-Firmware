@@ -159,6 +159,7 @@ void OledUtils_RenderDashboard_Wrapper(void)
     encoder.allowEncoderInput = IS_FLAG_SET(systemFlags2, OLED_ACTIVE);
 
     // 4) Llamo a la función que pinta TODO en el buffer
+    OledUtils_Clear(&oledTask, false);
     OledUtils_RenderDashboard(&oledTask);
 
     // 5) Arranco el flush: que el MainTask (a través de OLED_Update)
@@ -168,13 +169,42 @@ void OledUtils_RenderDashboard_Wrapper(void)
     // ¡no vuelvo a tocar menuSystem.renderFlag!
 }
 
-
-void MenuSys_RenderMenu_Wrapper(){
+void MenuSys_RenderMenu_Wrapper(void) {
 	OledUtils_DisableContinuousRender(&oledTask, onRenderComplete);
-	encoder.allowEncoderInput = true;
-	oledTask.first_Fn_Draw = true;
-	MenuSys_RenderMenu(&menuSystem);
-	oledTask.auto_flush = true;
+    SubMenu *m = menuSystem.currentMenu;
+    // habilita flush y marca que hay que re-dibujar
+    encoder.allowEncoderInput = true;
+    oledTask.first_Fn_Draw     = true;
+    oledTask.auto_flush        = true;
+    if (m->firstVisibleItem != m->lastVisibleItem) {
+        // redibujo *completo* de los 3 ítems
+        MenuSys_RenderMenu(&menuSystem);
+        m->lastVisibleItem      = m->firstVisibleItem;
+		m->lastSelectedItemIndex  = m->currentItemIndex;
+    }
+    else {
+        // sólo “borrar” cursor viejo y “pintar” cursor nuevo
+        // calculamos Y en pantalla (ajusta estas constantes a tu layout)
+        const uint8_t Y0    = MENU_ITEM_Y0;     // baseline del primer ítem
+        const uint8_t STEPY = ITEM_HEIGHT;      // separación vertical
+
+        uint8_t oldVisIdx = m->lastSelectedItemIndex - m->lastVisibleItem;
+        uint8_t newVisIdx = m->currentItemIndex  - m->firstVisibleItem;
+        uint8_t oldY      = Y0 + oldVisIdx * STEPY;
+        uint8_t newY      = Y0 + newVisIdx * STEPY;
+
+        // borro cursor en la línea anterior
+        OledUtils_DrawItem(&oledTask,
+                           &m->items[m->lastSelectedItemIndex],
+                           oldY,
+                           false);
+
+        // pinto cursor en la línea nueva
+        OledUtils_DrawItem(&oledTask,
+                           &m->items[m->currentItemIndex],
+                           newY,
+                           true);
+    }
 }
 
 void MenuSys_GoBack_Wrapper(){
@@ -234,7 +264,7 @@ void OledUtils_RenderValoresMPU_Wrapper(void)
 
 void OLED_Is_Ready(void) {
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
-        menuSystem.renderFn = OledUtils_RenderValoresMPU_Wrapper;
+        menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
         menuSystem.renderFlag = true;
         SET_FLAG(systemFlags, OLED_READY);
         __NOP();
@@ -1249,11 +1279,10 @@ void Encoder_MainTask(ENC_Handle_t *h) {
 		if (INSIDE_MENU) {
 			if (h->dir == ENC_DIR_CW) {
 				MenuSys_MoveCursorDown(&menuSystem);
-				__NOP();
 			} else {
 				MenuSys_MoveCursorUp(&menuSystem);
-				__NOP();
 			}
+			__NOP();
 			menuSystem.renderFn   = MenuSys_RenderMenu_Wrapper;
 			menuSystem.renderFlag = true;
 		}else{
