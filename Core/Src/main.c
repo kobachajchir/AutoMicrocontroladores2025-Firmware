@@ -151,6 +151,7 @@ void OledUtils_RenderDashboard_Wrapper(void)
 {
     // 1) Deshabilito el refresco periódico
 	OledUtils_DisableContinuousRender(&oledTask, onRenderComplete);
+    inside_menu_flag = false;
 
     // 2) Marco que esta es la primera pasada para full-refresh
     oledTask.first_Fn_Draw = true;
@@ -171,6 +172,7 @@ void OledUtils_RenderDashboard_Wrapper(void)
 
 void MenuSys_RenderMenu_Wrapper(void) {
 	OledUtils_DisableContinuousRender(&oledTask, onRenderComplete);
+	inside_menu_flag = true;
     SubMenu *m = menuSystem.currentMenu;
     // habilita flush y marca que hay que re-dibujar
     encoder.allowEncoderInput = true;
@@ -213,9 +215,11 @@ void MenuSys_GoBack_Wrapper(){
 
 void OledUtils_RenderRadar_Wrapper(void) {
 	OledUtils_EnableContinuousRender(&oledTask);
+	inside_menu_flag = false;
+	encoder.allowEncoderInput = false;
+	menuSystem.renderFlag = true;
 	if(!oledTask.first_Fn_Draw){
-		encoder.allowEncoderInput = false;
-		menuSystem.renderFlag = true;
+		OledUtils_Clear(&oledTask, false);
 		OledUtils_RenderRadarGraph(&oledTask, sensor_raw_data); // La primera vez renderizo todo
 		oledTask.first_Fn_Draw = true;
 	}else{
@@ -231,9 +235,12 @@ void OledUtils_RenderRadar_Wrapper(void) {
 void OledUtils_RenderValoresIR_Wrapper(void) {
     // cada vez que entrenamos aquí, nos aseguramos de tener auto_flush
     OledUtils_EnableContinuousRender(&oledTask);
+    menuSystem.insideMenuFlag = false;
+    menuSystem.renderFlag = true;
     oledTask.auto_flush = true;
     if (!oledTask.first_Fn_Draw) {
         // primera pasada → gráfico completo
+    	OledUtils_Clear(&oledTask, false);
         OledUtils_DrawIRGraph(&oledTask, sensor_raw_data);
         // señalizamos que ya no estamos en la primera pasada
         oledTask.first_Fn_Draw = false;
@@ -250,9 +257,12 @@ void OledUtils_RenderValoresIR_Wrapper(void) {
 void OledUtils_RenderValoresMPU_Wrapper(void)
 {
 	OledUtils_EnableContinuousRender(&oledTask);
+    menuSystem.insideMenuFlag = false;
+    menuSystem.renderFlag = true;
 	encoder.allowEncoderInput = false;
 	if(!oledTask.first_Fn_Draw){
 		oledTask.first_Fn_Draw = true;
+		OledUtils_Clear(&oledTask, false);
 		OledUtils_RenderValoresMPUScreen(&oledTask, &mpuTask);
 	}else{
 		__NOP();
@@ -1041,7 +1051,7 @@ static void MX_TIM4_Init(void)
   htim4.Init.Period = 65535;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI2;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
@@ -1239,9 +1249,10 @@ void initCarMode(){
 	btnUser.counter = 0;
 	btnUser.port = User_BTN_GPIO_Port;
 	btnUser.pin = User_BTN_Pin;
-	ENC_Init(&encoder, &htim4, 1, 2, EncoderSW_GPIO_Port, EncoderSW_Pin);
+	ENC_Init(&encoder, &htim4, 1, 4, EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
 	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
+	SET_FLAG(systemFlags2, OLED_ACTIVE);
 	SET_FLAG(systemFlags2, AP_ACTIVE);
 	SET_FLAG(systemFlags2, USB_ACTIVE);
 	SET_FLAG(systemFlags2, RF_ACTIVE);
@@ -1277,16 +1288,18 @@ void Encoder_MainTask(ENC_Handle_t *h) {
     CLEAR_FLAG(h->flags, ENC_FLAG_UPDATED);
     if (IS_FLAG_SET(systemFlags2, OLED_ACTIVE)) {
 		if (INSIDE_MENU) {
-			if (h->dir == ENC_DIR_CW) {
-				MenuSys_MoveCursorDown(&menuSystem);
-			} else {
-				MenuSys_MoveCursorUp(&menuSystem);
+			if(encoder.allowEncoderInput){
+				if (h->dir == ENC_DIR_CW) {
+					MenuSys_MoveCursorDown(&menuSystem);
+				} else {
+					MenuSys_MoveCursorUp(&menuSystem);
+				}
+				menuSystem.renderFn   = MenuSys_RenderMenu_Wrapper;
+				menuSystem.renderFlag = true;
 			}
-			__NOP();
-			menuSystem.renderFn   = MenuSys_RenderMenu_Wrapper;
-			menuSystem.renderFlag = true;
 		}else{
 			// fuera del menú → aquí podrías hacer otra cosa
+			//Aca cambia de modo si esta en dashboard sobre el overlay
 		}
 	}
   }
@@ -1587,7 +1600,8 @@ void initMenuSystemTask(void) {
         OledUtils_Clear_Wrapper,
         OledUtils_DrawItem_Wrapper,
         NULL,
-        &inside_menu_flag);
+        &inside_menu_flag,
+		OledUtils_RenderDashboard_Wrapper);
 }
 
 /* USER CODE END 4 */

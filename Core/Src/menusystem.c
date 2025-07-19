@@ -28,12 +28,14 @@ void MenuSys_SetCallbacks(MenuSystem *ms,
                           ClearFunction    clear,
                           DrawItemFunction draw,
                           RenderFunction   render,
-                          volatile uint8_t *insideFlag)
+                          volatile uint8_t *insideFlag,
+						  RenderFunction dashboardRender)
 {
     if (!ms) return;
     ms->clearScreen    = clear;
     ms->drawItem       = draw;
     ms->renderFn       = render;
+    ms->dashboardRender = dashboardRender;
     ms->insideMenuFlag = insideFlag;
 }
 
@@ -85,6 +87,8 @@ void MenuSys_OpenSubMenu(MenuSystem *ms, SubMenu *submenu) {
     ms->currentMenu            = submenu;
     submenu->currentItemIndex  = 0;
     submenu->firstVisibleItem  = 0;
+    submenu->lastSelectedItemIndex = -1; //Asi renderiza todo nuevamente
+    submenu->lastVisibleItem = -1; //Asi renderiza todo nuevamente
     ms->renderFlag             = true;
 }
 
@@ -94,16 +98,21 @@ void MenuSys_OpenSubMenu(MenuSystem *ms, SubMenu *submenu) {
  */
 void MenuSys_NavigateBack(MenuSystem *ms) {
     if (!ms || !ms->currentMenu) return;
+
     SubMenu *parent = ms->currentMenu->parent;
     if (parent) {
+        // si hay padre, subimos
         MenuSys_OpenSubMenu(ms, parent);
-    } else {
+        MenuSys_RenderMenu(ms);
+    }
+    else {
+        // en el Main: vamos al dashboard
+        ms->dashboardRender();
         // salimos del menú
-        if (ms->insideMenuFlag) *(ms->insideMenuFlag) = false;
-        // reabrimos el main
-        MenuSys_OpenSubMenu(ms, &mainMenu);
+        if (ms->insideMenuFlag) *ms->insideMenuFlag = false;
     }
 }
+
 
 /**
  * @brief  va directamente al menú principal, levanta renderFlag.
@@ -151,19 +160,30 @@ void MenuSys_RenderMenu(MenuSystem *ms) {
  */
 void MenuSys_HandleClick(MenuSystem *ms) {
     if (!ms || !ms->currentMenu) return;
-    SubMenu *m = ms->currentMenu;
-    uint8_t idx = m->currentItemIndex;
+    SubMenu  *m  = ms->currentMenu;
+    uint8_t    idx = m->currentItemIndex;
     if (idx >= m->itemCount) return;
 
     MenuItem *it = &m->items[idx];
+
+    // 1) lógica de navegación o acción
     if (it->submenu) {
         MenuSys_OpenSubMenu(ms, it->submenu);
     }
     else if (it->action) {
-        it->action();
+        it->action(ms);
     }
 
-    // re-render
+    // 2) si tiene pantalla asociada, la dibujo
+    if (it->screenRenderFn) {
+    	//*(ms->insideMenuFlag) = false; //Salir del menu
+    	ms->clearScreen();
+        it->screenRenderFn();
+        return;  // ya pintamos la pantalla, no invocamos el render genérico
+    }
+
+    // 3) por defecto, re-renderizamos el menú
     MenuSys_RenderMenu(ms);
 }
+
 

@@ -119,12 +119,12 @@ void ENC_Task_N10ms(ENC_Handle_t *h)
     h->prevData.allData   = h->data.allData;
 
     // 8) Marco update y dirección
-    if (steps != 0)
+    if (steps != 0) {
         SET_FLAG(h->flags, ENC_FLAG_UPDATED);
-
-    if (steps >  0)           h->dir = ENC_DIR_CW;
-    else if (steps < 0)       h->dir = ENC_DIR_CCW;
-    else                      h->dir = ENC_DIR_NONE;
+        h->dir = (steps > 0 ? ENC_DIR_CW : ENC_DIR_CCW);
+    } else {
+        h->dir = ENC_DIR_NONE;
+    }
 }
 
 

@@ -60,10 +60,10 @@ extern "C" {
 		const char *name;             ///< Nombre del submenú
 		MenuItem *items;              ///< Lista de ítems del submenú
 		uint8_t itemCount;                ///< Cantidad de ítems
-		uint8_t currentItemIndex;         ///< Índice del ítem seleccionado actualmente
-		uint8_t lastSelectedItemIndex;
-		uint8_t firstVisibleItem;         ///< Primer ítem visible para scroll
-		uint8_t  lastVisibleItem;
+		int8_t currentItemIndex;         ///< Índice del ítem seleccionado actualmente
+		int8_t lastSelectedItemIndex;
+		int8_t firstVisibleItem;         ///< Primer ítem visible para scroll
+		int8_t  lastVisibleItem;
 		struct SubMenu *parent;       ///< Puntero al submenú padre (para 'Volver')
 		const uint8_t *icon;          ///< Icono asociado (opcional)
 	} SubMenu;
@@ -74,6 +74,7 @@ extern "C" {
 		ClearFunction clearScreen;          ///< Callback para limpiar la pantalla
 		DrawItemFunction drawItem;          ///< Callback para dibujar ítems del menú
 		RenderFunction renderFn;            ///< Callback para renderizar la pantalla
+		RenderFunction dashboardRender;
 		volatile uint8_t *insideMenuFlag;   ///< Puntero a una bandera externa que indica si estamos dentro del menú
 		bool renderFlag;
 		bool allowPeriodicRefresh;
@@ -95,11 +96,12 @@ extern "C" {
 	 * @param render Función para renderizar la pantalla completa
 	 * @param insideFlag Puntero a la bandera de estado dentro del menú
 	 */
-	void MenuSys_SetCallbacks(MenuSystem *system,
-	                             ClearFunction clear,
-	                             DrawItemFunction draw,
-	                             RenderFunction render,
-	                             volatile uint8_t *insideFlag);
+	void MenuSys_SetCallbacks(MenuSystem *ms,
+	                          ClearFunction    clear,
+	                          DrawItemFunction draw,
+	                          RenderFunction   render,
+	                          volatile uint8_t *insideFlag,
+							  RenderFunction dashboardRender);
 
 	void MenuSys_MoveCursorDown(MenuSystem *ms) ;
 	void MenuSys_MoveCursorUp(MenuSystem *ms) ;
