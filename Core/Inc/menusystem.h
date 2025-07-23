@@ -109,6 +109,7 @@ extern "C" {
 	void MenuSys_RenderMenu(MenuSystem *ms);
 	void MenuSys_NavigateBack(MenuSystem *ms);
 	void MenuSys_NavigateToMain(MenuSystem *ms);
+	void MenuSys_ResetMenu(MenuSystem *ms);
 
 
 

@@ -51,6 +51,10 @@ void OledUtils_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues
 
 void OledUtils_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
 
+void OledUtils_MotorTest_Complete(OLED_HandleTypeDef *oled);
+
+void OledUtils_MotorTest_Changes(OLED_HandleTypeDef *oled);
+
 void OledUtils_RenderLockScreen(OLED_HandleTypeDef *oled);
 
 #endif // OLED_MENU_H

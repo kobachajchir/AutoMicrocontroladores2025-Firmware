@@ -161,6 +161,18 @@ void OledUtils_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues
     OledUtils_DrawIRBars(oled, irValues);
 }
 
+void OledUtils_MotorTest_Complete(OLED_HandleTypeDef *oled){
+	OLED_SetFont(oled, &Font_5x10_Min);
+	OLED_SetCursor(oled, 3, 11-oled->font->FontHeight);
+	OLED_DrawStr(oled, "Probando Motor 1", false);
+	OLED_SetCursor(oled, 41, 29-oled->font->FontHeight);
+	OLED_DrawStr(oled, "Adelante", false);
+	OLED_DrawFrame(oled, 5, 34, 116, 11, false);
+	OLED_DrawBox(oled, 5, 34, 100, 11, false);
+	OLED_SetCursor(oled, 56, 57-oled->font->FontHeight);
+	OLED_DrawStr(oled, "100", false);
+}
+
 
 void OledUtils_RenderVerticalMenu(OLED_HandleTypeDef *oled, MenuSystem *ms) {
     SubMenu *menu = ms->currentMenu;

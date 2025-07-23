@@ -90,8 +90,9 @@ volatile uint16_t cnt_10ms = 0;
 volatile uint32_t cnt_10us = 0;
 volatile uint32_t tcrt_calib_cnt_phase = 0;
 //Modificcar para hacer una sola struct de velocidades modo y direcciones
-static uint8_t motorBothSpeed = 50;
-static int8_t motorBothDirection = MOTOR_DIR_FORWARD;
+uint8_t motorSelected;
+uint8_t motorSelectedSpeed;
+uint8_t motorSelectedDirection;
 volatile uint8_t inside_menu_flag;
 volatile uint16_t encoderValue;
 volatile uint8_t oled10msCounter = 0;
@@ -211,6 +212,22 @@ void MenuSys_RenderMenu_Wrapper(void) {
 
 void MenuSys_GoBack_Wrapper(){
 	MenuSys_NavigateBack(&menuSystem);
+}
+
+void OledUtils_RenderMotorTest_Wrapper(void) {
+	OledUtils_EnableContinuousRender(&oledTask);
+	inside_menu_flag = false;
+	encoder.allowEncoderInput = true;
+	menuSystem.renderFlag = true;
+	if(!oledTask.first_Fn_Draw){
+		OledUtils_Clear(&oledTask, false);
+		OledUtils_MotorTest_Complete(&oledTask);
+		oledTask.first_Fn_Draw = true;
+	}else{
+		__NOP();
+		OledUtils_MotorTest_Changes(&oledTask); //La siguiente solo los objetos
+	}
+	oledTask.auto_flush = true;
 }
 
 void OledUtils_RenderRadar_Wrapper(void) {
@@ -1267,6 +1284,7 @@ void UserBtn_MainTask(ButtonState_t *h){
 		//Handle_ModeChange_ByButton(h, &ledStatus);
 		if(INSIDE_MENU){
 			OledUtils_Clear_Wrapper();
+			MenuSys_ResetMenu(&menuSystem);
 			menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
 			menuSystem.renderFlag = true;
 			oledTask.first_Fn_Draw = false;
@@ -1326,10 +1344,14 @@ void Encoder_MainTask(ENC_Handle_t *h) {
     	OledUtils_RenderLockState(&oledTask, 0); //Unlocked
     }else{
 		// Long-press te lleva siempre al menú principal
-		MenuSys_NavigateToMain(&menuSystem);
-		oledTask.first_Fn_Draw = false;
-		menuSystem.renderFn  = MenuSys_RenderMenu_Wrapper;
-		menuSystem.renderFlag = true;
+    	if(INSIDE_MENU){
+			MenuSys_NavigateToMain(&menuSystem);
+			oledTask.first_Fn_Draw = false;
+			menuSystem.renderFn  = MenuSys_RenderMenu_Wrapper;
+			menuSystem.renderFlag = true;
+    	}else{
+
+    	}
     }
 
   }

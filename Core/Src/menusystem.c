@@ -92,6 +92,14 @@ void MenuSys_OpenSubMenu(MenuSystem *ms, SubMenu *submenu) {
     ms->renderFlag             = true;
 }
 
+void MenuSys_ResetMenu(MenuSystem *ms) {
+	if (!ms) return;
+	ms->currentMenu            = &mainMenu;
+	ms->currentMenu->currentItemIndex  = 0;
+	ms->currentMenu->firstVisibleItem  = 0;
+	ms->currentMenu->lastSelectedItemIndex = -1; //Asi renderiza todo nuevamente
+	ms->currentMenu->lastVisibleItem = -1; //Asi renderiza todo nuevamente
+}
 
 /**
  * @brief  sube un nivel o sale al main, y levanta renderFlag.
@@ -160,13 +168,14 @@ void MenuSys_RenderMenu(MenuSystem *ms) {
  */
 void MenuSys_HandleClick(MenuSystem *ms) {
     if (!ms || !ms->currentMenu) return;
-    SubMenu  *m  = ms->currentMenu;
+
+    SubMenu  *m   = ms->currentMenu;
     uint8_t    idx = m->currentItemIndex;
     if (idx >= m->itemCount) return;
 
     MenuItem *it = &m->items[idx];
 
-    // 1) lógica de navegación o acción
+    // 1) Navegación o acción
     if (it->submenu) {
         MenuSys_OpenSubMenu(ms, it->submenu);
     }
@@ -174,16 +183,19 @@ void MenuSys_HandleClick(MenuSystem *ms) {
         it->action(ms);
     }
 
-    // 2) si tiene pantalla asociada, la dibujo
+    // 2) Decidir qué renderFn usar
     if (it->screenRenderFn) {
-    	//*(ms->insideMenuFlag) = false; //Salir del menu
-    	ms->clearScreen();
-        it->screenRenderFn();
-        return;  // ya pintamos la pantalla, no invocamos el render genérico
+        // pantalla “terminal” asociada al ítem
+        ms->renderFn = it->screenRenderFn;
+    } else {
+        // volvemos al renderizado del menú
+        ms->renderFn = MenuSys_RenderMenu;
     }
 
-    // 3) por defecto, re-renderizamos el menú
-    MenuSys_RenderMenu(ms);
+    // 3) Limpiar y encender el flag para que OLED_MainTask lo pinte
+    if (ms->clearScreen) ms->clearScreen();
+    ms->renderFlag = true;
 }
+
 
 

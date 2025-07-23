@@ -1,5 +1,5 @@
 ../Core/Src/oled_utils.c:26:6:OledUtils_PrintMainBuffer_Wrapper	8	static
-../Core/Src/oled_utils.c:463:6:OledUtils_RenderLockScreen	24	static
+../Core/Src/oled_utils.c:475:6:OledUtils_RenderLockScreen	24	static
 ../Core/Src/oled_utils.c:31:6:OledUtils_PrintOverlayBuffer_Wrapper	8	static
 ../Core/Src/oled_utils.c:39:6:OledUtils_EnableContinuousRender	0	static
 ../Core/Src/oled_utils.c:46:6:OledUtils_DisableContinuousRender	0	static
@@ -8,9 +8,10 @@
 ../Core/Src/oled_utils.c:113:6:OledUtils_RenderRadarGraph	32	static
 ../Core/Src/oled_utils.c:120:6:OledUtils_RenderRadarGraph_Objs	0	static
 ../Core/Src/oled_utils.c:130:6:OledUtils_DrawIRGraph	48	static
-../Core/Src/oled_utils.c:165:6:OledUtils_RenderVerticalMenu	64	static
-../Core/Src/oled_utils.c:226:6:OledUtils_Clear	0	static
-../Core/Src/oled_utils.c:233:6:OledUtils_DrawItem	40	static
-../Core/Src/oled_utils.c:269:6:displayMenuCustom	0	static
-../Core/Src/oled_utils.c:275:6:OledUtils_RenderDashboard	32	static
-../Core/Src/oled_utils.c:363:6:OledUtils_RenderValoresMPUScreen	64	static
+../Core/Src/oled_utils.c:164:6:OledUtils_MotorTest_Complete	24	static
+../Core/Src/oled_utils.c:177:6:OledUtils_RenderVerticalMenu	64	static
+../Core/Src/oled_utils.c:238:6:OledUtils_Clear	0	static
+../Core/Src/oled_utils.c:245:6:OledUtils_DrawItem	40	static
+../Core/Src/oled_utils.c:281:6:displayMenuCustom	0	static
+../Core/Src/oled_utils.c:287:6:OledUtils_RenderDashboard	32	static
+../Core/Src/oled_utils.c:375:6:OledUtils_RenderValoresMPUScreen	64	static
