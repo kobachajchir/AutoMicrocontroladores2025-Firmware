@@ -11,6 +11,7 @@
 #include <stdbool.h>  // para el tipo bool
 #include <stdint.h>   // para uint8_t, etc.
 #include <stddef.h>   // para NULL
+#include "types/userEvent_type.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,6 +43,8 @@ extern "C" {
 	typedef void (*RenderFunction)();
 
 	typedef void (*RenderScreenFunction)();
+
+	typedef void (*UserEventManagerFn)(UserEvent_t ev);
 
 	typedef struct SubMenu SubMenu;
 
@@ -75,6 +78,7 @@ extern "C" {
 		DrawItemFunction drawItem;          ///< Callback para dibujar ítems del menú
 		RenderFunction renderFn;            ///< Callback para renderizar la pantalla
 		RenderFunction dashboardRender;
+		UserEventManagerFn   userEventManagerFn;
 		volatile uint8_t *insideMenuFlag;   ///< Puntero a una bandera externa que indica si estamos dentro del menú
 		bool renderFlag;
 		bool allowPeriodicRefresh;

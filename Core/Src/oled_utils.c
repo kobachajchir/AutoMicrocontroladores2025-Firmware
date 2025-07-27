@@ -161,18 +161,118 @@ void OledUtils_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues
     OledUtils_DrawIRBars(oled, irValues);
 }
 
-void OledUtils_MotorTest_Complete(OLED_HandleTypeDef *oled){
-	OLED_SetFont(oled, &Font_5x10_Min);
-	OLED_SetCursor(oled, 3, 11-oled->font->FontHeight);
-	OLED_DrawStr(oled, "Probando Motor 1", false);
-	OLED_SetCursor(oled, 41, 29-oled->font->FontHeight);
-	OLED_DrawStr(oled, "Adelante", false);
-	OLED_DrawFrame(oled, 5, 34, 116, 11, false);
-	OLED_DrawBox(oled, 5, 34, 100, 11, false);
-	OLED_SetCursor(oled, 56, 57-oled->font->FontHeight);
-	OLED_DrawStr(oled, "100", false);
+void OledUtils_MotorTest_Complete(OLED_HandleTypeDef *oled) {
+    // 1) Determinar motor seleccionado desde nibble alto
+    uint8_t sel = NIBBLEH_GET_STATE(motorTask.motorData.flags);
+    const char *motorStr;
+    switch (sel) {
+        case MOTORLEFT_SELECTED:  motorStr = "Motor Izquierdo"; break;
+        case MOTORRIGHT_SELECTED: motorStr = "Motor Derecho";   break;
+        case MOTORNONE_SELECTED:  motorStr = "Ambos Motores";   break;
+        default:                  motorStr = "Motor ?";         break;
+    }
+
+    // 2) Obtener velocidad y dirección según selección
+    uint8_t speed = 0;
+    Motor_Direction_t dir = MOTOR_DIR_FORWARD;
+    if (sel == MOTORLEFT_SELECTED) {
+        speed = motorTask.motorData.motorLeft.motorSpeed;
+        dir   = motorTask.motorData.motorLeft.motorDirection;
+    }
+    else if (sel == MOTORRIGHT_SELECTED) {
+        speed = motorTask.motorData.motorRight.motorSpeed;
+        dir   = motorTask.motorData.motorRight.motorDirection;
+    }
+    else { // Ambos
+        // tomamos promedio de velocidades y, si coinciden, su dirección; si no, la del izquierdo
+        uint8_t sL = motorTask.motorData.motorLeft.motorSpeed;
+        uint8_t sR = motorTask.motorData.motorRight.motorSpeed;
+        speed = (uint16_t)(sL + sR) / 2;
+        dir   = (motorTask.motorData.motorLeft.motorDirection == motorTask.motorData.motorRight.motorDirection)
+                ? motorTask.motorData.motorLeft.motorDirection
+                : motorTask.motorData.motorLeft.motorDirection;
+    }
+
+    const char *dirStr = (dir == MOTOR_DIR_FORWARD) ? "Adelante" : "Atras";
+    char speedStr[8];
+    OLED_SetFont(oled, &Font_5x10_Min);
+
+    // Línea 1: nombre del motor
+    OLED_SetCursor(oled, 3, 11 - oled->font->FontHeight);
+    OLED_DrawStr(oled, motorStr, false);
+
+    // Línea 2: dirección
+    OLED_SetCursor(oled, 41, 29 - oled->font->FontHeight);
+    OLED_DrawStr(oled, dirStr, false);
+
+    // Línea 3: marco de barra de velocidad
+    OLED_DrawFrame(oled, 5, 34, 116, 11, false);
+
+    // Línea 4: relleno de barra o estado PARADO
+    if (IS_FLAG_SET(motorTask.motorData.flags, ENABLE_MOVEMENT)) {
+        uint8_t barWidth = (uint16_t)speed * 116 / 255;
+        OLED_DrawBox(oled, 5, 34, barWidth, 11, false);
+
+        uint8_t speedPct = (uint16_t)speed * 100 / 255;
+        snprintf(speedStr, sizeof(speedStr), "%3u%%", speedPct);
+    } else {
+        snprintf(speedStr, sizeof(speedStr), "PARADO");
+    }
+
+    // Línea 5: porcentaje o texto
+    OLED_SetCursor(oled, 50, 57 - oled->font->FontHeight);
+    OLED_DrawStr(oled, speedStr, false);
 }
 
+
+void OledUtils_MotorTest_Changes(OLED_HandleTypeDef *oled) {
+    // 1) Determinar motor y texto
+    uint8_t sel = NIBBLEH_GET_STATE(motorTask.motorData.flags);
+    const char *motorStr = (sel == MOTORLEFT_SELECTED)  ? "Probando Motor 1" :
+                           (sel == MOTORRIGHT_SELECTED) ? "Probando Motor 2" :
+                                                          "Probando Ambos";
+    // 2) Dirección
+    Motor_Direction_t dir = (sel == MOTORRIGHT_SELECTED)
+                            ? motorTask.motorData.motorRight.motorDirection
+                            : motorTask.motorData.motorLeft.motorDirection;
+    const char *dirStr = (dir == MOTOR_DIR_FORWARD) ? "Adelante" : "Atras";
+
+    char speedStr[8];
+    OLED_SetFont(oled, &Font_5x10_Min);
+
+    // Línea 1: motor
+    OLED_ClearBox(oled, 0, 11 - oled->font->FontHeight, 128, oled->font->FontHeight, false);
+    OLED_SetCursor(oled, 3,  11 - oled->font->FontHeight);
+    OLED_DrawStr(oled, motorStr, false);
+
+    // Línea 2: dirección
+    OLED_ClearBox(oled, 0, 29 - oled->font->FontHeight, 128, oled->font->FontHeight, false);
+    OLED_SetCursor(oled, 41, 29 - oled->font->FontHeight);
+    OLED_DrawStr(oled, dirStr, false);
+
+    // Línea 3: barra
+    OLED_ClearBox(oled, 5,  34, 116, 11, false);
+    OLED_DrawFrame(oled, 5, 34, 116, 11, false);
+
+    // Línea 4: relleno o PARADO
+    if (IS_FLAG_SET(motorTask.motorData.flags, ENABLE_MOVEMENT)) {
+        uint8_t speed = (sel == MOTORRIGHT_SELECTED)
+                        ? motorTask.motorData.motorRight.motorSpeed
+                        : motorTask.motorData.motorLeft.motorSpeed;
+        uint8_t barW = (uint16_t)speed * 116 / 255;
+        OLED_DrawBox(oled, 5, 34, barW, 11, false);
+
+        uint8_t pct = (uint16_t)speed * 100 / 255;
+        snprintf(speedStr, sizeof(speedStr), "%3u%%", pct);
+    } else {
+        snprintf(speedStr, sizeof(speedStr), "PARADO");
+    }
+
+    // Línea 5: porcentaje o estado
+    OLED_ClearBox(oled, 0, 57 - oled->font->FontHeight, 128, oled->font->FontHeight, false);
+    OLED_SetCursor(oled, 50, 57 - oled->font->FontHeight);
+    OLED_DrawStr(oled, speedStr, false);
+}
 
 void OledUtils_RenderVerticalMenu(OLED_HandleTypeDef *oled, MenuSystem *ms) {
     SubMenu *menu = ms->currentMenu;

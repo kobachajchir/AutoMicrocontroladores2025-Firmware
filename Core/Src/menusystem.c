@@ -22,6 +22,7 @@ void MenuSys_Init(MenuSystem *ms) {
     ms->currentMenu->firstVisibleItem = 0;
     ms->renderFlag = false;
     ms->allowPeriodicRefresh = false;
+    ms->userEventManagerFn = NULL;
 }
 
 void MenuSys_SetCallbacks(MenuSystem *ms,
@@ -130,37 +131,32 @@ void MenuSys_NavigateToMain(MenuSystem *ms) {
 }
 
 /**
- * @brief  renderiza el menú actual usando los callbacks.
+ * @brief  Renderiza el menú actual usando los callbacks, borrando pantalla al cambiar de página.
  */
 void MenuSys_RenderMenu(MenuSystem *ms) {
-    // Validaciones iniciales
-    if (!ms ||
-        !ms->currentMenu ||
-        !ms->clearScreen ||
-        !ms->drawItem ||
-        !ms->renderFn)
-    {
+    if (!ms || !ms->currentMenu || !ms->clearScreen || !ms->drawItem)
         return;
-    }
 
-    // 1) Limpiar pantalla
-	ms->clearScreen();
+    // 1) Limpiar toda la pantalla
+    ms->clearScreen();
 
-    // 2) Determinar rango de ítems a dibujar
+    // 2) Rango de ítems a mostrar
     SubMenu *m    = ms->currentMenu;
     uint8_t first = m->firstVisibleItem;
     uint8_t last  = first + MENU_VISIBLE_ITEMS;
     if (last > m->itemCount) last = m->itemCount;
 
-    // 3) Dibujar cada ítem visible
+    // 3) Dibujar cada uno
     for (uint8_t i = first; i < last; i++) {
-        uint8_t local    = i - first;                             // 0..(MENU_VISIBLE_ITEMS-1)
-        uint8_t     y        = MENU_ITEM_Y0 + local * MENU_ITEM_SPACING;
+        uint8_t local    = i - first;
+        uint8_t y        = MENU_ITEM_Y0 + local * MENU_ITEM_SPACING;
         bool    selected = (i == m->currentItemIndex);
-        const MenuItem *it = &m->items[i];
-
-        ms->drawItem(it, y, selected);
+        ms->drawItem(&m->items[i], y, selected);
     }
+
+    // 4) Actualizo el estado para el wrapper
+    m->lastVisibleItem       = first;
+    m->lastSelectedItemIndex = m->currentItemIndex;
 }
 
 /**

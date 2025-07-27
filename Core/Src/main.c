@@ -36,6 +36,8 @@
 #include "encoder.h"             // donde se define ENC_Handle_t
 #include "oled_ssd1306_dma.h"    // donde se define OLED_HandleTypeDef
 #include "mpu6050.h"             // donde se define MPU6050_Handle_t
+#include "screenWrappers.h"
+#include "eventManagers.h"
 //#include "oled_screens.h"
 
 /* USER CODE END Includes */
@@ -90,12 +92,12 @@ volatile uint16_t cnt_10ms = 0;
 volatile uint32_t cnt_10us = 0;
 volatile uint32_t tcrt_calib_cnt_phase = 0;
 //Modificcar para hacer una sola struct de velocidades modo y direcciones
-uint8_t motorSelected;
-uint8_t motorSelectedSpeed;
-uint8_t motorSelectedDirection;
 volatile uint8_t inside_menu_flag;
 volatile uint16_t encoderValue;
 volatile uint8_t oled10msCounter = 0;
+volatile uint8_t motorSelected = 0; // 0: izquierdo, 1: derecho, 2: ambos
+volatile uint8_t motorSpeed    = 100;
+volatile uint8_t motorDir      = 0; // 0: adelante, 1: atrás
 
 // Bandera para I2C_Manager (bus ocupado)
 volatile uint8_t i2c_busy_flag = 0;
@@ -120,15 +122,7 @@ OLED_HandleTypeDef oledTask;
 MPU6050_Handle_t mpuTask;
 ButtonState_t btnUser;
 ENC_Handle_t encoder;
-
-void onRenderComplete(void) {
-	__NOP();
-	if(IS_FLAG_SET(systemFlags, OLED_READY)){
-		menuSystem.allowPeriodicRefresh = false;
-		 //oledTask.auto_flush = false;
-		__NOP();
-	}
-}
+UserEvent_t ev;
 
 void USART1_PrintString(const char *msg) {
     USART1_PushTxString(&usart1Buf, msg);
@@ -137,157 +131,6 @@ void USART1_PrintString(const char *msg) {
 void OledUtils_Clear_Wrapper(){
 	OledUtils_Clear(&oledTask, oledTask.overlay_active);
 }
-
-void OledUtils_DrawItem_Wrapper(const MenuItem *item,
-                                int               y,
-                                bool              selected)
-{
-    // llamamos a la versión “completa” pasándole el handle
-    OledUtils_DrawItem(&oledTask, item, y, selected);
-}
-/**
- * @brief  Wrapper para la pantalla principal (dashboard).
- */
-void OledUtils_RenderDashboard_Wrapper(void)
-{
-    // 1) Deshabilito el refresco periódico
-	OledUtils_DisableContinuousRender(&oledTask, onRenderComplete);
-    inside_menu_flag = false;
-
-    // 2) Marco que esta es la primera pasada para full-refresh
-    oledTask.first_Fn_Draw = true;
-
-    // 3) Bloqueo / desbloqueo encoder según el flag
-    encoder.allowEncoderInput = IS_FLAG_SET(systemFlags2, OLED_ACTIVE);
-
-    // 4) Llamo a la función que pinta TODO en el buffer
-    OledUtils_Clear(&oledTask, false);
-    OledUtils_RenderDashboard(&oledTask);
-
-    // 5) Arranco el flush: que el MainTask (a través de OLED_Update)
-    //    vaya enviando página a página hasta que queue_count==0
-    oledTask.auto_flush = true;
-
-    // ¡no vuelvo a tocar menuSystem.renderFlag!
-}
-
-void MenuSys_RenderMenu_Wrapper(void) {
-	OledUtils_DisableContinuousRender(&oledTask, onRenderComplete);
-	inside_menu_flag = true;
-    SubMenu *m = menuSystem.currentMenu;
-    // habilita flush y marca que hay que re-dibujar
-    encoder.allowEncoderInput = true;
-    oledTask.first_Fn_Draw     = true;
-    oledTask.auto_flush        = true;
-    if (m->firstVisibleItem != m->lastVisibleItem) {
-        // redibujo *completo* de los 3 ítems
-        MenuSys_RenderMenu(&menuSystem);
-        m->lastVisibleItem      = m->firstVisibleItem;
-		m->lastSelectedItemIndex  = m->currentItemIndex;
-    }
-    else {
-        // sólo “borrar” cursor viejo y “pintar” cursor nuevo
-        // calculamos Y en pantalla (ajusta estas constantes a tu layout)
-        const uint8_t Y0    = MENU_ITEM_Y0;     // baseline del primer ítem
-        const uint8_t STEPY = ITEM_HEIGHT;      // separación vertical
-
-        uint8_t oldVisIdx = m->lastSelectedItemIndex - m->lastVisibleItem;
-        uint8_t newVisIdx = m->currentItemIndex  - m->firstVisibleItem;
-        uint8_t oldY      = Y0 + oldVisIdx * STEPY;
-        uint8_t newY      = Y0 + newVisIdx * STEPY;
-
-        // borro cursor en la línea anterior
-        OledUtils_DrawItem(&oledTask,
-                           &m->items[m->lastSelectedItemIndex],
-                           oldY,
-                           false);
-
-        // pinto cursor en la línea nueva
-        OledUtils_DrawItem(&oledTask,
-                           &m->items[m->currentItemIndex],
-                           newY,
-                           true);
-    }
-}
-
-void MenuSys_GoBack_Wrapper(){
-	MenuSys_NavigateBack(&menuSystem);
-}
-
-void OledUtils_RenderMotorTest_Wrapper(void) {
-	OledUtils_EnableContinuousRender(&oledTask);
-	inside_menu_flag = false;
-	encoder.allowEncoderInput = true;
-	menuSystem.renderFlag = true;
-	if(!oledTask.first_Fn_Draw){
-		OledUtils_Clear(&oledTask, false);
-		OledUtils_MotorTest_Complete(&oledTask);
-		oledTask.first_Fn_Draw = true;
-	}else{
-		__NOP();
-		OledUtils_MotorTest_Changes(&oledTask); //La siguiente solo los objetos
-	}
-	oledTask.auto_flush = true;
-}
-
-void OledUtils_RenderRadar_Wrapper(void) {
-	OledUtils_EnableContinuousRender(&oledTask);
-	inside_menu_flag = false;
-	encoder.allowEncoderInput = false;
-	menuSystem.renderFlag = true;
-	if(!oledTask.first_Fn_Draw){
-		OledUtils_Clear(&oledTask, false);
-		OledUtils_RenderRadarGraph(&oledTask, sensor_raw_data); // La primera vez renderizo todo
-		oledTask.first_Fn_Draw = true;
-	}else{
-		__NOP();
-		OledUtils_RenderRadarGraph_Objs(&oledTask, sensor_raw_data); //La siguiente solo los objetos
-	}
-	oledTask.auto_flush = true;
-}
-
-/**
- * @brief  Wrapper para la pantalla de Valores IR.
- */
-void OledUtils_RenderValoresIR_Wrapper(void) {
-    // cada vez que entrenamos aquí, nos aseguramos de tener auto_flush
-    OledUtils_EnableContinuousRender(&oledTask);
-    menuSystem.insideMenuFlag = false;
-    menuSystem.renderFlag = true;
-    oledTask.auto_flush = true;
-    if (!oledTask.first_Fn_Draw) {
-        // primera pasada → gráfico completo
-    	OledUtils_Clear(&oledTask, false);
-        OledUtils_DrawIRGraph(&oledTask, sensor_raw_data);
-        // señalizamos que ya no estamos en la primera pasada
-        oledTask.first_Fn_Draw = false;
-    } else {
-        // siguientes pasadas → sólo barras
-        OledUtils_DrawIRBars(&oledTask, sensor_raw_data);
-    }
-}
-
-
-/**
- * @brief  Wrapper para la pantalla de Valores MPU.
- */
-void OledUtils_RenderValoresMPU_Wrapper(void)
-{
-	OledUtils_EnableContinuousRender(&oledTask);
-    menuSystem.insideMenuFlag = false;
-    menuSystem.renderFlag = true;
-	encoder.allowEncoderInput = false;
-	if(!oledTask.first_Fn_Draw){
-		oledTask.first_Fn_Draw = true;
-		OledUtils_Clear(&oledTask, false);
-		OledUtils_RenderValoresMPUScreen(&oledTask, &mpuTask);
-	}else{
-		__NOP();
-		OledUtils_RenderValoresMPUScreen(&oledTask, &mpuTask); //Despues cambiar esta por la que imprime solo los valores
-	}
-	oledTask.auto_flush = true;
-}
-
 
 void OLED_Is_Ready(void) {
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
@@ -328,7 +171,8 @@ MenuItem mainMenuItems[] = {
     { "Wifi",      NULL,           &submenu1,     Icon_Wifi_bits,   MenuSys_RenderMenu_Wrapper },
     { "Sensores",  NULL,           &submenu2,     Icon_Sensors_bits, MenuSys_RenderMenu_Wrapper },
     { "Config.",   NULL,           &submenu3,     Icon_Config_bits, MenuSys_RenderMenu_Wrapper },
-    { "Volver",    MenuSys_GoBack_Wrapper, NULL,      Icon_Volver_bits, MenuSys_RenderMenu_Wrapper }
+	// name       action    submenu       icon               screenRenderFn
+	{ "Volver",   NULL,     NULL,         Icon_Volver_bits,  OledUtils_RenderDashboard_Wrapper },
 };
 // Menú principal
 SubMenu mainMenu = {
@@ -363,6 +207,7 @@ SubMenu submenu1 = {
 MenuItem submenu2Items[] = {
     {"Valores IR",     NULL,               NULL, NULL, OledUtils_RenderValoresIR_Wrapper},
 	{"Valores MPU",     NULL,               NULL, NULL, OledUtils_RenderValoresMPU_Wrapper},
+	{"Test motores",     NULL,               NULL, NULL, OledUtils_RenderMotorTest_Wrapper},
     {"VOLVER",         MenuSys_GoBack_Wrapper, &mainMenu, NULL, MenuSys_RenderMenu_Wrapper}
 };
 
@@ -1275,86 +1120,44 @@ void initCarMode(){
 	SET_FLAG(systemFlags2, RF_ACTIVE);
 }
 
-void UserBtn_MainTask(ButtonState_t *h){
-	if (IS_FLAG_SET(h->flags, BTN_USER_SHORT_PRESS)) { // Acción short
+void UserBtn_MainTask(ButtonState_t *btnUser) {
+    if (IS_FLAG_SET(btnUser->flags, BTN_USER_SHORT_PRESS)) {
+        CLEAR_FLAG(btnUser->flags, BTN_USER_SHORT_PRESS);
+        ev = UE_SHORT_PRESS;
+    }
+    else if (IS_FLAG_SET(btnUser->flags, BTN_USER_LONG_PRESS)) {
+        CLEAR_FLAG(btnUser->flags, BTN_USER_LONG_PRESS);
+        ev = UE_LONG_PRESS;
+    }
 
-		CLEAR_FLAG(h->flags, BTN_USER_SHORT_PRESS);
-	}
-	if (IS_FLAG_SET(h->flags, BTN_USER_LONG_PRESS)) { // Acción long, entra y sale del menu
-		//Handle_ModeChange_ByButton(h, &ledStatus);
-		if(INSIDE_MENU){
-			OledUtils_Clear_Wrapper();
-			MenuSys_ResetMenu(&menuSystem);
-			menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
-			menuSystem.renderFlag = true;
-			oledTask.first_Fn_Draw = false;
-			INSIDE_MENU = 0;
-		}else{
-			OledUtils_Clear_Wrapper();
-			menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
-			menuSystem.renderFlag = true;
-			oledTask.first_Fn_Draw = false;
-			INSIDE_MENU = 1;
-		}
-		__NOP();
-		CLEAR_FLAG(h->flags, BTN_USER_LONG_PRESS);
-	}
+    if (ev != UE_NONE && menuSystem.userEventManagerFn) {
+        menuSystem.userEventManagerFn(ev);
+        ev = UE_NONE;
+    }
 }
 
-void Encoder_MainTask(ENC_Handle_t *h) {
-  if (IS_FLAG_SET(h->flags, ENC_FLAG_UPDATED)) {
-    CLEAR_FLAG(h->flags, ENC_FLAG_UPDATED);
-    if (IS_FLAG_SET(systemFlags2, OLED_ACTIVE)) {
-		if (INSIDE_MENU) {
-			if(encoder.allowEncoderInput){
-				if (h->dir == ENC_DIR_CW) {
-					MenuSys_MoveCursorDown(&menuSystem);
-				} else {
-					MenuSys_MoveCursorUp(&menuSystem);
-				}
-				menuSystem.renderFn   = MenuSys_RenderMenu_Wrapper;
-				menuSystem.renderFlag = true;
-			}
-		}else{
-			// fuera del menú → aquí podrías hacer otra cosa
-			//Aca cambia de modo si esta en dashboard sobre el overlay
-		}
-	}
-  }
-
-  if (IS_FLAG_SET(h->btnState.flags, ENC_BTN_SHORT_PRESS)) {
-    CLEAR_FLAG(h->btnState.flags, ENC_BTN_SHORT_PRESS);
-    if(!IS_FLAG_SET(systemFlags2, OLED_ACTIVE)){
-    	SET_FLAG(systemFlags2, OLED_ACTIVE);
-    	oledTime = OLED_ACTIVE_TIME;
-    	OledUtils_RenderLockState(&oledTask, 0); //Unlocked
-    }else{
-		if (INSIDE_MENU) {
-		  MenuSys_HandleClick(&menuSystem, &oledTask);
-		  // HandleClick internally navega o ejecuta acción y vuelve a poner renderFlag
-		}
+void Encoder_MainTask(ENC_Handle_t *encoder) {
+    // rotación
+    if (IS_FLAG_SET(encoder->flags, ENC_FLAG_UPDATED)) {
+        CLEAR_FLAG(encoder->flags, ENC_FLAG_UPDATED);
+        ev = (encoder->dir == ENC_DIR_CW ? UE_ROTATE_CW : UE_ROTATE_CCW);
     }
-  }
-
-  if (IS_FLAG_SET(h->btnState.flags, ENC_BTN_LONG_PRESS)) {
-    CLEAR_FLAG(h->btnState.flags, ENC_BTN_LONG_PRESS);
-    if(!IS_FLAG_SET(systemFlags2, OLED_ACTIVE)){
-    	SET_FLAG(systemFlags2, OLED_ACTIVE);
-    	oledTime = OLED_ACTIVE_TIME;
-    	OledUtils_RenderLockState(&oledTask, 0); //Unlocked
-    }else{
-		// Long-press te lleva siempre al menú principal
-    	if(INSIDE_MENU){
-			MenuSys_NavigateToMain(&menuSystem);
-			oledTask.first_Fn_Draw = false;
-			menuSystem.renderFn  = MenuSys_RenderMenu_Wrapper;
-			menuSystem.renderFlag = true;
-    	}else{
-
-    	}
+    // click encoder
+    else if (IS_FLAG_SET(encoder->btnState.flags, ENC_BTN_SHORT_PRESS)) {
+        CLEAR_FLAG(encoder->btnState.flags, ENC_BTN_SHORT_PRESS);
+        ev = UE_ENC_SHORT_PRESS;
+    }
+    else if (IS_FLAG_SET(encoder->btnState.flags, ENC_BTN_LONG_PRESS)) {
+        CLEAR_FLAG(encoder->btnState.flags, ENC_BTN_LONG_PRESS);
+        ev = UE_ENC_LONG_PRESS;
     }
 
-  }
+    if (ev != UE_NONE && menuSystem.userEventManagerFn && encoder->allowEncoderInput) {
+        menuSystem.userEventManagerFn(ev);
+        ev = UE_NONE;
+    }else{
+    	ev = UE_NONE;
+    }
 }
 
 void initTCRTLib(void)
@@ -1455,40 +1258,86 @@ void My_TimerCalcFunc(uint32_t target_freq_hz,
     *period_out    = (uint16_t)period;
 }
 
-
-
+/**
+ * @brief  Initialize and configure motorTask handle
+ */
 void InitMotorTask(void)
 {
-    motorTask.htim = &htim2;
-    motorTask.desired_pwm_freq = 100;
-    motorTask.compute_params = My_TimerCalcFunc;
+    // Asignar timer y PWM default al handle
+    motorTask.htim             = &htim2;
+    motorTask.desired_pwm_freq = 3900;   // ~3.9 kHz
+    motorTask.compute_params   = NULL;   // NULL usa valores fijos
 
     motorTask.left_forward_channel  = TIM_CHANNEL_1;
     motorTask.left_backward_channel = TIM_CHANNEL_2;
     motorTask.right_forward_channel = TIM_CHANNEL_3;
-    motorTask.right_backward_channel = TIM_CHANNEL_4;
+    motorTask.right_backward_channel= TIM_CHANNEL_4;
 
-    // 🟡 VINCULÁS EL MÉTODO init ANTES DE USARLO
-    Motor_AttachMethods(&motorTask);
-
-    if (motorTask.init(&motorTask) != HAL_OK)
+    // Inicializar PWM
+    if (Motor_Init(&motorTask) != HAL_OK)
     {
         USART1_PrintString("InitMotorTask devolvió HAL_ERROR\r\n");
         Error_Handler();
-    }else{
-    	USART1_PrintString("Motores lib OK\r\n");
+    }
+    else
+    {
+        USART1_PrintString("Motores lib OK\r\n");
     }
 }
-
 
 void Motor_MainTask(void)
 {
-    if (motorTask.set_both != NULL) {
-        motorTask.set_both(&motorTask, MOTOR_DIR_FORWARD, motorBothSpeed);
-    } else {
-        // Opcional: breakpoint o log para debug
+    // 1) Habilitar/deshabilitar driver
+    bool enabled = IS_FLAG_SET(motorTask.motorData.flags, ENABLE_MOVEMENT);
+    HAL_GPIO_WritePin(Motor_Enable_GPIO_Port, Motor_Enable_Pin,
+        enabled ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    // Si está deshabilitado, frenamos ambos y salimos
+    if (!enabled) {
+        Motor_StopBoth(&motorTask);
+        return;
+    }
+
+    // 2) Leemos selección y config del motor desde motorData
+    uint8_t sel = NIBBLEH_GET_STATE(motorTask.motorData.flags);
+    Motor_Config_t *cfg = NULL;
+    switch (sel) {
+        case MOTORLEFT_SELECTED:  cfg = &motorTask.motorData.motorLeft;  break;
+        case MOTORRIGHT_SELECTED: cfg = &motorTask.motorData.motorRight; break;
+        case MOTORNONE_SELECTED:  // ambos
+        default:                  cfg = NULL;                           break;
+    }
+
+    // 3) Ejecutar según selección
+    if (sel == MOTORNONE_SELECTED) {
+        // Ambos: usan la misma velocidad/dirección guardada en cada config
+        Motor_SetBoth(&motorTask,
+                      motorTask.motorData.motorLeft.motorSpeed,
+                      motorTask.motorData.motorLeft.motorDirection);
+    }
+    else if (cfg) {
+        // Solo uno: lo arrancamos y detenemos el otro
+        if (cfg->motorDirection == MOTOR_DIR_FORWARD) {
+            if (sel == MOTORLEFT_SELECTED)
+                Motor_SetLeftForward(&motorTask, cfg->motorSpeed);
+            else
+                Motor_SetRightForward(&motorTask, cfg->motorSpeed);
+        } else {
+            if (sel == MOTORLEFT_SELECTED)
+                Motor_SetLeftBackward(&motorTask, cfg->motorSpeed);
+            else
+                Motor_SetRightBackward(&motorTask, cfg->motorSpeed);
+        }
+        // Frenar el opuesto
+        if (sel == MOTORLEFT_SELECTED)       Motor_StopRight(&motorTask);
+        else /* derecho */                   Motor_StopLeft(&motorTask);
+    }
+    else {
+        // Selección inválida: frenar todo
+        Motor_StopBoth(&motorTask);
     }
 }
+
 
 void MPU_MainTask(void) {
     // ——————————————————————————————————————————

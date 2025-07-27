@@ -55,6 +55,9 @@ void OledUtils_MotorTest_Complete(OLED_HandleTypeDef *oled);
 
 void OledUtils_MotorTest_Changes(OLED_HandleTypeDef *oled);
 
+void OledUtils_EnableContinuousRender(OLED_HandleTypeDef *oled);
+void OledUtils_DisableContinuousRender(OLED_HandleTypeDef *oled, On_OLED_RenderPagesComplete cb);
+
 void OledUtils_RenderLockScreen(OLED_HandleTypeDef *oled);
 
 #endif // OLED_MENU_H

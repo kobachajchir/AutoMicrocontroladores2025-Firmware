@@ -1,5 +1,6 @@
 Core/Src/oled_utils.o: ../Core/Src/oled_utils.c ../Core/Inc/oled_utils.h \
- ../Core/Inc/menusystem.h ../Core/Inc/oled_ssd1306_dma.h \
+ ../Core/Inc/menusystem.h ../Core/Inc/types/userEvent_type.h \
+ ../Core/Inc/oled_ssd1306_dma.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h \
  ../Core/Inc/stm32f1xx_hal_conf.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h \
@@ -45,6 +46,7 @@ Core/Src/oled_utils.o: ../Core/Src/oled_utils.c ../Core/Inc/oled_utils.h \
  ../Core/Inc/i2c_manager.h ../Core/Inc/mpu6050.h
 ../Core/Inc/oled_utils.h:
 ../Core/Inc/menusystem.h:
+../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/oled_ssd1306_dma.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 ../Core/Inc/stm32f1xx_hal_conf.h:

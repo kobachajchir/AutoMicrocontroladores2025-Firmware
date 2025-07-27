@@ -452,39 +452,41 @@ void HAL_TIM_Encoder_MspInit(TIM_HandleTypeDef* htim_encoder)
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(htim->Instance==TIM2)
-  {
-    /* USER CODE BEGIN TIM2_MspPostInit 0 */
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    /* USER CODE END TIM2_MspPostInit 0 */
+    if (htim->Instance == TIM2)
+    {
+        // 1) Habilitar clocks de GPIO y AFIO
+        __HAL_RCC_GPIOA_CLK_ENABLE();
+        __HAL_RCC_GPIOB_CLK_ENABLE();
+        __HAL_RCC_AFIO_CLK_ENABLE();
 
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    /**TIM2 GPIO Configuration
-    PB10     ------> TIM2_CH3
-    PB11     ------> TIM2_CH4
-    PA15     ------> TIM2_CH1
-    PB3     ------> TIM2_CH2
-    */
-    GPIO_InitStruct.Pin = MOTORR_F_Pin|MOTORR_B_Pin|MOTORL_B_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+        // 2) Remap completo de TIM2:
+        //    CH1→PA15, CH2→PB3, CH3→PB10, CH4→PB11
+        __HAL_AFIO_REMAP_TIM2_ENABLE();
 
-    GPIO_InitStruct.Pin = MOTORL_F_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(MOTORL_F_GPIO_Port, &GPIO_InitStruct);
+        // 3) Configurar cada pin en AF Push‑Pull, velocidad alta
+        GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
 
-    __HAL_AFIO_REMAP_TIM2_ENABLE();
+        // PA15 → TIM2_CH1 (Left Forward)
+        GPIO_InitStruct.Pin = MOTORL_F_Pin;
+        HAL_GPIO_Init(MOTORL_F_GPIO_Port, &GPIO_InitStruct);
 
-    /* USER CODE BEGIN TIM2_MspPostInit 1 */
+        // PB3  → TIM2_CH2 (Left Backward)
+        GPIO_InitStruct.Pin = MOTORL_B_Pin;
+        HAL_GPIO_Init(MOTORL_B_GPIO_Port, &GPIO_InitStruct);
 
-    /* USER CODE END TIM2_MspPostInit 1 */
-  }
+        // PB10 → TIM2_CH3 (Right Forward)
+        GPIO_InitStruct.Pin = MOTORR_F_Pin;
+        HAL_GPIO_Init(MOTORR_F_GPIO_Port, &GPIO_InitStruct);
 
+        // PB11 → TIM2_CH4 (Right Backward)
+        GPIO_InitStruct.Pin = MOTORR_B_Pin;
+        HAL_GPIO_Init(MOTORR_B_GPIO_Port, &GPIO_InitStruct);
+    }
 }
+
 /**
   * @brief TIM_Base MSP De-Initialization
   * This function freeze the hardware resources used in this example

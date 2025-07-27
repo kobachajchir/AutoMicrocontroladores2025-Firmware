@@ -1,4 +1,5 @@
 "./Core/Src/encoder.o"
+"./Core/Src/eventManagers.o"
 "./Core/Src/fonts.o"
 "./Core/Src/i2c_manager.o"
 "./Core/Src/main.o"
@@ -7,6 +8,7 @@
 "./Core/Src/mpu6050.o"
 "./Core/Src/oled_ssd1306_dma.o"
 "./Core/Src/oled_utils.o"
+"./Core/Src/screenWrappers.o"
 "./Core/Src/stm32f1xx_hal_msp.o"
 "./Core/Src/stm32f1xx_it.o"
 "./Core/Src/syscalls.o"

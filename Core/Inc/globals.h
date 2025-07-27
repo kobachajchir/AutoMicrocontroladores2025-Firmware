@@ -97,6 +97,10 @@ extern volatile uint32_t tcrt_calib_cnt_phase;  // contador de 10 µs para la fa
 extern volatile uint8_t i2c_busy_flag;
 extern volatile uint8_t oled10msCounter;
 
+extern volatile uint8_t motorSelected; // 0: izquierdo, 1: derecho, 2: ambos
+extern volatile uint8_t motorSpeed;
+extern volatile uint8_t motorDir; // 0: adelante, 1: atrás
+
 extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;
 extern MotorControl_Handle motorTask;
@@ -114,5 +118,7 @@ extern const RenderScreenFunction mainMenuScreen;
 extern const RenderScreenFunction subMenuScreen;
 extern const RenderScreenFunction valoresIRScreen;
 extern const RenderScreenFunction wifiDataScreen;
+
+extern UserEvent_t ev;
 
 #endif // GLOBALS_H
