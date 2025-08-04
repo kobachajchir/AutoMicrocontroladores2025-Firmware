@@ -25,6 +25,7 @@
 #include "globals.h"
 #include "utils.h"
 #include "usart_dma_buffer.h"
+#include "uner_protocol.h"
 #include "i2c_manager.h"
 /* USER CODE END Includes */
 
@@ -249,7 +250,7 @@ void DMA1_Channel5_IRQHandler(void)
   /* USER CODE END DMA1_Channel5_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_usart1_rx);
   /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
-
+  USART1_DMA_CheckRx();                 // analiza buffer DMA
   /* USER CODE END DMA1_Channel5_IRQn 1 */
 }
 

@@ -43,8 +43,9 @@ Core/Src/screenWrappers.o: ../Core/Src/screenWrappers.c \
  ../Core/Inc/motor_control.h ../Core/Inc/oled_ssd1306_dma.h \
  ../Core/Inc/fonts.h ../Core/Inc/menusystem.h \
  ../Core/Inc/types/userEvent_type.h ../Core/Inc/mpu6050.h \
- ../Core/Inc/i2c_manager.h ../Core/Inc/menusystem.h \
- ../Core/Inc/oled_utils.h ../Core/Inc/oled_utils.h ../Core/Inc/encoder.h \
+ ../Core/Inc/i2c_manager.h ../Core/Inc/uner_protocol.h \
+ ../Core/Inc/menusystem.h ../Core/Inc/oled_utils.h \
+ ../Core/Inc/oled_utils.h ../Core/Inc/encoder.h \
  ../Core/Inc/eventManagers.h
 ../Core/Inc/screenWrappers.h:
 ../Core/Inc/globals.h:
@@ -100,6 +101,7 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HA
 ../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/mpu6050.h:
 ../Core/Inc/i2c_manager.h:
+../Core/Inc/uner_protocol.h:
 ../Core/Inc/menusystem.h:
 ../Core/Inc/oled_utils.h:
 ../Core/Inc/oled_utils.h:

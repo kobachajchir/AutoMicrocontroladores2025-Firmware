@@ -26,8 +26,6 @@
 #include "utils.h"
 #include "utils/macros_utils.h"
 #include "types/bitmap_type.h"
-#include "types/usart_buffer_type.h"
-#include "usart_dma_buffer.h"
 #include "motor_control.h"
 #include "i2c_manager.h"
 #include "fonts.h"
@@ -38,6 +36,7 @@
 #include "mpu6050.h"             // donde se define MPU6050_Handle_t
 #include "screenWrappers.h"
 #include "eventManagers.h"
+#include "uner_protocol.h"
 //#include "oled_screens.h"
 
 /* USER CODE END Includes */
@@ -114,6 +113,12 @@ bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_DOWN   // canal 7: obstáculo diag der
 };
 
+
+// Este es el buffer real que usará el DMA
+uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
+// Posición previa usada para comparar nuevos datos
+volatile uint16_t usart1_rx_prev_pos = 0;
+
 /* --- Handlers de librerias --- */
 USART_Buffer_t usart1Buf;
 TCRTHandlerTask tcrtTask;
@@ -123,10 +128,7 @@ MPU6050_Handle_t mpuTask;
 ButtonState_t btnUser;
 ENC_Handle_t encoder;
 UserEvent_t ev;
-
-void USART1_PrintString(const char *msg) {
-    USART1_PushTxString(&usart1Buf, msg);
-}
+UNERProtocolParserState uner_parser;
 
 void OledUtils_Clear_Wrapper(){
 	OledUtils_Clear(&oledTask, oledTask.overlay_active);
@@ -143,15 +145,12 @@ void OLED_Is_Ready(void) {
 
 void setMode_IDLE(void){
 	carMode = IDLE_MODE;
-	USART1_PrintString("IDLE");
 }
 void setMode_FOLLOW(void){
 	carMode = FOLLOW_MODE;
-	USART1_PrintString("FOLLOW");
 }
 void setMode_TEST(void){
 	carMode = TEST_MODE;
-	USART1_PrintString("TEST");
 }
 /* --- Variables globales --- */
 
@@ -256,9 +255,6 @@ void initCarMode();
 void UserBtn_MainTask(ButtonState_t *h);
 void initTCRTLib();
 void TCRT_MainTask();
-void initUsartBufferHandler();
-void USART1_PrintString(const char *msg);
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
 void InitMotorTask(void);
 void My_TimerCalcFunc(uint32_t target_freq_hz,
                       uint32_t timer_clk_hz,
@@ -270,6 +266,7 @@ void MPU_MainTask(void);
 void OLED_MainTask(void);
 void OLED_DMA_Complete_I2CManager(uint8_t is_tx);
 void OLED_GrantAccess_I2CManager(void);
+void initUNERProtocol(void);
 /**
  * @brief Tarea principal del encoder (main loop)
  *        Maneja eventos de botón corto/largo
@@ -284,16 +281,6 @@ void drawItemWrapper(const char *name, int y, bool selected);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-/* Wrappers para HAL UART DMA */
-static HAL_StatusTypeDef HAL_UART1_TxDMA_Wrapper(uint8_t *pData, uint16_t size)
-{
-    return HAL_UART_Transmit_DMA(&huart1, pData, size);
-}
-
-static HAL_StatusTypeDef HAL_UART1_RxDMA_Wrapper(uint8_t *pData, uint16_t size)
-{
-    return HAL_UART_Receive_DMA(&huart1, pData, size);
-}
 
 void clearScreenWrapper(void) {
     // Simula limpieza de pantalla
@@ -365,26 +352,36 @@ void MPU_Data_Ready(void) {
     SET_FLAG(systemFlags, MPU_GET_DATA); //Setea bandera de data para volver a pedir
 }
 
-
-
-/* Callback que procesará cada byte recibido */
-static void MyRxHandler(uint8_t byte)
+void USART1_DMA_CheckRx(void)
 {
-    // Ejemplo: convertir a mayúscula y reenviar
-    if (byte >= 'a' && byte <= 'z') {
-        byte -= ('a' - 'A');
-    }
-    char eco[4] = { (char)byte, '\r', '\n', '\0' };
-    USART1_PushTxString(&usart1Buf, eco);
-}
+    uint16_t curr_pos = USART1_RX_DMA_BUF_LEN - __HAL_DMA_GET_COUNTER(&hdma_usart1_rx);
 
-/*// Mensaje formateado:
-USART1_Printf("Sensor %d: umbral=0x%X\r\n", idx, umbral);
-if (USART1_PrintBlocking("Mensaje bloqueante por USART1\r\n") != HAL_OK) {
-    // Manejar error
+    if (curr_pos != usart1_rx_prev_pos)
+    {
+        if (curr_pos > usart1_rx_prev_pos)
+        {
+            // Copia directa
+            for (uint16_t i = usart1_rx_prev_pos; i < curr_pos; ++i) {
+                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
+            }
+        }
+        else
+        {
+            // Rollover
+            for (uint16_t i = usart1_rx_prev_pos; i < USART1_RX_DMA_BUF_LEN; ++i) {
+                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
+            }
+            for (uint16_t i = 0; i < curr_pos; ++i) {
+                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
+            }
+        }
+
+        usart1_rx_prev_pos = curr_pos;
+
+        // Luego parseamos todo lo nuevo
+        uner_parse(&uner_parser);
+    }
 }
- *
-*/
 
 
 /* USER CODE END 0 */
@@ -429,22 +426,7 @@ int main(void)
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 	 HAL_StatusTypeDef result;
-	 if (USART1_RegisterHandle(&huart1) != HAL_OK){
-		 Error_Handler();
-	 }
-	 if (USART1_SetDMACallbacks(HAL_UART1_TxDMA_Wrapper,
-								 HAL_UART1_RxDMA_Wrapper) != HAL_OK)
-	 {
-		  Error_Handler();
-	 }
-
-	 if (USART1_DMA_Init(&usart1Buf) != HAL_OK) {
-		  Error_Handler();
-	 }
-
-	 if (USART1_SetRxHandler(MyRxHandler) != HAL_OK) {
-		  Error_Handler();
-	 }
+	 initUNERProtocol();
 	 initTCRTLib();
 	 InitMotorTask();
 	 I2C_Manager_Init(&hi2c1, &i2c_busy_flag);
@@ -474,11 +456,11 @@ int main(void)
 	         SET_FLAG(systemFlags, MPU_GET_DATA);
 		 } else {
 			  // Falló al registrar (posiblemente sin espacio en la tabla)
-			  USART1_PushTxString(&usart1Buf, "MPU NO Registrado");
+
 		 }
 	 }else {
 		  // El OLED no respondió en el bus
-		  USART1_PushTxString(&usart1Buf, "MPU no respondio");
+
 	 }
 	 if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
 		  result = I2C_Manager_RegisterDevice(
@@ -490,7 +472,6 @@ int main(void)
 		  );
 		  if (result == HAL_OK) {
 			  // Éxito: El OLED está presente y fue registrado
-			  USART1_PushTxString(&usart1Buf, "OLED Registrado");
 			  OLED_Init(&oledTask,
 					   &hi2c1,
 					   I2C_ADDR_OLED,
@@ -506,11 +487,11 @@ int main(void)
 			  oledTime = OLED_ACTIVE_TIME;
 		  } else {
 			  // Falló al registrar (posiblemente sin espacio en la tabla)
-			  USART1_PushTxString(&usart1Buf, "OLED NO Registrado");
+
 		  }
 	 } else {
 		  // El OLED no respondió en el bus
-		  USART1_PushTxString(&usart1Buf, "OLED no respondio");
+
 		  __NOP();
 	 }
 	 HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
@@ -1078,22 +1059,19 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-/**
-  * @brief  Callback que llama la HAL cuando el DMA de UART1 completa una transmisión.
-  *         Necesario para que la librería maneje el “avance de índices” y, si hay datos
-  *         pendientes, relance otro bloque DMA.
-  */
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-{
-    USART1_DMA_TxCpltHandler(huart);
+
+UNERProtocolStatus uart1_send_bytes(const uint8_t *data, uint16_t len) {
+    if (!data || len == 0) return UNER_ERR_NULL_PTR;
+
+    return (HAL_UART_Transmit_DMA(&huart1, (uint8_t *)data, len) == HAL_OK)
+           ? UNER_OK : UNER_ERR_TX_FAIL;
 }
 
-void initUsartBufferHandler(){
-    usart1Buf.headTx = 0;
-    usart1Buf.tailTx = 0;
-    usart1Buf.headRx = 0;
-    usart1Buf.tailRx = 0;
-    usart1Buf.flags.byte = 0;
+void initUNERProtocol(void) {
+    uner_init(&uner_parser);
+    uner_parser.send_bytes = uart1_send_bytes;
+    // uner_parser.onPacketReady = my_on_packet_ready_handler;
+    HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
 }
 
 void initCarMode(){
@@ -1113,7 +1091,6 @@ void initCarMode(){
 	btnUser.pin = User_BTN_Pin;
 	ENC_Init(&encoder, &htim4, 1, 4, EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
-	USART1_PrintString("Bienvenido. UART1 + DMA listo.\r\n");
 	SET_FLAG(systemFlags2, OLED_ACTIVE);
 	SET_FLAG(systemFlags2, AP_ACTIVE);
 	SET_FLAG(systemFlags2, USB_ACTIVE);
@@ -1179,20 +1156,20 @@ void initTCRTLib(void)
     TCRT5000_SetAutoModeAdvance(&tcrtTask, false);
     // 3) Informo por UART si hubo éxito o error al crear la instancia.
     if (st != HAL_OK) {
-        USART1_PrintString("TCRT5000_Create devolvió HAL_ERROR\r\n");
+
         return;  // Salimos, no tiene sentido continuar si la creación falló.
     }
     else {
-        USART1_PrintString("TCRT5000_Create devolvió HAL_OK\r\n");
+
     }
     // 4) Si la creación fue exitosa, inicio la calibración interna:
     if (TCRT5000_StartCalibration(&tcrtTask, 50, 50) != HAL_OK) {
         // Si falla la primera fase de calibración, lo informo:
-        USART1_PrintString("main - Error al iniciar calibración\r\n");
+
     }
     else {
         // Si StartCalibration devolvió HAL_OK, quedó en modo CALIB_LINE_BLACK
-        USART1_PrintString("main - Calibración iniciada (50 muestras línea, 50 obst)\r\n");
+
     }
 }
 
@@ -1220,15 +1197,6 @@ void TCRT_MainTask(){
 		for (int i = 0; i < TCRT5000_NUM_SENSORS; i++) {
 			values[i] = tcrtTask.results.raw.array[i];
 		}
-	    // ... aquí procesas esos 4000 bloques como prefieras ...
-		/*
-		if (USART1_PushTxU16Values(&usart1Buf, values, TCRT5000_NUM_SENSORS) != HAL_OK) {
-		    // manejar buffer lleno o error
-		}else{
-
-		}*/
-	    // 3) Una vez consumidos, limpiar la bandera para empezar a contar
-	    //    otras 4000 muestras.
 		SET_FLAG(systemFlags, PROCESS_IR_DATA);
 	    TCRT5000_ClearReady(&tcrtTask);
 	}
@@ -1276,12 +1244,12 @@ void InitMotorTask(void)
     // Inicializar PWM
     if (Motor_Init(&motorTask) != HAL_OK)
     {
-        USART1_PrintString("InitMotorTask devolvió HAL_ERROR\r\n");
+
         Error_Handler();
     }
     else
     {
-        USART1_PrintString("Motores lib OK\r\n");
+
     }
 }
 

@@ -42,8 +42,8 @@ Core/Src/usart_dma_buffer.o: ../Core/Src/usart_dma_buffer.c \
  ../Core/Inc/motor_control.h ../Core/Inc/oled_ssd1306_dma.h \
  ../Core/Inc/fonts.h ../Core/Inc/menusystem.h \
  ../Core/Inc/types/userEvent_type.h ../Core/Inc/mpu6050.h \
- ../Core/Inc/i2c_manager.h ../Core/Inc/types/usart_buffer_type.h \
- ../Core/Inc/usart_dma_buffer.h
+ ../Core/Inc/i2c_manager.h ../Core/Inc/uner_protocol.h \
+ ../Core/Inc/types/usart_buffer_type.h ../Core/Inc/usart_dma_buffer.h
 ../Core/Inc/globals.h:
 ../Core/Inc/types/button_state.h:
 ../Core/Inc/types/bitmap_type.h:
@@ -96,5 +96,6 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HA
 ../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/mpu6050.h:
 ../Core/Inc/i2c_manager.h:
+../Core/Inc/uner_protocol.h:
 ../Core/Inc/types/usart_buffer_type.h:
 ../Core/Inc/usart_dma_buffer.h:

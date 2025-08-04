@@ -9,6 +9,8 @@
 #include "utils/macros_utils.h"
 #include "stm32f1xx_hal.h"  // para HAL_GPIO_ReadPin
 #include "i2c_manager.h"
+#include "uner_protocol.h"
+
 
 void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {

@@ -14,6 +14,7 @@
 "./Core/Src/syscalls.o"
 "./Core/Src/sysmem.o"
 "./Core/Src/system_stm32f1xx.o"
+"./Core/Src/uner_protocol.o"
 "./Core/Src/usart_dma_buffer.o"
 "./Core/Src/utils.o"
 "./Core/Startup/startup_stm32f103c8tx.o"

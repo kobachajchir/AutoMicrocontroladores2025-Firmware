@@ -43,7 +43,8 @@ Core/Src/oled_ssd1306_dma.o: ../Core/Src/oled_ssd1306_dma.c \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/oled_ssd1306_dma.h \
  ../Core/Inc/menusystem.h ../Core/Inc/types/userEvent_type.h \
- ../Core/Inc/mpu6050.h ../Core/Inc/i2c_manager.h
+ ../Core/Inc/mpu6050.h ../Core/Inc/i2c_manager.h \
+ ../Core/Inc/uner_protocol.h
 ../Core/Inc/oled_ssd1306_dma.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 ../Core/Inc/stm32f1xx_hal_conf.h:
@@ -98,3 +99,4 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HA
 ../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/mpu6050.h:
 ../Core/Inc/i2c_manager.h:
+../Core/Inc/uner_protocol.h:
