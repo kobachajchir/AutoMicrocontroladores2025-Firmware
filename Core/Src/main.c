@@ -118,6 +118,9 @@ bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
 uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
 // Posición previa usada para comparar nuevos datos
 volatile uint16_t usart1_rx_prev_pos = 0;
+volatile uint8_t usart1_feed_pending;
+volatile uint8_t usart1_tx_busy;
+uint8_t tx_dma_buf[UNER_PCK_MAX_TOTAL];
 
 /* --- Handlers de librerias --- */
 USART_Buffer_t usart1Buf;
@@ -463,36 +466,30 @@ int main(void)
 
 	 }
 	 if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
-		  result = I2C_Manager_RegisterDevice(
-			  DEVICE_ID_OLED,
-			  I2C_ADDR_OLED,
-			  OLED_DMA_Complete_I2CManager,
-			  OLED_GrantAccess_I2CManager,
-			  1
-		  );
-		  if (result == HAL_OK) {
-			  // Éxito: El OLED está presente y fue registrado
-			  OLED_Init(&oledTask,
-					   &hi2c1,
-					   I2C_ADDR_OLED,
-					   &i2c_busy_flag,    // ← pasa la bandera DMA
-					   OLED_RequestBusUse_I2CManager,
-					   OLED_ReleaseBusUse_I2CManager,
-					   OLED_Is_Ready,
-					   NULL);
-				if (oledTask.requestBusCb) {
-					oledTask.requestBusCb(I2C_REQ_IS_TX);
-					__NOP();
-				}
-			  oledTime = OLED_ACTIVE_TIME;
-		  } else {
-			  // Falló al registrar (posiblemente sin espacio en la tabla)
+	     result = I2C_Manager_RegisterDevice(
+	         DEVICE_ID_OLED,
+	         I2C_ADDR_OLED,
+	         OLED_DMA_Complete_I2CManager,
+	         OLED_GrantAccess_I2CManager,
+	         1
+	     );
 
-		  }
+	     if (result == HAL_OK) {
+	         OLED_Init(&oledTask,
+	                  &hi2c1,
+	                  I2C_ADDR_OLED,
+	                  &i2c_busy_flag,
+	                  OLED_RequestBusUse_I2CManager,
+	                  OLED_ReleaseBusUse_I2CManager,
+	                  OLED_Is_Ready,
+	                  NULL);
+
+	         oledTime = OLED_ACTIVE_TIME;
+	     } else {
+	         // Falló al registrar
+	     }
 	 } else {
-		  // El OLED no respondió en el bus
-
-		  __NOP();
+	     // El OLED no respondió
 	 }
 	 HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
 	 HAL_TIM_Base_Start_IT(&htim3);
@@ -508,7 +505,6 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
-		USART1_Update();
 		TCRT_MainTask();
 		i2cManager_MainTask();
 		if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
@@ -1067,12 +1063,81 @@ UNERProtocolStatus uart1_send_bytes(const uint8_t *data, uint16_t len) {
            ? UNER_OK : UNER_ERR_TX_FAIL;
 }
 
-void initUNERProtocol(void) {
-    uner_init(&uner_parser);
-    uner_parser.send_bytes = uart1_send_bytes;
-    // uner_parser.onPacketReady = my_on_packet_ready_handler;
-    HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
+void Uart1_RxFeedParser_FromDMA(void)
+{
+    /* Posición actual que va llenando el DMA:
+       NDTR = cuántos faltan → pos = llenados = total - NDTR */
+    uint16_t curr_pos = USART1_RX_DMA_BUF_LEN - __HAL_DMA_GET_COUNTER(&hdma_usart1_rx);
+
+    if (curr_pos == usart1_rx_prev_pos) return; // nada nuevo
+
+    if (curr_pos > usart1_rx_prev_pos) {
+        /* Bloque lineal: prev .. curr-1 */
+        for (uint16_t i = usart1_rx_prev_pos; i < curr_pos; ++i) {
+            uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
+        }
+    } else {
+        /* Wrap: prev .. end-1, luego 0 .. curr-1 */
+        for (uint16_t i = usart1_rx_prev_pos; i < USART1_RX_DMA_BUF_LEN; ++i) {
+            uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
+        }
+        for (uint16_t i = 0; i < curr_pos; ++i) {
+            uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
+        }
+    }
+
+    usart1_rx_prev_pos = curr_pos;
+
+    /* Parsear lo que acabamos de empujar */
+    uner_parse(&uner_parser);
 }
+
+UNERProtocolStatus my_send_bytes_dma(const uint8_t *data, uint16_t len)
+{
+    if (usart1_tx_busy) return UNER_ERR_TX_FAIL;         // una a la vez
+    if (len > sizeof(tx_dma_buf)) return UNER_ERR_TX_FAIL;
+
+    memcpy(tx_dma_buf, data, len);
+    usart1_tx_busy = 1;
+
+    if (HAL_UART_Transmit_DMA(&huart1, tx_dma_buf, len) != HAL_OK) {
+        usart1_tx_busy = 0;
+        return UNER_ERR_TX_FAIL;
+    }
+    return UNER_OK;
+}
+
+void on_uner_packet(UNERProtocolPck *pck)
+{
+    // Ejemplo: eco por el mismo canal
+    uint8_t frame[UNER_PCK_MAX_TOTAL];
+    UNERProtocolStatus n = uner_build_packet(pck, frame, sizeof(frame));
+    if (n >= 0) {
+        uner_send_packet(&uner_parser, (UNERProtocolPck*)pck); // o enviar `frame` con tu método
+        // Nota: `uner_send_packet` ya arma el frame adentro; si querés enviar `frame`
+        // directo, hacelo con tu TX (CDC/WS/…) o crea variante de API si preferís.
+    }
+}
+
+void initUNERProtocol(void) {
+    /* 1) UNER: init + callbacks */
+    uner_init(&uner_parser);
+    uner_parser.onPacketReady = on_uner_packet;
+
+    /* Elegí UNO de los dos senders: */
+    //uner.send_bytes = my_send_bytes_blocking;   // simple, seguro
+    uner_parser.send_bytes = my_send_bytes_dma;          // DMA no bloqueante (usa buffer interno)
+
+    /* 2) Arrancar DMA RX circular */
+    HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
+
+    /* 3) Habilitar interrupción por IDLE line (detecta “pausas” de RX) */
+    __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
+
+    /* 4) Reset índice previo */
+    usart1_rx_prev_pos = 0;
+}
+
 
 void initCarMode(){
 	NIBBLEH_SET_STATE(systemFlags, IDLE_MODE);

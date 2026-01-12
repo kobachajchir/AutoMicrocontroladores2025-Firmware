@@ -3,6 +3,7 @@
 #define GLOBALS_H
 
 #include <stdint.h>
+#include <string.h>
 #include "types/button_state.h"
 #include "encoder.h"
 #include "types/led_status.h"
@@ -115,6 +116,9 @@ extern UNERProtocolParserState uner_parser;
 extern uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
 // Posición previa usada para comparar nuevos datos
 extern volatile uint16_t usart1_rx_prev_pos;
+extern volatile uint8_t usart1_feed_pending;
+extern volatile uint8_t usart1_tx_busy;
+extern uint8_t tx_dma_buf[UNER_PCK_MAX_TOTAL];
 
 extern MenuSystem    menuSystem;
 extern SubMenu       mainMenu, submenu1, submenu2, submenu3;

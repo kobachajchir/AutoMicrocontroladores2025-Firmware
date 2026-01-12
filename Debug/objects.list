@@ -15,7 +15,6 @@
 "./Core/Src/sysmem.o"
 "./Core/Src/system_stm32f1xx.o"
 "./Core/Src/uner_protocol.o"
-"./Core/Src/usart_dma_buffer.o"
 "./Core/Src/utils.o"
 "./Core/Startup/startup_stm32f103c8tx.o"
 "./Drivers/STM32F1xx_HAL_Driver/stm32f1xx_hal.o"

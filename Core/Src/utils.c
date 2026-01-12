@@ -11,6 +11,28 @@
 #include "i2c_manager.h"
 #include "uner_protocol.h"
 
+/* Libera busy al completar */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1) {
+        usart1_tx_busy = 0;
+    }
+}
+
+
+void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1) {
+        Uart1_RxFeedParser_FromDMA();
+    }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1) {
+        Uart1_RxFeedParser_FromDMA();
+    }
+}
 
 void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {

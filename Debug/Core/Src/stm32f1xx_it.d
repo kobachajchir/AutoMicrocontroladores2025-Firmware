@@ -44,8 +44,8 @@ Core/Src/stm32f1xx_it.o: ../Core/Src/stm32f1xx_it.c ../Core/Inc/main.h \
  ../Core/Inc/fonts.h ../Core/Inc/menusystem.h \
  ../Core/Inc/types/userEvent_type.h ../Core/Inc/mpu6050.h \
  ../Core/Inc/i2c_manager.h ../Core/Inc/uner_protocol.h \
- ../Core/Inc/utils.h ../Core/Inc/usart_dma_buffer.h \
- ../Core/Inc/uner_protocol.h ../Core/Inc/i2c_manager.h
+ ../Core/Inc/utils.h ../Core/Inc/uner_protocol.h \
+ ../Core/Inc/i2c_manager.h
 ../Core/Inc/main.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 ../Core/Inc/stm32f1xx_hal_conf.h:
@@ -102,6 +102,5 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HA
 ../Core/Inc/i2c_manager.h:
 ../Core/Inc/uner_protocol.h:
 ../Core/Inc/utils.h:
-../Core/Inc/usart_dma_buffer.h:
 ../Core/Inc/uner_protocol.h:
 ../Core/Inc/i2c_manager.h:
