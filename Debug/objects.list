@@ -8,6 +8,7 @@
 "./Core/Src/mpu6050.o"
 "./Core/Src/oled_utils.o"
 "./Core/Src/screenWrappers.o"
+"./Core/Src/ssd1306.o"
 "./Core/Src/stm32f1xx_hal_msp.o"
 "./Core/Src/stm32f1xx_it.o"
 "./Core/Src/syscalls.o"
