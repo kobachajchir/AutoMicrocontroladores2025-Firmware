@@ -24,7 +24,7 @@ void dashboardEventManager(UserEvent_t ev) {
             menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
             *menuSystem.insideMenuFlag = 1;
             menuSystem.renderFlag = true;
-            oledTask.first_Fn_Draw = true;
+            oled_first_draw = true;
             break;
         default:
             break;
@@ -54,7 +54,7 @@ void menuEventManager(UserEvent_t ev) {
             menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
             *menuSystem.insideMenuFlag = 0;
             menuSystem.renderFlag = true;
-            oledTask.first_Fn_Draw = true;
+            oled_first_draw = true;
             break;
         default:
             break;
@@ -121,11 +121,10 @@ void motorTestEventManager(UserEvent_t ev) {
             CLEAR_FLAG(motorTask.motorData.flags, ENABLE_MOVEMENT);
             menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
             menuSystem.renderFlag = true;
-            oledTask.first_Fn_Draw = true;
+            oled_first_draw = true;
             break;
 
         default:
             break;
     }
 }
-

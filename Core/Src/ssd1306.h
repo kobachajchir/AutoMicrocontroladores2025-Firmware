@@ -22,6 +22,7 @@
 #define SSD1306_H_
 
 #include "ssd1306_defines.h"
+#include "i2c_manager.h"
 #include "fonts.h"
 #include "main.h"
 #include <stdlib.h>

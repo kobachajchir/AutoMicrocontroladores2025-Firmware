@@ -36,15 +36,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-	I2C_Manager_OnDMAComplete(1); //Es tx
+	I2C_Manager_OnTxCplt(&i2cManager, hi2c);
 }
 
 void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c) {
-	I2C_Manager_OnDMAComplete(1); //Es tx
+	I2C_Manager_OnTxCplt(&i2cManager, hi2c);
 }
 
 void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c) {
-	I2C_Manager_OnDMAComplete(0); //Es rx
+	I2C_Manager_OnRxCplt(&i2cManager, hi2c);
+}
+
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
+{
+    I2C_Manager_OnError(&i2cManager, hi2c);
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)

@@ -20,7 +20,7 @@
  *  Modified for I2C Manager arbitration (Koba):
  *  - When SSD1306_USE_I2C_MANAGER==1, the OLED never owns the bus permanently.
  *  - Update is event-driven: UpdateScreen() requests the bus; on grant, it runs a TX DMA state-machine.
- *  - No HAL_I2C_MemTxCpltCallback implementation here; completion must be routed via I2C_Manager_OnDMAComplete().
+ *  - No HAL_I2C_MemTxCpltCallback implementation here; completion must be routed via I2C_Manager_OnTxCplt/OnRxCplt().
  */
 
 #include <math.h>
@@ -59,15 +59,8 @@ void ssd1306_SetColor(SSD1306_COLOR color) { SSD1306.Color = color; }
 /* -------------------------------------------------------------------------- */
 #if SSD1306_USE_I2C_MANAGER == 1
 
-// NOTE: These types/functions are assumed from your "new" i2c_manager redesign.
-// If names differ, adapt here (NOT in logic).
-// Required from manager:
-// - RequestAccess(h, device_id, req_type)
-// - ReleaseBus(h, device_id)
-// - IsAddressReady(h, addr7bit)
-// - Manager calls our callbacks: request_approved_cb() and transfer_complete_cb(is_tx)
-
 static I2C_DeviceID g_oled_dev_id = DEVICE_ID_OLED;
+static I2C_ManagerHandle *g_i2c_mgr = NULL;
 
 // simple state machine for page update
 typedef enum {
@@ -87,8 +80,9 @@ static volatile uint8_t oled_update_pending = 0;
 static uint8_t oled_cmd_byte = 0;
 
 // manager callbacks
-static void OLED_I2C_RequestApproved(void);
-static void OLED_I2C_TransferComplete(uint8_t is_tx);
+static void OLED_I2C_RequestApproved(void *ctx);
+static void OLED_I2C_TxComplete(void *ctx);
+static void OLED_I2C_TransferComplete(void);
 
 // helper: start first step of a frame
 static void OLED_StartFrame(void)
@@ -100,8 +94,9 @@ static void OLED_StartFrame(void)
   (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &oled_cmd_byte, 1);
 }
 
-static void OLED_I2C_RequestApproved(void)
+static void OLED_I2C_RequestApproved(void *ctx)
 {
+  (void)ctx;
   // If an update is requested and we are idle, start it.
   if (oled_sm == OLED_SM_IDLE)
   {
@@ -113,7 +108,9 @@ static void OLED_I2C_RequestApproved(void)
     else
     {
       // nothing to do, release bus immediately
-      (void)I2C_Manager_ReleaseBus(g_oled_dev_id);
+      if (g_i2c_mgr) {
+        (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
+      }
     }
     return;
   }
@@ -122,14 +119,20 @@ static void OLED_I2C_RequestApproved(void)
   // Transfers advance on DMA complete callback.
 }
 
-static void OLED_I2C_TransferComplete(uint8_t is_tx)
+static void OLED_I2C_TxComplete(void *ctx)
 {
-  (void)is_tx;
+  (void)ctx;
+  OLED_I2C_TransferComplete();
+}
 
+static void OLED_I2C_TransferComplete(void)
+{
   // OLED only does TX in this driver. If manager passes RX, ignore safely.
   if (oled_sm == OLED_SM_IDLE) {
     // spurious callback
-    (void)I2C_Manager_ReleaseBus(g_oled_dev_id);
+    if (g_i2c_mgr) {
+      (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
+    }
     return;
   }
 
@@ -164,12 +167,16 @@ static void OLED_I2C_TransferComplete(uint8_t is_tx)
         ssd1306_UpdateCompletedCallback();
 
         // release bus so MPU (or others) can run
-        (void)I2C_Manager_ReleaseBus(g_oled_dev_id);
+        if (g_i2c_mgr) {
+          (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
+        }
 
         // if another update was requested while we were busy, ask again
         if (oled_update_pending)
         {
-          (void)I2C_Manager_RequestAccess(g_oled_dev_id, I2C_REQ_TYPE_TX);
+          if (g_i2c_mgr) {
+            (void)I2C_Manager_RequestBus(g_i2c_mgr, g_oled_dev_id);
+          }
         }
       }
       else
@@ -183,12 +190,40 @@ static void OLED_I2C_TransferComplete(uint8_t is_tx)
     default:
       // Fail-safe: never deadlock the bus
       oled_sm = OLED_SM_IDLE;
-      (void)I2C_Manager_ReleaseBus(g_oled_dev_id);
+      if (g_i2c_mgr) {
+        (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
+      }
       break;
   }
 }
 
 #endif /* SSD1306_USE_I2C_MANAGER */
+
+HAL_StatusTypeDef ssd1306_BindI2CManager(I2C_ManagerHandle *hmgr, I2C_DeviceID dev_id)
+{
+#if SSD1306_USE_I2C_MANAGER == 1
+  if (!hmgr) return HAL_ERROR;
+  g_i2c_mgr = hmgr;
+  g_oled_dev_id = dev_id;
+
+  return I2C_Manager_RegisterDevice(
+      hmgr,
+      dev_id,
+      SSD1306_ADDRESS,
+      1,
+      NULL,
+      OLED_I2C_RequestApproved,
+      OLED_I2C_TxComplete,
+      NULL,
+      NULL
+  );
+#else
+  (void)hmgr;
+  (void)dev_id;
+  return HAL_ERROR;
+#endif
+}
+
 
 /* -------------------------------------------------------------------------- */
 /* INIT                                                                        */
@@ -206,7 +241,7 @@ uint8_t ssd1306_Init(void)
   /* Check if LCD connected to I2C */
 #if SSD1306_USE_I2C_MANAGER == 1
   // Manager must be initialized+registered BEFORE init:
-  // I2C_Manager_RegisterDevice(DEVICE_ID_OLED, SSD1306_ADDRESS, OLED_I2C_TransferComplete, OLED_I2C_RequestApproved, prio)
+  // I2C_Manager_RegisterDevice(hmgr, DEVICE_ID_OLED, SSD1306_ADDRESS, prio, ctx, OLED_I2C_RequestApproved, OLED_I2C_TxComplete, NULL, NULL)
   // But we still check readiness via HAL here to keep init robust:
   if (HAL_I2C_IsDeviceReady(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 5, 1000) != HAL_OK)
   {
@@ -951,7 +986,9 @@ void ssd1306_UpdateScreen(void)
   oled_update_pending = 1;
   if (oled_sm == OLED_SM_IDLE)
   {
-    (void)I2C_Manager_RequestAccess(g_oled_dev_id, I2C_REQ_TYPE_TX);
+    if (g_i2c_mgr) {
+      (void)I2C_Manager_RequestBus(g_i2c_mgr, g_oled_dev_id);
+    }
   }
 #else
   uint8_t  command;
