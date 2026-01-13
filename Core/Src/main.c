@@ -32,7 +32,7 @@
 #include "menusystem.h"
 #include "oled_utils.h"
 #include "encoder.h"             // donde se define ENC_Handle_t
-#include "oled_ssd1306_dma.h"    // donde se define OLED_HandleTypeDef
+#include "ssd1306.h"
 #include "mpu6050.h"             // donde se define MPU6050_Handle_t
 #include "screenWrappers.h"
 #include "eventManagers.h"
@@ -100,7 +100,6 @@ volatile uint8_t motorDir      = 0; // 0: adelante, 1: atrás
 
 // Bandera para I2C_Manager (bus ocupado)
 volatile uint8_t i2c_busy_flag = 0;
-uint16_t oledTime;
 
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
@@ -126,15 +125,16 @@ uint8_t tx_dma_buf[UNER_PCK_MAX_TOTAL];
 USART_Buffer_t usart1Buf;
 TCRTHandlerTask tcrtTask;
 MotorControl_Handle motorTask;
-OLED_HandleTypeDef oledTask;
 MPU6050_Handle_t mpuTask;
 ButtonState_t btnUser;
 ENC_Handle_t encoder;
 UserEvent_t ev;
 UNERProtocolParserState uner_parser;
+I2C_ManagerHandle i2cManager;
+volatile bool oled_first_draw = false;
 
 void OledUtils_Clear_Wrapper(){
-	OledUtils_Clear(&oledTask, oledTask.overlay_active);
+	OledUtils_Clear();
 }
 
 void OLED_Is_Ready(void) {
@@ -267,8 +267,6 @@ void Motor_MainTask(void);
 void i2cManager_MainTask(void);
 void MPU_MainTask(void);
 void OLED_MainTask(void);
-void OLED_DMA_Complete_I2CManager(uint8_t is_tx);
-void OLED_GrantAccess_I2CManager(void);
 void initUNERProtocol(void);
 /**
  * @brief Tarea principal del encoder (main loop)
@@ -304,50 +302,39 @@ void renderFnWrapper(void) {
 
 }
 
-// Wrapper para I2C_Manager cuando termina el DMA
-void OLED_DMA_Complete_I2CManager(uint8_t is_tx) {
-    // aquí puedes poner un breakpoint o togglear un LED para debug
-    OLED_DMA_CompleteCallback(&oledTask, is_tx);
+static void MPU_I2C_OnGranted(void *ctx) {
+    MPU6050_Handle_t *mpu = (MPU6050_Handle_t *)ctx;
+    if (!mpu) return;
+    __NOP();
+    MPU_GrantAccessCallback(mpu);
 }
 
-// Wrapper para I2C_Manager cuando concede acceso al bus
-void OLED_GrantAccess_I2CManager(void) {
-    // breakpoint / LED toggle aquí si quieres
-	__NOP();
-    OLED_GrantAccessCallback(&oledTask);
+static void MPU_I2C_OnTxDone(void *ctx) {
+    MPU6050_Handle_t *mpu = (MPU6050_Handle_t *)ctx;
+    if (!mpu) return;
+    MPU_DMA_CompleteCallback(mpu, 1);
 }
 
-void OLED_RequestBusUse_I2CManager(uint8_t is_tx) {
+static void MPU_I2C_OnRxDone(void *ctx) {
+    MPU6050_Handle_t *mpu = (MPU6050_Handle_t *)ctx;
+    if (!mpu) return;
+    MPU_DMA_CompleteCallback(mpu, 0);
+}
+
+static void MPU_I2C_OnError(void *ctx, I2C_ManagerError err) {
+    (void)ctx;
+    (void)err;
+}
+
+void MPU_RequestBusUse_I2CManager(void) {
     // Pide acceso inmediato al manager
 	__NOP();
-    I2C_Manager_RequestAccess(DEVICE_ID_OLED, I2C_REQ_TYPE_TX); //Es TX
-}
-
-void OLED_ReleaseBusUse_I2CManager(void) {
-    // Pide acceso inmediato al manager
-	I2C_Manager_ReleaseBus(DEVICE_ID_OLED);
-}
-// Wrapper para I2C_Manager al completar TX (canal 6)
-void MPU_DMA_Complete_I2CManager(uint8_t is_tx) {
-    // Aquí puedes poner un breakpoint o togglear un LED para depuración TX
-	MPU_DMA_CompleteCallback(&mpuTask, is_tx);
-}
-// Wrapper para I2C_Manager cuando concede acceso TX
-void MPU_GrantAccessCallback_I2CManager(void) {
-    // Aquí breakpoint/LED para depuración TX grant
-	__NOP();
-	MPU_GrantAccessCallback(&mpuTask);
-}
-
-void MPU_RequestBusUse_I2CManager(uint8_t is_tx) {
-    // Pide acceso inmediato al manager
-	__NOP();
-    I2C_Manager_RequestAccess(DEVICE_ID_MPU, I2C_REQ_TYPE_TX_RX);
+    I2C_Manager_RequestBus(&i2cManager, DEVICE_ID_MPU);
 }
 
 void MPU_ReleaseBusUse_I2CManager(void) {
     // Pide acceso inmediato al manager
-	I2C_Manager_ReleaseBus(DEVICE_ID_MPU);
+	I2C_Manager_ReleaseBus(&i2cManager, DEVICE_ID_MPU);
 	__NOP();
 }
 
@@ -432,15 +419,19 @@ int main(void)
 	 initUNERProtocol();
 	 initTCRTLib();
 	 InitMotorTask();
-	 I2C_Manager_Init(&hi2c1, &i2c_busy_flag);
+	 I2C_Manager_Init(&i2cManager, &hi2c1, 0);
 	 /*I2C_Manager_ScanBus();*/
-	 if (I2C_Manager_IsAddressReady(I2C_ADDR_MPU) == HAL_OK) {
+	 if (I2C_Manager_IsAddressReady(&i2cManager, I2C_ADDR_MPU) == HAL_OK) {
 	     HAL_StatusTypeDef res = I2C_Manager_RegisterDevice(
+	         &i2cManager,
 	         DEVICE_ID_MPU,
 	         I2C_ADDR_MPU,
-	         MPU_DMA_Complete_I2CManager,
-	         MPU_GrantAccessCallback_I2CManager,
-	         1
+	         1,
+	         &mpuTask,
+	         MPU_I2C_OnGranted,
+	         MPU_I2C_OnTxDone,
+	         MPU_I2C_OnRxDone,
+	         MPU_I2C_OnError
 	     );
 	     if (res == HAL_OK) {
 	         MPU6050_Init(
@@ -465,26 +456,13 @@ int main(void)
 		  // El OLED no respondió en el bus
 
 	 }
-	 if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
-	     result = I2C_Manager_RegisterDevice(
-	         DEVICE_ID_OLED,
-	         I2C_ADDR_OLED,
-	         OLED_DMA_Complete_I2CManager,
-	         OLED_GrantAccess_I2CManager,
-	         1
-	     );
+	 if (I2C_Manager_IsAddressReady(&i2cManager, I2C_ADDR_OLED) == HAL_OK) {
+	     result = ssd1306_BindI2CManager(&i2cManager, DEVICE_ID_OLED);
 
 	     if (result == HAL_OK) {
-	         OLED_Init(&oledTask,
-	                  &hi2c1,
-	                  I2C_ADDR_OLED,
-	                  &i2c_busy_flag,
-	                  OLED_RequestBusUse_I2CManager,
-	                  OLED_ReleaseBusUse_I2CManager,
-	                  OLED_Is_Ready,
-	                  NULL);
-
-	         oledTime = OLED_ACTIVE_TIME;
+	         if (ssd1306_Init()) {
+	             OLED_Is_Ready();
+	         }
 	     } else {
 	         // Falló al registrar
 	     }
@@ -1431,7 +1409,7 @@ void MPU_MainTask(void) {
 }
 
 void i2cManager_MainTask(){
-	I2C_Manager_Update();
+	I2C_Manager_Tick(&i2cManager);
 }
 
 
@@ -1440,44 +1418,6 @@ void OLED_MainTask(void) {
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
         return;
     }
-
-    // 1) Cada 10 ms procesamos temporizadores
-    /*
-    if (IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED)) {
-        CLEAR_FLAG(systemFlags, OLED_TENMS_PASSED);
-
-        // 1.a) Overlay con timeout
-        if (oledTask.overlay_active && oledTask.overlay_timeout_active) {
-            if (oledTask.overlay_timer_ms > 10) {
-                oledTask.overlay_timer_ms -= 10;
-            } else {
-                // en lugar de ocultar directo, señalamos hide-now
-                oledTask.overlay_timeout_active = false;
-                oledTask.overlay_hide_now       = true;
-            }
-        }
-
-        // 1.b) Procesar hide-now tan pronto no queden páginas de overlay en vuelo
-        if (oledTask.overlay_active && oledTask.overlay_hide_now && oledTask.ovl_count == 0) {
-            oledTask.overlay_hide_now      = false;
-            // Aquí pasas tu región concreta de overlay a limpiar:
-            OLED_HideOverlayNow(&oledTask);
-        }
-        // si ya no quedaban páginas de overlay, deshabilitamos transfer
-        else if (oledTask.overlay_active && oledTask.ovl_count == 0) {
-            oledTask.allow_overlay_transfer = false;
-        }
-
-        // 1.c) Temporizador de inactividad (lock)
-        if (IS_FLAG_SET(systemFlags2, OLED_ACTIVE)) {
-            if (oledTime > 10) {
-                oledTime -= 10;
-            } else {
-                CLEAR_FLAG(systemFlags2, OLED_ACTIVE);
-                OledUtils_RenderLockState(&oledTask, 1);
-            }
-        }
-    }*/
 
     // 2) Refresco periódico si está permitido
     if (IS_FLAG_SET(systemFlags, OLED_REFRESH) && menuSystem.allowPeriodicRefresh) {
@@ -1489,13 +1429,17 @@ void OLED_MainTask(void) {
     }
 
     // 3) Ejecutar la rutina de render si alguien la pidió
+    bool did_render = false;
     if (menuSystem.renderFlag && menuSystem.renderFn) {
         menuSystem.renderFlag = false;
         menuSystem.renderFn();
+        did_render = true;
     }
 
-    // 4) Avanzar la state-machine no bloqueante de páginas
-    OLED_Update(&oledTask);
+    // 4) Enviar el buffer al display (no bloqueante con DMA/I2C manager)
+    if (did_render) {
+        ssd1306_UpdateScreen();
+    }
 }
 
 void initMenuSystemTask(void) {
@@ -1523,8 +1467,7 @@ void Error_Handler(void)
 	}
   /* USER CODE END Error_Handler_Debug */
 }
-
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.

@@ -6,8 +6,11 @@
  */
 
 #include "oled_utils.h"
-#include "mpu6050.h"
 #include "globals.h"
+#include "mpu6050.h"
+#include "ssd1306.h"
+#include <stdio.h>
+#include <string.h>
 
 const uint8_t text_bar_x[OLED_BAR_COUNT] = {
     4, 19, 34, 49,
@@ -18,53 +21,85 @@ const uint8_t bar_x[OLED_BAR_COUNT] = {
     65, 80, 95, 110
 };
 
+static const FontDef *oled_font = &Font_6x12_Min;
+
+static void Oled_SetFont(const FontDef *font)
+{
+    oled_font = font;
+}
+
+static uint8_t Oled_FontHeight(void)
+{
+    return oled_font->FontHeight;
+}
+
+static uint8_t Oled_FontWidth(void)
+{
+    return oled_font->FontWidth;
+}
+
+static void Oled_DrawStr(const char *text)
+{
+    ssd1306_SetColor(White);
+    ssd1306_WriteString((char *)text, *oled_font);
+}
+
+static void Oled_ClearBox(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
+{
+    ssd1306_SetColor(Black);
+    ssd1306_FillRect(x, y, w, h);
+    ssd1306_SetColor(White);
+}
+
+static void Oled_DrawBox(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
+{
+    ssd1306_SetColor(White);
+    ssd1306_FillRect(x, y, w, h);
+}
+
+static void Oled_DrawFrame(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
+{
+    ssd1306_SetColor(White);
+    ssd1306_DrawRect(x, y, w, h);
+}
+
+static void Oled_DrawXBM(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const uint8_t *bits)
+{
+    ssd1306_SetColor(White);
+    ssd1306_DrawBitmap(x, y, w, h, bits);
+}
+
 // ============================================================================
 // Wrappers de render
 // ============================================================================
 
 // wrapper
 void OledUtils_PrintMainBuffer_Wrapper(void) {
-    OLED_PrintBuffer(&oledTask, false);
-    OLED_SendBuffer(&oledTask);
+    ssd1306_UpdateScreen();
 }
 
 void OledUtils_PrintOverlayBuffer_Wrapper(void)
 {
-    OLED_PrintBuffer(&oledTask, true);
-    OLED_SendBuffer(&oledTask);
+    ssd1306_UpdateScreen();
 }
 
-// Activa refresco continuo: nunca llamamos al callback
-// y permitimos que el MainTask siga solicitando render
-void OledUtils_EnableContinuousRender(OLED_HandleTypeDef *oled) {
+// Activa refresco continuo: permitimos que el MainTask siga solicitando render
+void OledUtils_EnableContinuousRender(void) {
     menuSystem.allowPeriodicRefresh = true;
-    OLED_SetRenderCompleteCb(oled, NULL);
 }
 
-// Desactiva refresco continuo: bloquea el periodic y
-// fija el callback para que se dispare al terminar
-void OledUtils_DisableContinuousRender(OLED_HandleTypeDef *oled,
-		On_OLED_RenderPagesComplete cb) {
+// Desactiva refresco continuo: bloquea el periodic
+void OledUtils_DisableContinuousRender(void) {
     menuSystem.allowPeriodicRefresh = false;
-    OLED_SetRenderCompleteCb(oled, cb);
 }
 
-void OledUtils_RenderLockState(OLED_HandleTypeDef *oled, uint8_t lockState)
+void OledUtils_RenderLockState(uint8_t lockState)
 {
     if (lockState) {
-        // → Enter lock mode: turn on overlay for the full screen,
-        //   then schedule the lock-screen render
-        OLED_ActivateOverlay(oled, 0);
         menuSystem.renderFn   = OledUtils_RenderLockScreen;
         menuSystem.renderFlag = true;
     }
     else {
-        // → Exit lock mode: hide overlay *entirely*
-        // clear any residual overlay pixels
-        OLED_ClearBuffer(oled, true);
-        oled->overlay_hide_now = true;
-
-        // schedule one final main-buffer flush
         menuSystem.renderFn   = OledUtils_PrintMainBuffer_Wrapper;
         menuSystem.renderFlag = true;
     }
@@ -73,95 +108,81 @@ void OledUtils_RenderLockState(OLED_HandleTypeDef *oled, uint8_t lockState)
 /**
  * @brief  Dibuja las barras del gráfico IR.
  *         Limpia la región de las barras y las redibuja.
- * @param  oled      Puntero al handle del driver OLED
  * @param  irValues  Array de OLED_BAR_COUNT valores (0…4095)
  */
-void OledUtils_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
+void OledUtils_DrawIRBars(volatile uint16_t *irValues)
 {
-    if (!oled) return;
-
     // Cálculo de la zona de barras
-    const uint8_t fh     = oled->font->FontHeight;
+    const uint8_t fh     = Oled_FontHeight();
     const uint8_t sep_y  = fh + 2;
     const uint8_t bar_y0 = sep_y + 1;
-    const uint8_t maxH   = OLED_HEIGHT - bar_y0;
+    const uint8_t maxH   = SSD1306_HEIGHT - bar_y0;
 
-    // 1) Limpiar todo el área de barras (ancho completo, desde bar_y0 hasta abajo)
-
-    // 2) Dibujar cada barra IR
+    // Dibujar cada barra IR
     for (uint8_t i = 0; i < OLED_BAR_COUNT; i++) {
         uint16_t v = irValues[i] > 4095 ? 4095 : irValues[i];
         uint8_t  h = (uint32_t)v * maxH / 4095;
         uint8_t  y0 = bar_y0 + (maxH - h);
-        OLED_ClearBox(oled,
-                    bar_x[i],  // posición X de la barra
-                    bar_y0,    // siempre desde el inicio de las barras
-                    BAR_WIDTH, // ancho fijo
-                    maxH,      // altura máxima de la zona de barras
-                    false      // MAIN
-                );
-        OLED_DrawBox(oled,
-                     bar_x[i],  // posición X de la barra
-                     y0,        // posición Y calculada
-                     BAR_WIDTH, // ancho fijo
-                     h,         // altura mapeada
-                     false);    // MAIN
+        Oled_ClearBox(
+            bar_x[i],  // posición X de la barra
+            bar_y0,    // siempre desde el inicio de las barras
+            BAR_WIDTH, // ancho fijo
+            maxH       // altura máxima de la zona de barras
+        );
+        Oled_DrawBox(
+            bar_x[i],  // posición X de la barra
+            y0,        // posición Y calculada
+            BAR_WIDTH, // ancho fijo
+            h          // altura mapeada
+        );
     }
     __NOP();
 }
 
-void OledUtils_RenderRadarGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
+void OledUtils_RenderRadarGraph(volatile uint16_t *irValues)
 {
-	OLED_DrawCircle(oled, 63, 60, 60, false);
-	OLED_DrawCircle(oled, 63, 60, 40, false);
-	OLED_DrawXBM(oled, 40, 48, 48, 13, Icon_Car_bits, false);
+    (void)irValues;
+    ssd1306_SetColor(White);
+    ssd1306_DrawCircle(63, 60, 60);
+    ssd1306_DrawCircle(63, 60, 40);
+    Oled_DrawXBM(40, 48, 48, 13, Icon_Car_bits);
 }
 
-void OledUtils_RenderRadarGraph_Objs(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
+void OledUtils_RenderRadarGraph_Objs(volatile uint16_t *irValues)
 {
-	/**/
+    (void)irValues;
 }
 
 /**
  * @brief  Dibuja todo el gráfico IR (leyenda + separador + barras) y arranca el envío.
- * @param  oled      Puntero al handle del driver OLED
  * @param  irValues  Array de OLED_BAR_COUNT valores (0…4095)
  */
-void OledUtils_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues)
+void OledUtils_DrawIRGraph(volatile uint16_t *irValues)
 {
-    if (!oled) return;
+    // 1) Limpiar toda la pantalla
+    OledUtils_Clear();
 
-    // 1) Limpiar toda la pantalla MAIN
-    OLED_ClearBuffer(oled, false);
-
-    // 2) Ajustar modos de dibujo
-    OLED_SetBitmapMode(oled, true);
-    OLED_SetFontMode(oled,   true);
-
-    // 3) Leyenda "IR1"… "IR8" con fuente 8×10
-    OLED_SetFont(oled, &Font_5x10_Min);
-    const uint8_t fh    = oled->font->FontHeight;
+    // 2) Leyenda "IR1"… "IR8" con fuente 8×10
+    Oled_SetFont(&Font_5x10_Min);
+    const uint8_t fh    = Oled_FontHeight();
     const uint8_t sep_y = fh + 1;
     char label[5];
     for (int i = 0; i < OLED_BAR_COUNT; i++) {
         snprintf(label, sizeof(label), "IR%d", i+1);
-        int16_t lx = text_bar_x[i] - (oled->font->FontWidth / 2);
+        int16_t lx = text_bar_x[i] - (Oled_FontWidth() / 2);
         if (lx < 0) lx = 0;
-        OLED_SetCursor(oled, lx, 0);
-        OLED_DrawStr(oled, label, false);
+        ssd1306_SetCursor(lx, 0);
+        Oled_DrawStr(label);
     }
 
-    // 4) Separador horizontal
-    OLED_DrawLineXY(oled,
-                    0,           sep_y,
-                    OLED_WIDTH-1, sep_y,
-                    false);
+    // 3) Separador horizontal
+    ssd1306_DrawLine(0, sep_y, SSD1306_WIDTH - 1, sep_y);
 
-    // 5) Dibujar y enviar las barras IR
-    OledUtils_DrawIRBars(oled, irValues);
+    // 4) Dibujar barras IR
+    OledUtils_DrawIRBars(irValues);
 }
 
-void OledUtils_MotorTest_Complete(OLED_HandleTypeDef *oled) {
+void OledUtils_MotorTest_Complete(void) {
     // 1) Determinar motor seleccionado desde nibble alto
     uint8_t sel = NIBBLEH_GET_STATE(motorTask.motorData.flags);
     const char *motorStr;
@@ -184,7 +205,6 @@ void OledUtils_MotorTest_Complete(OLED_HandleTypeDef *oled) {
         dir   = motorTask.motorData.motorRight.motorDirection;
     }
     else { // Ambos
-        // tomamos promedio de velocidades y, si coinciden, su dirección; si no, la del izquierdo
         uint8_t sL = motorTask.motorData.motorLeft.motorSpeed;
         uint8_t sR = motorTask.motorData.motorRight.motorSpeed;
         speed = (uint16_t)(sL + sR) / 2;
@@ -195,23 +215,23 @@ void OledUtils_MotorTest_Complete(OLED_HandleTypeDef *oled) {
 
     const char *dirStr = (dir == MOTOR_DIR_FORWARD) ? "Adelante" : "Atras";
     char speedStr[8];
-    OLED_SetFont(oled, &Font_5x10_Min);
+    Oled_SetFont(&Font_5x10_Min);
 
     // Línea 1: nombre del motor
-    OLED_SetCursor(oled, 3, 11 - oled->font->FontHeight);
-    OLED_DrawStr(oled, motorStr, false);
+    ssd1306_SetCursor(3, 11 - Oled_FontHeight());
+    Oled_DrawStr(motorStr);
 
     // Línea 2: dirección
-    OLED_SetCursor(oled, 41, 29 - oled->font->FontHeight);
-    OLED_DrawStr(oled, dirStr, false);
+    ssd1306_SetCursor(41, 29 - Oled_FontHeight());
+    Oled_DrawStr(dirStr);
 
     // Línea 3: marco de barra de velocidad
-    OLED_DrawFrame(oled, 5, 34, 116, 11, false);
+    Oled_DrawFrame(5, 34, 116, 11);
 
     // Línea 4: relleno de barra o estado PARADO
     if (IS_FLAG_SET(motorTask.motorData.flags, ENABLE_MOVEMENT)) {
         uint8_t barWidth = (uint16_t)speed * 116 / 255;
-        OLED_DrawBox(oled, 5, 34, barWidth, 11, false);
+        Oled_DrawBox(5, 34, barWidth, 11);
 
         uint8_t speedPct = (uint16_t)speed * 100 / 255;
         snprintf(speedStr, sizeof(speedStr), "%3u%%", speedPct);
@@ -220,12 +240,11 @@ void OledUtils_MotorTest_Complete(OLED_HandleTypeDef *oled) {
     }
 
     // Línea 5: porcentaje o texto
-    OLED_SetCursor(oled, 50, 57 - oled->font->FontHeight);
-    OLED_DrawStr(oled, speedStr, false);
+    ssd1306_SetCursor(50, 57 - Oled_FontHeight());
+    Oled_DrawStr(speedStr);
 }
 
-
-void OledUtils_MotorTest_Changes(OLED_HandleTypeDef *oled) {
+void OledUtils_MotorTest_Changes(void) {
     // 1) Determinar motor y texto
     uint8_t sel = NIBBLEH_GET_STATE(motorTask.motorData.flags);
     const char *motorStr = (sel == MOTORLEFT_SELECTED)  ? "Probando Motor 1" :
@@ -238,21 +257,21 @@ void OledUtils_MotorTest_Changes(OLED_HandleTypeDef *oled) {
     const char *dirStr = (dir == MOTOR_DIR_FORWARD) ? "Adelante" : "Atras";
 
     char speedStr[8];
-    OLED_SetFont(oled, &Font_5x10_Min);
+    Oled_SetFont(&Font_5x10_Min);
 
     // Línea 1: motor
-    OLED_ClearBox(oled, 0, 11 - oled->font->FontHeight, 128, oled->font->FontHeight, false);
-    OLED_SetCursor(oled, 3,  11 - oled->font->FontHeight);
-    OLED_DrawStr(oled, motorStr, false);
+    Oled_ClearBox(0, 11 - Oled_FontHeight(), 128, Oled_FontHeight());
+    ssd1306_SetCursor(3,  11 - Oled_FontHeight());
+    Oled_DrawStr(motorStr);
 
     // Línea 2: dirección
-    OLED_ClearBox(oled, 0, 29 - oled->font->FontHeight, 128, oled->font->FontHeight, false);
-    OLED_SetCursor(oled, 41, 29 - oled->font->FontHeight);
-    OLED_DrawStr(oled, dirStr, false);
+    Oled_ClearBox(0, 29 - Oled_FontHeight(), 128, Oled_FontHeight());
+    ssd1306_SetCursor(41, 29 - Oled_FontHeight());
+    Oled_DrawStr(dirStr);
 
     // Línea 3: barra
-    OLED_ClearBox(oled, 5,  34, 116, 11, false);
-    OLED_DrawFrame(oled, 5, 34, 116, 11, false);
+    Oled_ClearBox(5,  34, 116, 11);
+    Oled_DrawFrame(5, 34, 116, 11);
 
     // Línea 4: relleno o PARADO
     if (IS_FLAG_SET(motorTask.motorData.flags, ENABLE_MOVEMENT)) {
@@ -260,7 +279,7 @@ void OledUtils_MotorTest_Changes(OLED_HandleTypeDef *oled) {
                         ? motorTask.motorData.motorRight.motorSpeed
                         : motorTask.motorData.motorLeft.motorSpeed;
         uint8_t barW = (uint16_t)speed * 116 / 255;
-        OLED_DrawBox(oled, 5, 34, barW, 11, false);
+        Oled_DrawBox(5, 34, barW, 11);
 
         uint8_t pct = (uint16_t)speed * 100 / 255;
         snprintf(speedStr, sizeof(speedStr), "%3u%%", pct);
@@ -269,12 +288,12 @@ void OledUtils_MotorTest_Changes(OLED_HandleTypeDef *oled) {
     }
 
     // Línea 5: porcentaje o estado
-    OLED_ClearBox(oled, 0, 57 - oled->font->FontHeight, 128, oled->font->FontHeight, false);
-    OLED_SetCursor(oled, 50, 57 - oled->font->FontHeight);
-    OLED_DrawStr(oled, speedStr, false);
+    Oled_ClearBox(0, 57 - Oled_FontHeight(), 128, Oled_FontHeight());
+    ssd1306_SetCursor(50, 57 - Oled_FontHeight());
+    Oled_DrawStr(speedStr);
 }
 
-void OledUtils_RenderVerticalMenu(OLED_HandleTypeDef *oled, MenuSystem *ms) {
+void OledUtils_RenderVerticalMenu(MenuSystem *ms) {
     SubMenu *menu = ms->currentMenu;
     uint8_t idx        = menu->currentItemIndex;
     uint8_t page       = idx / MENU_VISIBLE_ITEMS;
@@ -283,8 +302,8 @@ void OledUtils_RenderVerticalMenu(OLED_HandleTypeDef *oled, MenuSystem *ms) {
     if (last > menu->itemCount) last = menu->itemCount;
 
     // 1) Limpiar pantalla
-    OLED_ClearBuffer(oled, false);
-    OLED_SetFont(&oledTask, &Font_6x12_Min);
+    OledUtils_Clear();
+    Oled_SetFont(&Font_6x12_Min);
 
     // 2) Dibujar los items visibles
     for (uint8_t i = first; i < last; i++) {
@@ -294,30 +313,25 @@ void OledUtils_RenderVerticalMenu(OLED_HandleTypeDef *oled, MenuSystem *ms) {
 
         // 2.1) Icono
         if (menu->items[i].icon) {
-            OLED_DrawXBM(oled,
-                         ICON_X,
-                         y + ICON_Y_OFFSET,
-                         ICON_WIDTH,
-                         ICON_HEIGHT,
-                         menu->items[i].icon,
-                         false);
+            Oled_DrawXBM(
+                ICON_X,
+                y + ICON_Y_OFFSET,
+                ICON_WIDTH,
+                ICON_HEIGHT,
+                menu->items[i].icon
+            );
         }
 
         // 2.2) Texto
-        // Texto a la derecha del icono
-        OLED_SetCursor(oled,
-                       ICON_X + ICON_WIDTH + 8,  // ajusta separación si quieres
-                       y);
-        OLED_DrawStr(oled,
-                     menu->items[i].name,
-                     false);
+        ssd1306_SetCursor(
+            ICON_X + ICON_WIDTH + 8,
+            y
+        );
+        Oled_DrawStr(menu->items[i].name);
 
         // opcional: dibujar un recuadro si está seleccionado
         if (selected) {
-            OLED_DrawFrame(oled,
-                          0, y - 3,           // ajusta si tu fontHeight difiere
-                          OLED_WIDTH, 20,
-                          false);
+            Oled_DrawFrame(0, y - 3, SSD1306_WIDTH, 20);
         }
     }
 
@@ -325,26 +339,20 @@ void OledUtils_RenderVerticalMenu(OLED_HandleTypeDef *oled, MenuSystem *ms) {
     {
         uint8_t cursorPos = idx % MENU_VISIBLE_ITEMS;  // 0..2
         int     cy        = MENU_ITEM_Y0 + cursorPos * MENU_ITEM_SPACING;
-        OLED_DrawXBM(oled,
-                     CURSOR_X,
-                     cy,
-                     CURSOR_WIDTH,
-                     CURSOR_HEIGHT,
-                     Icon_Cursor_bits,
-                     false);
+        Oled_DrawXBM(CURSOR_X, cy, CURSOR_WIDTH, CURSOR_HEIGHT, Icon_Cursor_bits);
     }
 }
 
-void OledUtils_Clear(OLED_HandleTypeDef *oled, bool is_overlay) {
-    OLED_ClearBuffer(oled, is_overlay);
+void OledUtils_Clear(void) {
+    ssd1306_Clear();
 }
 
 /**
  * @brief  Dibuja un ítem de menú (texto + icono + cursor) directamente desde el MenuItem.
  */
-void OledUtils_DrawItem(OLED_HandleTypeDef *oled, const MenuItem *item, uint8_t y, bool selected) {
+void OledUtils_DrawItem(const MenuItem *item, uint8_t y, bool selected) {
     // 1) dibujar el marco alrededor del ítem
-    OLED_DrawFrame(oled, 0, y - 3, 128, 20, false);
+    Oled_DrawFrame(0, y - 3, 128, 20);
 
     // 2) dibujar el icono (si lo hay)
     if (item->icon) {
@@ -356,251 +364,183 @@ void OledUtils_DrawItem(OLED_HandleTypeDef *oled, const MenuItem *item, uint8_t 
         else {
             iconW = 16; iconH = 16;
         }
-        OLED_DrawXBM(oled, 6, y - 1, iconW, iconH, item->icon, false);
+        Oled_DrawXBM(6, y - 1, iconW, iconH, item->icon);
     }
 
     // 3) dibujar el texto
-    OLED_SetCursor(oled, 31, y);
-    OLED_DrawStr(oled, (char*)item->name, false);
+    Oled_SetFont(&Font_6x12_Min);
+    ssd1306_SetCursor(31, y);
+    Oled_DrawStr((char*)item->name);
 
     // 4) dibujar o borrar el cursor
     const uint8_t CUR_W = 7, CUR_H = 16;
     const uint8_t CUR_X = 117, CUR_Y = y;
     if (selected) {
-        OLED_DrawXBM(oled, CUR_X, CUR_Y, CUR_W, CUR_H, Icon_Cursor_bits, false);
+        Oled_DrawXBM(CUR_X, CUR_Y, CUR_W, CUR_H, Icon_Cursor_bits);
     } else {
         // limpia el área anterior del cursor
-        OLED_ClearBox(oled, CUR_X, CUR_Y, CUR_W, CUR_H, false);
+        Oled_ClearBox(CUR_X, CUR_Y, CUR_W, CUR_H);
     }
 }
 
 
 /**
- * @brief  Dibuja el menú en pantalla superpuesta (como en u8g2).
+ * @brief  Dibuja el menú en pantalla.
  */
 void displayMenuCustom(MenuSystem *system)
 {
-
+    (void)system;
 }
 
 
-void OledUtils_RenderDashboard(OLED_HandleTypeDef *oled)
+void OledUtils_RenderDashboard(void)
 {
-    OLED_SetFont(oled, &Font_6x12_Min);
-	if(IS_FLAG_SET(systemFlags2, WIFI_ACTIVE)){
-	    OLED_DrawXBM(oled,  1,  2, 19, 16, Icon_Wifi_bits,   false);
-	    OLED_SetCursor(oled,
-	                   21,
-	                   10  - oled->font->FontHeight);
-	    OLED_DrawStr(oled, "Wifi name", false);
+    Oled_SetFont(&Font_6x12_Min);
+    const uint8_t fh = Oled_FontHeight();
+    if(IS_FLAG_SET(systemFlags2, WIFI_ACTIVE)){
+        Oled_DrawXBM(1, 2, 19, 16, Icon_Wifi_bits);
+        ssd1306_SetCursor(21, 10 - fh);
+        Oled_DrawStr("Wifi name");
 
-	    /* Texto “192.168.1.1” (fuente 6×12, baseline y=18) */
-	    OLED_SetCursor(oled,
-	                   18,
-	                   20 - oled->font->FontHeight);
-	    OLED_DrawStr(oled, "192.168.1.1", false);
-	}else if(IS_FLAG_SET(systemFlags2, AP_ACTIVE)){
-		OLED_DrawXBM(oled,	1,  2, 15, 16, Icon_APWifi_bits, false);
-	    OLED_SetCursor(oled,
-	                   21,
-	                   10  - oled->font->FontHeight);
-	    OLED_DrawStr(oled, "AP name", false);
+        /* Texto “192.168.1.1” (fuente 6×12, baseline y=18) */
+        ssd1306_SetCursor(18, 20 - fh);
+        Oled_DrawStr("192.168.1.1");
+    }else if(IS_FLAG_SET(systemFlags2, AP_ACTIVE)){
+        Oled_DrawXBM(1, 2, 15, 16, Icon_APWifi_bits);
+        ssd1306_SetCursor(21, 10 - fh);
+        Oled_DrawStr("AP name");
 
-	    /* Texto “192.168.1.1” (fuente 6×12, baseline y=18) */
-	    OLED_SetCursor(oled,
-	                   18,
-	                   20 - oled->font->FontHeight);
-	    OLED_DrawStr(oled, "10.100.100.1", false);
-	}
-	if(IS_FLAG_SET(systemFlags2, USB_ACTIVE)){
-		OLED_DrawXBM(oled, 91,  2, 16, 16, Icon_USB_bits,    false);
-	}
-	if(IS_FLAG_SET(systemFlags2, RF_ACTIVE)){
-		OLED_DrawXBM(oled, 110,  2, 17, 16, Icon_RF_bits,    false);
-	}
-    /* Texto “Wifi name” (fuente 6×12, baseline y=8) */
-    /* Línea horizontal en y=20, de x=1 a x=125 */
-    OLED_DrawHLine(oled,
-                   1,    /* x */
-                   20,   /* y */
-                   125,  /* width = 125 pixels (1..125 inclusive) */
-                   false);
-    /* Texto “Inicio” (fuente 14×17, baseline y=37) */
-    OLED_SetFont(oled, &Font_14x17_Min);
-    OLED_SetCursor(oled,
-                   25,
-                   42 - oled->font->FontHeight);
-    OLED_DrawStr(oled, "Inicio", false);
-    /* Icono “UserBtn” (15×16 px) */
-    OLED_DrawXBM(oled,
-                 4,    /* x */
-                 44,   /* y */
-                 15,   /* width */
-                 16,   /* height */
-                 Icon_UserBtn_bits,
-                 false);
+        /* Texto “192.168.1.1” (fuente 6×12, baseline y=18) */
+        ssd1306_SetCursor(18, 20 - fh);
+        Oled_DrawStr("10.100.100.1");
+    }
+    if(IS_FLAG_SET(systemFlags2, USB_ACTIVE)){
+        Oled_DrawXBM(91, 2, 16, 16, Icon_USB_bits);
+    }
+    if(IS_FLAG_SET(systemFlags2, RF_ACTIVE)){
+        Oled_DrawXBM(110, 2, 17, 16, Icon_RF_bits);
+    }
+    ssd1306_DrawHorizontalLine(1, 20, 125);
 
-    /* Texto “Menu” (fuente 6×12, baseline y=55) */
-    OLED_SetFont(oled, &Font_6x12_Min);
-    OLED_SetCursor(oled,
-                   24,        /* x */
-                   58 - oled->font->FontHeight /* y = baseline - font height */);
-    OLED_DrawStr(oled, "Menu", false);
+    Oled_SetFont(&Font_14x17_Min);
+    ssd1306_SetCursor(25, 42 - Oled_FontHeight());
+    Oled_DrawStr("Inicio");
 
-    /* Texto “Modo” (misma fuente, baseline y=55) */
-    OLED_SetCursor(oled,
-                   83,
-                   58 - oled->font->FontHeight);
-    OLED_DrawStr(oled, "Modo", false);
+    Oled_DrawXBM(4, 44, 15, 16, Icon_UserBtn_bits);
 
-    /* Icono “Encoder” (13×13 px) */
-    OLED_DrawXBM(oled,
-                 111,
-                 45,
-                 13,
-                 13,
-                 Icon_Encoder_bits,
-                 false);
+    Oled_SetFont(&Font_6x12_Min);
+    ssd1306_SetCursor(24, 58 - Oled_FontHeight());
+    Oled_DrawStr("Menu");
+
+    ssd1306_SetCursor(83, 58 - Oled_FontHeight());
+    Oled_DrawStr("Modo");
+
+    Oled_DrawXBM(111, 45, 13, 13, Icon_Encoder_bits);
 }
 
 
-/**
- * @brief  Dibuja “VALORES MPU” centrado tanto horizontal como verticalmente.
- * @param  oled     Puntero al handle del driver OLED
- * @param  mpuData  (no usado aquí, pero se deja por consistencia)
- */
 /**
  * @brief  Dibuja todos los valores del MPU (raw y ángulos) alineados en 3 filas.
  */
-void OledUtils_RenderValoresMPUScreen(OLED_HandleTypeDef *oled, MPU6050_Handle_t *mpu)
+void OledUtils_RenderValoresMPUScreen(MPU6050_Handle_t *mpu)
 {
     char buf[8];
-    const uint8_t fw = oled->font->FontWidth;
-    const uint8_t fh = oled->font->FontHeight;
+    Oled_SetFont(&Font_6x12_Min);
+    const uint8_t fw = Oled_FontWidth();
+    const uint8_t fh = Oled_FontHeight();
     const uint8_t val_width  = fw * 5;  // espacio para “-16384” o “-180”
     const uint8_t val_height = fh;
-    // Coordenadas de las tres columnas de valores:
     const uint8_t colA = 20;
     const uint8_t colG = 50;
     const uint8_t colD = 100;
-    // Ancho total desde columna A hasta el final de DEG:
     const uint8_t total_width = (colD + val_width) - colA;
 
     // 1) Título “Sensor MPU”
-    OLED_SetFont(oled, &Font_6x12_Min);
-    OLED_SetCursor(oled, 5, 14 - fh);
-    OLED_DrawStr(oled, "Sensor MPU", false);
+    ssd1306_SetCursor(5, 14 - fh);
+    Oled_DrawStr("Sensor MPU");
 
     // 2) Estado de calibración
-    // Limpiamos toda la zona donde se mostrará el estado
-    OLED_ClearBox(oled,
-                  70,                  // x
-                  14 - fh,             // y = baseline – fontHeight
-                  57,   // ancho fijo 70+57 = 127 = ancho total de la fila
-                  fh,                  // alto = fontHeight
-                  false);
-    // Ahora pintamos el estado
-    OLED_SetCursor(oled, 70, 14 - fh);
-    OLED_DrawStr(oled, IS_FLAG_SET(mpu->flags, CALIBRATED)
+    Oled_ClearBox(70, 14 - fh, 57, fh);
+    ssd1306_SetCursor(70, 14 - fh);
+    Oled_DrawStr(IS_FLAG_SET(mpu->flags, CALIBRATED)
             ? "Calib."
-            : "No calib.", false);
+            : "No calib.");
 
     // 3) Cabeceras de columna: A (acel), G (gyro), DEG (ángulo)
-    OLED_SetCursor(oled, colA, 28 - fh); OLED_DrawStr(oled, "A",   false);
-    OLED_SetCursor(oled, colG, 28 - fh); OLED_DrawStr(oled, "G",   false);
-    OLED_SetCursor(oled, colD, 28 - fh); OLED_DrawStr(oled, "DEG", false);
+    ssd1306_SetCursor(colA, 28 - fh); Oled_DrawStr("A");
+    ssd1306_SetCursor(colG, 28 - fh); Oled_DrawStr("G");
+    ssd1306_SetCursor(colD, 28 - fh); Oled_DrawStr("DEG");
 
     // 4) Etiquetas de fila X/Y/Z (columna etiquetas)
-    OLED_SetCursor(oled, 5,  38 - fh); OLED_DrawStr(oled, "X", false);
-    OLED_SetCursor(oled, 5,  48 - fh); OLED_DrawStr(oled, "Y", false);
-    OLED_SetCursor(oled, 5,  58 - fh); OLED_DrawStr(oled, "Z", false);
-
-    // 5) Para cada fila (X, Y, Z) limpiamos toda la zona de valores y luego dibujamos A, G y DEG
+    ssd1306_SetCursor(5,  38 - fh); Oled_DrawStr("X");
+    ssd1306_SetCursor(5,  48 - fh); Oled_DrawStr("Y");
+    ssd1306_SetCursor(5,  58 - fh); Oled_DrawStr("Z");
 
     // fila X
-    OLED_ClearBox(oled, colA, 38 - fh, total_width, val_height, false);
-    //   Aceleración X
-    OLED_SetCursor(oled, colA, 38 - fh);
+    Oled_ClearBox(colA, 38 - fh, total_width, val_height);
+    ssd1306_SetCursor(colA, 38 - fh);
     snprintf(buf, sizeof(buf), "%d", mpu->data.accel_x_mg);
-    OLED_DrawStr(oled, buf, false);
-    //   Giroscopio X
-    OLED_SetCursor(oled, colG, 38 - fh);
+    Oled_DrawStr(buf);
+    ssd1306_SetCursor(colG, 38 - fh);
     snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_x_mdps);
-    OLED_DrawStr(oled, buf, false);
-    //   Ángulo X
+    Oled_DrawStr(buf);
     {
       int32_t ang = (mpu->angle_x_md/1000) % 360;
       if (ang > 180) ang -= 360;
       if (ang < -180) ang += 360;
-      OLED_SetCursor(oled, colD, 38 - fh);
+      ssd1306_SetCursor(colD, 38 - fh);
       snprintf(buf, sizeof(buf), "%d", ang);
-      OLED_DrawStr(oled, buf, false);
+      Oled_DrawStr(buf);
     }
 
     // fila Y
-    OLED_ClearBox(oled, colA, 48 - fh, total_width, val_height, false);
-    OLED_SetCursor(oled, colA, 48 - fh);
+    Oled_ClearBox(colA, 48 - fh, total_width, val_height);
+    ssd1306_SetCursor(colA, 48 - fh);
     snprintf(buf, sizeof(buf), "%d", mpu->data.accel_y_mg);
-    OLED_DrawStr(oled, buf, false);
-    OLED_SetCursor(oled, colG, 48 - fh);
+    Oled_DrawStr(buf);
+    ssd1306_SetCursor(colG, 48 - fh);
     snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_y_mdps);
-    OLED_DrawStr(oled, buf, false);
+    Oled_DrawStr(buf);
     {
       int32_t ang = (mpu->angle_y_md/1000) % 360;
       if (ang > 180) ang -= 360;
       if (ang < -180) ang += 360;
-      OLED_SetCursor(oled, colD, 48 - fh);
+      ssd1306_SetCursor(colD, 48 - fh);
       snprintf(buf, sizeof(buf), "%d", ang);
-      OLED_DrawStr(oled, buf, false);
+      Oled_DrawStr(buf);
     }
 
     // fila Z
-    OLED_ClearBox(oled, colA, 58 - fh, total_width, val_height, false);
-    OLED_SetCursor(oled, colA, 58 - fh);
+    Oled_ClearBox(colA, 58 - fh, total_width, val_height);
+    ssd1306_SetCursor(colA, 58 - fh);
     snprintf(buf, sizeof(buf), "%d", mpu->data.accel_z_mg);
-    OLED_DrawStr(oled, buf, false);
-    OLED_SetCursor(oled, colG, 58 - fh);
+    Oled_DrawStr(buf);
+    ssd1306_SetCursor(colG, 58 - fh);
     snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_z_mdps);
-    OLED_DrawStr(oled, buf, false);
+    Oled_DrawStr(buf);
     {
       int32_t ang = (mpu->angle_z_md/1000) % 360;
       if (ang > 180) ang -= 360;
       if (ang < -180) ang += 360;
-      OLED_SetCursor(oled, colD, 58 - fh);
+      ssd1306_SetCursor(colD, 58 - fh);
       snprintf(buf, sizeof(buf), "%d", ang);
-      OLED_DrawStr(oled, buf, false);
+      Oled_DrawStr(buf);
     }
 }
 
-void OledUtils_RenderLockScreen(OLED_HandleTypeDef *oled) {
-    if (!oled) return;
+void OledUtils_RenderLockScreen(void) {
+    // 1) Limpiar pantalla
+    OledUtils_Clear();
 
-    // 1) Activar overlay sin timeout (dura hasta que lo escondamos)
-    OLED_ActivateOverlay(oled, 0);
+    // 2) Texto “Pantalla”
+    Oled_SetFont(&Font_14x17_Min);
+    ssd1306_SetCursor(28, 42 - Oled_FontHeight());
+    Oled_DrawStr("Pantalla");
 
-    // 2) Limpiar sólo la capa OVERLAY
-    OLED_ClearBuffer(oled, true);
+    // 3) Texto “bloqueada”
+    ssd1306_SetCursor(23, 56 - Oled_FontHeight());
+    Oled_DrawStr("bloqueada");
 
-    // 3) Texto “Pantalla” (fuente 14×17, dibuja desde esquina superior,
-    //    así que restamos la altura para que la línea base quede a y=42)
-    OLED_SetFont(oled, &Font_14x17_Min);
-    OLED_SetCursor(oled,
-                   28,
-                   42 - oled->font->FontHeight);
-    OLED_DrawStr(oled, "Pantalla", true);
-
-    // 4) Texto “bloqueada” (misma fuente, línea base a y=56)
-    OLED_SetCursor(oled,
-                   23,
-                   56 - oled->font->FontHeight);
-    OLED_DrawStr(oled, "bloqueada", true);
-
-    // 5) Icono de candado en overlay
-    OLED_DrawXBM(oled,
-                 LOCK_ICON_X, LOCK_ICON_Y,
-                 LOCK_ICON_W, LOCK_ICON_H,
-                 Icon_Lock_bits,
-                 true);
+    // 4) Icono de candado
+    Oled_DrawXBM(LOCK_ICON_X, LOCK_ICON_Y, LOCK_ICON_W, LOCK_ICON_H, Icon_Lock_bits);
 }
-
-

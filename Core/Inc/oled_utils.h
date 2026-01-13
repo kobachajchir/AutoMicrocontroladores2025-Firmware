@@ -8,18 +8,10 @@
 #ifndef INC_OLED_UTILS_H_
 #define INC_OLED_UTILS_H_
 
-// oled_menu.h
-#ifndef OLED_MENU_H
-#define OLED_MENU_H
-
 #include "menusystem.h"
-#include "oled_ssd1306_dma.h"
-#include "oled_utils.h"      // para OLED_DrawIRGraph, etc.
-#include "globals.h"
-#include <stdint.h>
+#include "mpu6050.h"
 #include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
+#include <stdint.h>
 
 /**
  * @brief  Wrapper para la pantalla de Valores MPU.
@@ -32,35 +24,36 @@ void renderDashboard_Wrapper(void);
 // ─── Funciones de despliegue ─────────────────────────────────────────────────
 
 /**
- * @brief  Dibuja el menú en pantalla superpuesta (estilo u8g2) usando oledTask.
+ * @brief  Dibuja el menú en pantalla (estilo u8g2).
  * @param  system  Puntero al MenuSystem activo
  */
 void displayMenuCustom(MenuSystem *system);
 
-void OledUtils_RenderVerticalMenu(OLED_HandleTypeDef *oled, MenuSystem *ms);
+void OledUtils_RenderVerticalMenu(MenuSystem *ms);
 
-void OledUtils_RenderDashboard(OLED_HandleTypeDef *oled);
+void OledUtils_RenderDashboard(void);
 
-void OledUtils_Clear(OLED_HandleTypeDef *oled, bool is_overlay);
+void OledUtils_Clear(void);
 
-void OledUtils_DrawItem(OLED_HandleTypeDef *oled, const MenuItem *item, uint8_t y, bool selected);
+void OledUtils_DrawItem(const MenuItem *item, uint8_t y, bool selected);
 
-void OledUtils_RenderValoresMPUScreen(OLED_HandleTypeDef *oled, MPU6050_Handle_t *mpu);
+void OledUtils_RenderValoresMPUScreen(MPU6050_Handle_t *mpu);
 
-void OledUtils_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
+void OledUtils_DrawIRGraph(volatile uint16_t *irValues);
 
-void OledUtils_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
+void OledUtils_DrawIRBars(volatile uint16_t *irValues);
 
-void OledUtils_MotorTest_Complete(OLED_HandleTypeDef *oled);
+void OledUtils_RenderRadarGraph(volatile uint16_t *irValues);
+void OledUtils_RenderRadarGraph_Objs(volatile uint16_t *irValues);
 
-void OledUtils_MotorTest_Changes(OLED_HandleTypeDef *oled);
+void OledUtils_MotorTest_Complete(void);
 
-void OledUtils_EnableContinuousRender(OLED_HandleTypeDef *oled);
-void OledUtils_DisableContinuousRender(OLED_HandleTypeDef *oled, On_OLED_RenderPagesComplete cb);
+void OledUtils_MotorTest_Changes(void);
 
-void OledUtils_RenderLockScreen(OLED_HandleTypeDef *oled);
+void OledUtils_EnableContinuousRender(void);
+void OledUtils_DisableContinuousRender(void);
 
-#endif // OLED_MENU_H
-
+void OledUtils_RenderLockScreen(void);
+void OledUtils_RenderLockState(uint8_t lockState);
 
 #endif /* INC_OLED_UTILS_H_ */

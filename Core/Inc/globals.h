@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
 #include "types/button_state.h"
 #include "encoder.h"
 #include "types/led_status.h"
@@ -12,7 +13,7 @@
 #include "utils/macros_utils.h"
 #include "tcrt5000.h"
 #include "motor_control.h"
-#include "oled_ssd1306_dma.h"
+#include "i2c_manager.h"
 #include "menusystem.h"
 #include "mpu6050.h"
 #include "uner_protocol.h"
@@ -106,7 +107,8 @@ extern volatile uint8_t motorDir; // 0: adelante, 1: atrás
 extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;
 extern MotorControl_Handle motorTask;
-extern OLED_HandleTypeDef oledTask;
+extern I2C_ManagerHandle i2cManager;
+extern volatile bool oled_first_draw;
 extern MPU6050_Handle_t mpuTask;
 extern ButtonState_t btnUser;
 extern ENC_Handle_t encoder;

@@ -304,3 +304,8 @@ static const uint16_t Font16x26 [] = {
 FontDef Font_7x10 = {7,10,Font7x10};
 FontDef Font_11x18 = {11,18,Font11x18};
 FontDef Font_16x26 = {16,26,Font16x26};
+
+const FontDef Font_5x10_Min = {7, 10, Font7x10};
+const FontDef Font_6x12_Min = {7, 10, Font7x10};
+const FontDef Font_14x17_Min = {11, 18, Font11x18};
+const FontDef Font_16x29_Min = {16, 26, Font16x26};

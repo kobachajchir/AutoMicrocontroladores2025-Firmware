@@ -92,7 +92,7 @@ void MPU6050_CheckTrigger(MPU6050_Handle_t *hmpu) {
         *(hmpu->trigger) = false;
         /* Pido TX bus */
         if(hmpu->request_cb){
-        	hmpu->request_cb(I2C_REQ_TYPE_TX_RX);
+        	hmpu->request_cb();
         }
     }
 }
@@ -196,6 +196,5 @@ void MPU6050_CalibrateGyro(MPU6050_Handle_t *h, uint16_t samples) {
     *(h->trigger) = true;
     __NOP();
 }
-
 
 

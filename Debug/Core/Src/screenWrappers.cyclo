@@ -1,9 +1,0 @@
-../Core/Src/screenWrappers.c:179:6:onRenderComplete	2
-../Core/Src/screenWrappers.c:14:6:OledUtils_DrawItem_Wrapper	1
-../Core/Src/screenWrappers.c:25:6:OledUtils_RenderDashboard_Wrapper	1
-../Core/Src/screenWrappers.c:53:6:MenuSys_RenderMenu_Wrapper	4
-../Core/Src/screenWrappers.c:100:6:MenuSys_GoBack_Wrapper	1
-../Core/Src/screenWrappers.c:104:6:OledUtils_RenderMotorTest_Wrapper	2
-../Core/Src/screenWrappers.c:121:6:OledUtils_RenderRadar_Wrapper	2
-../Core/Src/screenWrappers.c:140:6:OledUtils_RenderValoresIR_Wrapper	2
-../Core/Src/screenWrappers.c:162:6:OledUtils_RenderValoresMPU_Wrapper	2
