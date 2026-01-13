@@ -82,7 +82,7 @@ typedef union {
 
 /** Callback que se ejecuta cuando los datos del MPU6050 están listos. */
 typedef void (*MPU6050_Callback)(void);
-typedef void (*I2C_Request_Bus_Use)(uint8_t req_is_tx);
+typedef void (*I2C_Request_Bus_Use)(void);
 typedef void (*I2C_Release_Bus_Use)(void);
 typedef void (*I2C_RequestApprovedCb)(void);
 typedef void (*I2C_TransferCompleteCb)(uint8_t is_tx);
@@ -117,8 +117,8 @@ typedef struct {
     MPU6050_Callback   on_data_ready_cb;
 
     /** Callbacks para el arbitraje I2C */
-    I2C_Request_Bus_Use      request_cb;   ///< Wrapper: I2C_Manager_RequestAccessRX
-    I2C_Release_Bus_Use      release_cb;   ///< Wrapper: I2C_Manager_ReleaseBusRX
+    I2C_Request_Bus_Use      request_cb;   ///< Wrapper: I2C_Manager_RequestBus
+    I2C_Release_Bus_Use      release_cb;   ///< Wrapper: I2C_Manager_ReleaseBus
 
     uint16_t dt_div;
 
@@ -185,4 +185,3 @@ void MPU_GrantAccessCallback(MPU6050_Handle_t *hmpu);
 #endif
 
 #endif /* INC_MPU6050_H_ */
-
