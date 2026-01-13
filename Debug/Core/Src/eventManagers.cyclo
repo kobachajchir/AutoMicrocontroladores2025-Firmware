@@ -1,3 +1,0 @@
-../Core/Src/eventManagers.c:12:6:dashboardEventManager	2
-../Core/Src/eventManagers.c:34:6:menuEventManager	6
-../Core/Src/eventManagers.c:64:6:motorTestEventManager	17
