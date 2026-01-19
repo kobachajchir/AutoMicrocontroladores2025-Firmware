@@ -21,6 +21,8 @@
 #ifndef __STM32F1xx_HAL_CONF_H
 #define __STM32F1xx_HAL_CONF_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
  extern "C" {
 #endif
@@ -388,4 +390,3 @@ void assert_failed(uint8_t* file, uint32_t line);
 #endif
 
 #endif /* __STM32F1xx_HAL_CONF_H */
-
