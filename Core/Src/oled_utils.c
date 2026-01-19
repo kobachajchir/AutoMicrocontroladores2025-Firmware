@@ -9,6 +9,7 @@
 #include "globals.h"
 #include "mpu6050.h"
 #include "ssd1306.h"
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -489,7 +490,7 @@ void OledUtils_RenderValoresMPUScreen(MPU6050_Handle_t *mpu)
       if (ang > 180) ang -= 360;
       if (ang < -180) ang += 360;
       ssd1306_SetCursor(colD, 38 - fh);
-      snprintf(buf, sizeof(buf), "%d", ang);
+      snprintf(buf, sizeof(buf), "%" PRId32, ang);
       Oled_DrawStr(buf);
     }
 
@@ -506,7 +507,7 @@ void OledUtils_RenderValoresMPUScreen(MPU6050_Handle_t *mpu)
       if (ang > 180) ang -= 360;
       if (ang < -180) ang += 360;
       ssd1306_SetCursor(colD, 48 - fh);
-      snprintf(buf, sizeof(buf), "%d", ang);
+      snprintf(buf, sizeof(buf), "%" PRId32, ang);
       Oled_DrawStr(buf);
     }
 
@@ -523,7 +524,7 @@ void OledUtils_RenderValoresMPUScreen(MPU6050_Handle_t *mpu)
       if (ang > 180) ang -= 360;
       if (ang < -180) ang += 360;
       ssd1306_SetCursor(colD, 58 - fh);
-      snprintf(buf, sizeof(buf), "%d", ang);
+      snprintf(buf, sizeof(buf), "%" PRId32, ang);
       Oled_DrawStr(buf);
     }
 }
