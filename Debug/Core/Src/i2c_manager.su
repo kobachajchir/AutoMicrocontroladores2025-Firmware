@@ -1,0 +1,14 @@
+../Core/Src/i2c_manager.c:19:16:find_index	0	static
+../Core/Src/i2c_manager.c:70:13:grant_to_index	16	static
+../Core/Src/i2c_manager.c:45:16:pick_next_pending_index.constprop	8	static
+../Core/Src/i2c_manager.c:85:19:I2C_Manager_Init	0	static
+../Core/Src/i2c_manager.c:105:19:I2C_Manager_RegisterDevice	24	static
+../Core/Src/i2c_manager.c:141:19:I2C_Manager_RequestBus	8	static
+../Core/Src/i2c_manager.c:165:19:I2C_Manager_ReleaseBus	8	static
+../Core/Src/i2c_manager.c:188:14:I2C_Manager_GetOwner	0	static
+../Core/Src/i2c_manager.c:194:10:I2C_Manager_GetAddress7	8	static
+../Core/Src/i2c_manager.c:202:19:I2C_Manager_IsAddressReady	0	static
+../Core/Src/i2c_manager.c:209:6:I2C_Manager_OnTxCplt	0	static
+../Core/Src/i2c_manager.c:222:6:I2C_Manager_OnRxCplt	0	static
+../Core/Src/i2c_manager.c:235:6:I2C_Manager_OnError	8	static
+../Core/Src/i2c_manager.c:261:6:I2C_Manager_Tick	8	static

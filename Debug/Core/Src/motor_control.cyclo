@@ -1,0 +1,9 @@
+../Core/Src/motor_control.c:16:19:Motor_Init	6
+../Core/Src/motor_control.c:73:6:Motor_SetLeftForward	7
+../Core/Src/motor_control.c:84:6:Motor_SetLeftBackward	7
+../Core/Src/motor_control.c:95:6:Motor_SetRightForward	7
+../Core/Src/motor_control.c:106:6:Motor_SetRightBackward	7
+../Core/Src/motor_control.c:116:6:Motor_StopLeft	7
+../Core/Src/motor_control.c:126:6:Motor_StopRight	7
+../Core/Src/motor_control.c:136:6:Motor_StopBoth	1
+../Core/Src/motor_control.c:148:6:Motor_SetBoth	2

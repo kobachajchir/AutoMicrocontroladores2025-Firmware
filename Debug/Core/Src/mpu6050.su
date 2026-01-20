@@ -1,0 +1,9 @@
+../Core/Src/mpu6050.c:21:19:MPU6050_Init	16	static
+../Core/Src/mpu6050.c:59:19:MPU6050_Configure	48	static
+../Core/Src/mpu6050.c:89:6:MPU6050_CheckTrigger	0	static
+../Core/Src/mpu6050.c:100:26:MPU6050_GetData	0	static
+../Core/Src/mpu6050.c:104:6:MPU6050_Convert	20	static
+../Core/Src/mpu6050.c:140:6:MPU_DMA_CompleteCallback	8	static,ignoring_inline_asm
+../Core/Src/mpu6050.c:163:6:MPU_GrantAccessCallback	8	static,ignoring_inline_asm
+../Core/Src/mpu6050.c:175:19:MPU6050_ReadWhoAmI	24	static
+../Core/Src/mpu6050.c:186:6:MPU6050_CalibrateGyro	0	static,ignoring_inline_asm

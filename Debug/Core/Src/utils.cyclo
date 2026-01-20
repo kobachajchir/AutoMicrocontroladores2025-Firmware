@@ -1,0 +1,14 @@
+../Core/Src/utils.c:15:6:HAL_UART_TxCpltCallback	2
+../Core/Src/utils.c:30:6:HAL_UART_RxCpltCallback	2
+../Core/Src/utils.c:23:6:HAL_UART_RxHalfCpltCallback	1
+../Core/Src/utils.c:42:6:HAL_I2C_MasterTxCpltCallback	1
+../Core/Src/utils.c:37:6:HAL_I2C_MemTxCpltCallback	1
+../Core/Src/utils.c:46:6:HAL_I2C_MasterRxCpltCallback	1
+../Core/Src/utils.c:50:6:HAL_I2C_ErrorCallback	1
+../Core/Src/utils.c:93:6:TCRTCalibCounter_Task	6
+../Core/Src/utils.c:124:6:HAL_ADC_ConvCpltCallback	2
+../Core/Src/utils.c:131:6:OLED_Task_10ms	2
+../Core/Src/utils.c:146:6:StateLED_Task_10ms	5
+../Core/Src/utils.c:193:6:Button_Task_10ms	14
+../Core/Src/utils.c:55:6:HAL_TIM_PeriodElapsedCallback	8
+../Core/Src/utils.c:239:6:Handle_ModeChange_ByButton	4
