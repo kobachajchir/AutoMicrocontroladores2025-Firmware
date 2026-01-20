@@ -13,7 +13,6 @@
 #include "../types/bitmap_type.h"
 #include "../types/carmode_type.h"
 
-
 // ====================== Máscaras ========================= //
 
 // --- Bits individuales ---

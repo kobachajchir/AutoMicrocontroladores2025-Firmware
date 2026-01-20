@@ -29,6 +29,12 @@ typedef union {
         uint8_t bit7: 1;  ///< Bit 7  (parte alta)
     } bitmap;            ///< Acceso individual a cada bit
     struct {
+        uint8_t bitPairL: 2; ///< Bit pair bajo  (bits 0–1)
+        uint8_t bitPairCL: 2; ///< Bit pair centro bajo (bits 2–3)
+        uint8_t bitPairCH: 2; ///< Bit pair centro alto  (bits 4–5)
+        uint8_t bitPairH: 2; ///< Bit pair alto  (bits 6–7)
+    } bitPair;
+    struct {
         uint8_t bitL: 4; ///< Nibble bajo  (bits 0–3)
         uint8_t bitH: 4; ///< Nibble alto  (bits 4–7)
     } nibbles;           ///< Acceso a cada nibble

@@ -13,6 +13,11 @@
 #include "types/carmode_type.h"
 
 // ================== Prototipos ================== //
+/**
+ * @brief Tarea periódica.
+ *        Verifica el estado el task de los TCRT para ver si hay que calibrar por tiempo.
+ */
+void TCRTCalibCounter_Task(void);
 
 /**
  * @brief Tarea periódica cada 10 ms.
@@ -35,5 +40,7 @@ void StateLED_Task_10ms(volatile LedStatus_t *led);
  * @param led Puntero al LED de estado.
  */
 void Handle_ModeChange_ByButton(volatile ButtonState_t *btn, volatile LedStatus_t *led);
+
+void OLED_Task_10ms();
 
 #endif /* INC_UTILS_H_ */

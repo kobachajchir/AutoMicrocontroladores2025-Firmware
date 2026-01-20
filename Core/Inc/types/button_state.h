@@ -9,9 +9,10 @@
 #define INC_TYPES_BUTTON_STATE_H_
 
 #include <stdint.h>
-#include "globals.h"
 #include "bitmap_type.h"
 #include "utils/macros_utils.h"
+#include "stm32f1xx.h"
+#include "stm32f1xx_hal_gpio.h"
 
 // ---------------- Máscaras para banderas de usuario (nibble bajo) ----------------
 // Estas máscaras usan bits 0..3 de Byte_Flag_Struct.byte:
@@ -31,6 +32,8 @@
 typedef struct {
     Byte_Flag_Struct flags;   ///< nibble bajo = flags; nibble alto = overflow counter
     uint8_t          counter; ///< cuenta en pasos de 10 ms (va 0..100)
+    GPIO_TypeDef     *port;
+    uint16_t 		pin;
 } ButtonState_t;
 
 #endif /* INC_TYPES_BUTTON_STATE_H_ */

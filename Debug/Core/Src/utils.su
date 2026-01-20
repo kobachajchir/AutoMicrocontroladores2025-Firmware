@@ -1,3 +1,10 @@
-../Core/Src/utils.c:17:6:StateLED_Task_10ms	24	static
-../Core/Src/utils.c:64:6:Button_Task_10ms	24	static
-../Core/Src/utils.c:110:6:Handle_ModeChange_ByButton	16	static
+../Core/Src/utils.c:15:6:HAL_I2C_MemTxCpltCallback	0	static
+../Core/Src/utils.c:20:6:HAL_I2C_MasterTxCpltCallback	0	static
+../Core/Src/utils.c:24:6:HAL_I2C_MasterRxCpltCallback	0	static
+../Core/Src/utils.c:66:6:TCRTCalibCounter_Task	0	static
+../Core/Src/utils.c:97:6:HAL_ADC_ConvCpltCallback	0	static
+../Core/Src/utils.c:104:6:OLED_Task_10ms	0	static
+../Core/Src/utils.c:119:6:StateLED_Task_10ms	4	static
+../Core/Src/utils.c:166:6:Button_Task_10ms	8	static
+../Core/Src/utils.c:28:6:HAL_TIM_PeriodElapsedCallback	8	static,ignoring_inline_asm
+../Core/Src/utils.c:212:6:Handle_ModeChange_ByButton	0	static

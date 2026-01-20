@@ -1,0 +1,9 @@
+../Core/Src/screenWrappers.c:179:6:onRenderComplete	0	static,ignoring_inline_asm
+../Core/Src/screenWrappers.c:14:6:OledUtils_DrawItem_Wrapper	0	static
+../Core/Src/screenWrappers.c:25:6:OledUtils_RenderDashboard_Wrapper	16	static,ignoring_inline_asm
+../Core/Src/screenWrappers.c:53:6:MenuSys_RenderMenu_Wrapper	24	static
+../Core/Src/screenWrappers.c:100:6:MenuSys_GoBack_Wrapper	0	static
+../Core/Src/screenWrappers.c:104:6:OledUtils_RenderMotorTest_Wrapper	16	static,ignoring_inline_asm
+../Core/Src/screenWrappers.c:121:6:OledUtils_RenderRadar_Wrapper	16	static,ignoring_inline_asm
+../Core/Src/screenWrappers.c:140:6:OledUtils_RenderValoresIR_Wrapper	16	static
+../Core/Src/screenWrappers.c:162:6:OledUtils_RenderValoresMPU_Wrapper	8	static,ignoring_inline_asm

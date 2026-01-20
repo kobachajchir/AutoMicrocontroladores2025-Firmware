@@ -1,0 +1,14 @@
+../Core/Src/usart_dma_buffer.c:40:19:USART1_PrintfBlocking	144	static
+../Core/Src/usart_dma_buffer.c:76:19:USART1_PrintValue	48	static
+../Core/Src/usart_dma_buffer.c:131:19:USART1_PrintBlocking	16	static
+../Core/Src/usart_dma_buffer.c:146:19:USART1_RegisterHandle	0	static
+../Core/Src/usart_dma_buffer.c:158:19:USART1_SetDMACallbacks	0	static
+../Core/Src/usart_dma_buffer.c:172:19:USART1_DMA_Init	16	static
+../Core/Src/usart_dma_buffer.c:197:19:USART1_PushTxString	24	static
+../Core/Src/usart_dma_buffer.c:245:19:USART1_SetRxHandler	0	static
+../Core/Src/usart_dma_buffer.c:258:6:USART1_Update	16	static
+../Core/Src/usart_dma_buffer.c:280:6:USART1_DMA_TxCpltHandler	0	static
+../Core/Src/usart_dma_buffer.c:300:13:HAL_UART_TxCpltCallback	0	static
+../Core/Src/usart_dma_buffer.c:308:6:HAL_UART_RxHalfCpltCallback	0	static
+../Core/Src/usart_dma_buffer.c:321:6:HAL_UART_RxCpltCallback	0	static
+../Core/Src/usart_dma_buffer.c:334:19:USART1_PushTxU16Values	112	static
