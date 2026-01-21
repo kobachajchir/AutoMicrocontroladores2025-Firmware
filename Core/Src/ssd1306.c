@@ -83,6 +83,7 @@ static uint8_t oled_cmd_byte = 0;
 static void OLED_I2C_RequestApproved(void *ctx);
 static void OLED_I2C_TxComplete(void *ctx);
 static void OLED_I2C_TransferComplete(void);
+static void OLED_I2C_Error(void *ctx, I2C_ManagerError err);
 
 // helper: start first step of a frame
 static void OLED_StartFrame(void)
@@ -102,6 +103,13 @@ static void OLED_I2C_RequestApproved(void *ctx)
   {
     if (oled_update_pending)
     {
+      if (HAL_I2C_GetState(&SSD1306_I2C_PORT) != HAL_I2C_STATE_READY) {
+        oled_update_pending = 1;
+        if (g_i2c_mgr) {
+          (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
+        }
+        return;
+      }
       oled_update_pending = 0;
       OLED_StartFrame();
     }
@@ -197,6 +205,14 @@ static void OLED_I2C_TransferComplete(void)
   }
 }
 
+static void OLED_I2C_Error(void *ctx, I2C_ManagerError err)
+{
+  (void)ctx;
+  (void)err;
+  oled_sm = OLED_SM_IDLE;
+  oled_update_pending = 1;
+}
+
 #endif /* SSD1306_USE_I2C_MANAGER */
 
 HAL_StatusTypeDef ssd1306_BindI2CManager(I2C_ManagerHandle *hmgr, I2C_DeviceID dev_id)
@@ -215,7 +231,7 @@ HAL_StatusTypeDef ssd1306_BindI2CManager(I2C_ManagerHandle *hmgr, I2C_DeviceID d
       OLED_I2C_RequestApproved,
       OLED_I2C_TxComplete,
       NULL,
-      NULL
+      OLED_I2C_Error
   );
 #else
   (void)hmgr;
