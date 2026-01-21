@@ -18,11 +18,21 @@ void dashboardEventManager(UserEvent_t ev) {
         case UE_ROTATE_CCW:
         	// Aca vamos a usar el overlay para cambiar el modo
             break;
-        case UE_LONG_PRESS:
-            // entrar al menú
+        case UE_SHORT_PRESS:
+            MenuSys_NavigateToMain(&menuSystem);
             menuSystem.clearScreen();
             menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
             *menuSystem.insideMenuFlag = 1;
+            menuSystem.renderFlag = true;
+            oled_first_draw = true;
+            break;
+        case UE_LONG_PRESS:
+            if (menuSystem.dashboardRender) {
+                menuSystem.renderFn = menuSystem.dashboardRender;
+            }
+            if (menuSystem.insideMenuFlag) {
+                *menuSystem.insideMenuFlag = 0;
+            }
             menuSystem.renderFlag = true;
             oled_first_draw = true;
             break;
@@ -49,10 +59,12 @@ void menuEventManager(UserEvent_t ev) {
             MenuSys_NavigateBack(&menuSystem);
             break;
         case UE_LONG_PRESS:
-            // entrar al menú
-            menuSystem.clearScreen();
-            menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
-            *menuSystem.insideMenuFlag = 0;
+            if (menuSystem.dashboardRender) {
+                menuSystem.renderFn = menuSystem.dashboardRender;
+            }
+            if (menuSystem.insideMenuFlag) {
+                *menuSystem.insideMenuFlag = 0;
+            }
             menuSystem.renderFlag = true;
             oled_first_draw = true;
             break;
@@ -115,11 +127,13 @@ void motorTestEventManager(UserEvent_t ev) {
             break;
 
         case UE_LONG_PRESS:
-            /* Entrar al menú y desactivar movimiento */
-            menuSystem.clearScreen();
-            *menuSystem.insideMenuFlag = 1;
+            if (menuSystem.dashboardRender) {
+                menuSystem.renderFn = menuSystem.dashboardRender;
+            }
+            if (menuSystem.insideMenuFlag) {
+                *menuSystem.insideMenuFlag = 0;
+            }
             CLEAR_FLAG(motorTask.motorData.flags, ENABLE_MOVEMENT);
-            menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
             menuSystem.renderFlag = true;
             oled_first_draw = true;
             break;
