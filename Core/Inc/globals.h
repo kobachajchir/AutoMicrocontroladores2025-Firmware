@@ -97,7 +97,6 @@ extern volatile uint16_t cnt_250us_MPU;
 extern volatile uint16_t cnt_10ms;
 extern volatile uint32_t cnt_10us;
 extern volatile uint32_t tcrt_calib_cnt_phase;  // contador de 10 µs para la fase actual
-extern volatile uint8_t i2c_busy_flag;
 extern volatile uint8_t oled10msCounter;
 
 extern volatile uint8_t motorSelected; // 0: izquierdo, 1: derecho, 2: ambos
