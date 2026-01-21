@@ -9,9 +9,10 @@
 #define INC_UTILS_MACROS_UTILS_H_
 
 #include <stdint.h>
-#include "globals.h"
 #include "../types/bitmap_type.h"
 #include "../types/carmode_type.h"
+
+extern volatile Byte_Flag_Struct systemFlags;
 
 // ====================== Máscaras ========================= //
 

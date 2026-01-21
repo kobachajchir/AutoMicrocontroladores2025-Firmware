@@ -31,6 +31,8 @@
 #include "menusystem.h"
 #include "oled_utils.h"
 #include "encoder.h"             // donde se define ENC_Handle_t
+#include "user_button.h"
+#include "ui_event_router.h"
 #include "ssd1306.h"
 #include "mpu6050.h"             // donde se define MPU6050_Handle_t
 #include "screenWrappers.h"
@@ -124,9 +126,8 @@ USART_Buffer_t usart1Buf;
 TCRTHandlerTask tcrtTask;
 MotorControl_Handle motorTask;
 MPU6050_Handle_t mpuTask;
-ButtonState_t btnUser;
+UserButton_Handle_t btnUser;
 ENC_Handle_t encoder;
-UserEvent_t ev;
 UNERProtocolParserState uner_parser;
 I2C_ManagerHandle i2cManager;
 volatile bool oled_first_draw = false;
@@ -139,6 +140,7 @@ void OLED_Is_Ready(void) {
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
         menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
         menuSystem.renderFlag = true;
+        oled_first_draw = true;
         SET_FLAG(systemFlags, OLED_READY);
         __NOP();
     }
@@ -172,7 +174,7 @@ MenuItem mainMenuItems[] = {
     { "Sensores",  NULL,           &submenu2,     Icon_Sensors_bits, MenuSys_RenderMenu_Wrapper },
     { "Config.",   NULL,           &submenu3,     Icon_Config_bits, MenuSys_RenderMenu_Wrapper },
 	// name       action    submenu       icon               screenRenderFn
-	{ "Volver",   NULL,     NULL,         Icon_Volver_bits,  OledUtils_RenderDashboard_Wrapper },
+	{ "Volver",   MenuSys_GoBack_Wrapper,     NULL,         Icon_Volver_bits,  OledUtils_RenderDashboard_Wrapper },
 };
 // Menú principal
 SubMenu mainMenu = {
@@ -253,7 +255,7 @@ static void MX_SPI2_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 void initCarMode();
-void UserBtn_MainTask(ButtonState_t *h);
+void UserBtn_MainTask(UserButton_Handle_t *h);
 void initTCRTLib();
 void TCRT_MainTask();
 void InitMotorTask(void);
@@ -444,7 +446,7 @@ int main(void)
 		MPU_MainTask();
 		Motor_MainTask();
 		// Si quieres saber cuántos sobrepasos de 1 s hubo (0..9):
-		//uint8_t num_overflows = NIBBLEH_GET_STATE(btnUser.flags);
+		//uint8_t num_overflows = NIBBLEH_GET_STATE(btnUser.state.flags);
 
     /* USER CODE END WHILE */
 
@@ -955,7 +957,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : User_BTN_Pin */
   GPIO_InitStruct.Pin = User_BTN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(User_BTN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : nRF24_CSN_Pin Motor_Enable_Pin Luces_IR_Pin */
@@ -1078,10 +1080,7 @@ void initCarMode(){
 	ledStatus.offTime = LED_IDLE_OFFTIME;
 	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
 	SET_FLAG(systemFlags, INIT_CAR);
-	btnUser.flags.byte = 0;
-	btnUser.counter = 0;
-	btnUser.port = User_BTN_GPIO_Port;
-	btnUser.pin = User_BTN_Pin;
+	UserButton_Init(&btnUser, User_BTN_GPIO_Port, User_BTN_Pin, USER_BUTTON_ACTIVE_HIGH);
 	ENC_Init(&encoder, &htim4, 1, 4, EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
 	SET_FLAG(systemFlags2, OLED_ACTIVE);
@@ -1090,43 +1089,61 @@ void initCarMode(){
 	SET_FLAG(systemFlags2, RF_ACTIVE);
 }
 
-void UserBtn_MainTask(ButtonState_t *btnUser) {
-    if (IS_FLAG_SET(btnUser->flags, BTN_USER_SHORT_PRESS)) {
-        CLEAR_FLAG(btnUser->flags, BTN_USER_SHORT_PRESS);
-        ev = UE_SHORT_PRESS;
+void UserBtn_MainTask(UserButton_Handle_t *btnUser) {
+    UserEvent_t local_ev = UE_NONE;
+
+    if (IS_FLAG_SET(btnUser->state.flags, BTN_USER_SHORT_PRESS)) {
+        CLEAR_FLAG(btnUser->state.flags, BTN_USER_SHORT_PRESS);
+        local_ev = UE_SHORT_PRESS;
     }
-    else if (IS_FLAG_SET(btnUser->flags, BTN_USER_LONG_PRESS)) {
-        CLEAR_FLAG(btnUser->flags, BTN_USER_LONG_PRESS);
-        ev = UE_LONG_PRESS;
+    else if (IS_FLAG_SET(btnUser->state.flags, BTN_USER_LONG_PRESS)) {
+        CLEAR_FLAG(btnUser->state.flags, BTN_USER_LONG_PRESS);
+        local_ev = UE_LONG_PRESS;
     }
 
-    if (ev != UE_NONE && menuSystem.userEventManagerFn) {
-        menuSystem.userEventManagerFn(ev);
-        ev = UE_NONE;
-    }
+    UiEventRouter_HandleEvent(local_ev);
 }
 
 void Encoder_MainTask(ENC_Handle_t *encoder) {
+    UserEvent_t local_ev = UE_NONE;
+    int16_t scaled_steps = 0;
+
     // rotación
     if (IS_FLAG_SET(encoder->flags, ENC_FLAG_UPDATED)) {
         CLEAR_FLAG(encoder->flags, ENC_FLAG_UPDATED);
-        ev = (encoder->dir == ENC_DIR_CW ? UE_ROTATE_CW : UE_ROTATE_CCW);
+        local_ev = (encoder->dir == ENC_DIR_CW ? UE_ROTATE_CW : UE_ROTATE_CCW);
+        scaled_steps = ENC_GetScaledSteps(encoder);
     }
     // click encoder
     else if (IS_FLAG_SET(encoder->btnState.flags, ENC_BTN_SHORT_PRESS)) {
         CLEAR_FLAG(encoder->btnState.flags, ENC_BTN_SHORT_PRESS);
-        ev = UE_ENC_SHORT_PRESS;
+        local_ev = UE_ENC_SHORT_PRESS;
     }
     else if (IS_FLAG_SET(encoder->btnState.flags, ENC_BTN_LONG_PRESS)) {
         CLEAR_FLAG(encoder->btnState.flags, ENC_BTN_LONG_PRESS);
-        ev = UE_ENC_LONG_PRESS;
+        local_ev = UE_ENC_LONG_PRESS;
     }
 
-    if (ev != UE_NONE && menuSystem.userEventManagerFn && encoder->allowEncoderInput) {
-        menuSystem.userEventManagerFn(ev);
-        ev = UE_NONE;
-    }else{
-    	ev = UE_NONE;
+    if (local_ev != UE_NONE && encoder->allowEncoderInput) {
+        if (local_ev == UE_ROTATE_CW || local_ev == UE_ROTATE_CCW) {
+            int16_t repeats = 1;
+
+            if (!inside_menu_flag) {
+                repeats = scaled_steps;
+                if (repeats < 0) {
+                    repeats = (int16_t)(-repeats);
+                }
+                if (repeats < 1) {
+                    repeats = 1;
+                }
+            }
+
+            for (int16_t i = 0; i < repeats; i++) {
+                UiEventRouter_HandleEvent(local_ev);
+            }
+        } else {
+            UiEventRouter_HandleEvent(local_ev);
+        }
     }
 }
 
@@ -1397,9 +1414,12 @@ void initMenuSystemTask(void) {
     MenuSys_SetCallbacks(&menuSystem,
         OledUtils_Clear_Wrapper,
         OledUtils_DrawItem_Wrapper,
-        NULL,
+        OledUtils_RenderDashboard_Wrapper,
         &inside_menu_flag,
 		OledUtils_RenderDashboard_Wrapper);
+    menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
 }
 
 /* USER CODE END 4 */
