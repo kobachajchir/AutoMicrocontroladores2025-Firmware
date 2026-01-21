@@ -1413,9 +1413,12 @@ void initMenuSystemTask(void) {
     MenuSys_SetCallbacks(&menuSystem,
         OledUtils_Clear_Wrapper,
         OledUtils_DrawItem_Wrapper,
-        NULL,
+        OledUtils_RenderDashboard_Wrapper,
         &inside_menu_flag,
 		OledUtils_RenderDashboard_Wrapper);
+    menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
 }
 
 /* USER CODE END 4 */
