@@ -116,6 +116,9 @@ typedef struct {
 	ENC_Data           prevData;   // Datos previos para cálculo
 	ENC_Byte_Flag_Struct_t            flags;        // ← usamos bit0 = ENC_FLAG_UPDATED
 	uint16_t prevCount;
+	int16_t prevStepDelta;
+	int16_t lastStepDelta;
+	int16_t lastStepAcc;
 	uint8_t           calibrateCountPerStep; ///< ¿Cuántos pulsos raw = 1 “paso”?
 	int8_t            accumCount;            ///< Acumula pulsos raw entre pasos
 	bool 			allowEncoderInput;
@@ -160,6 +163,11 @@ uint16_t ENC_GetVelocity(ENC_Handle_t *h);
  * @brief Obtiene la aceleración (delta pulsos / intervalo)
  */
 uint16_t ENC_GetAcceleration(ENC_Handle_t *h);
+
+int16_t ENC_GetStepDelta(ENC_Handle_t *h);
+int16_t ENC_GetSignedVelocity(ENC_Handle_t *h);
+int16_t ENC_GetSignedAcceleration(ENC_Handle_t *h);
+int16_t ENC_GetScaledSteps(ENC_Handle_t *h);
 
 #ifdef __cplusplus
 }

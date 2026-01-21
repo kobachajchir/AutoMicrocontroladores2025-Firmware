@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
-#include "types/button_state.h"
+#include "user_button.h"
 #include "encoder.h"
 #include "types/led_status.h"
 #include "types/carmode_type.h"
@@ -109,7 +109,7 @@ extern MotorControl_Handle motorTask;
 extern I2C_ManagerHandle i2cManager;
 extern volatile bool oled_first_draw;
 extern MPU6050_Handle_t mpuTask;
-extern ButtonState_t btnUser;
+extern UserButton_Handle_t btnUser;
 extern ENC_Handle_t encoder;
 extern UNERProtocolParserState uner_parser;
 
@@ -130,7 +130,5 @@ extern const RenderScreenFunction mainMenuScreen;
 extern const RenderScreenFunction subMenuScreen;
 extern const RenderScreenFunction valoresIRScreen;
 extern const RenderScreenFunction wifiDataScreen;
-
-extern UserEvent_t ev;
 
 #endif // GLOBALS_H

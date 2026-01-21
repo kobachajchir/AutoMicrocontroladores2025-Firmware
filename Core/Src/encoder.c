@@ -19,6 +19,9 @@ void ENC_Init(ENC_Handle_t *h, TIM_HandleTypeDef *htim, uint32_t sampleTenMs, ui
     h->prevData.allData = 0;
     h->calibrateCountPerStep   = calibrateCountPerStep;      // 2 pulsos raw = 1 paso
     h->accumCount              = 0;
+    h->prevStepDelta = 0;
+    h->lastStepDelta = 0;
+    h->lastStepAcc = 0;
     // Inicializar botón interno
     h->btnState.flags.byte = 0;
     h->btnState.counter    = 0;
@@ -113,6 +116,11 @@ void ENC_Task_N10ms(ENC_Handle_t *h)
     int32_t steps = h->accumCount / h->calibrateCountPerStep;
     h->accumCount %= h->calibrateCountPerStep;  // resto “incompleto”
 
+    // 6.1) Guardar pasos con signo para escalado
+    h->lastStepDelta = (int16_t)steps;
+    h->lastStepAcc = (int16_t)(steps - h->prevStepDelta);
+    h->prevStepDelta = (int16_t)steps;
+
     // 7) Velocidad y aceleración en pasos
     h->data.pair.vel      = (uint16_t)steps;
     h->data.pair.acc      = (uint16_t)(steps - (int16_t)h->prevData.pair.vel);
@@ -141,4 +149,38 @@ uint16_t ENC_GetVelocity(ENC_Handle_t *h)
 uint16_t ENC_GetAcceleration(ENC_Handle_t *h)
 {
     return h->data.pair.acc;
+}
+
+int16_t ENC_GetStepDelta(ENC_Handle_t *h)
+{
+    return h->lastStepDelta;
+}
+
+int16_t ENC_GetSignedVelocity(ENC_Handle_t *h)
+{
+    return h->lastStepDelta;
+}
+
+int16_t ENC_GetSignedAcceleration(ENC_Handle_t *h)
+{
+    return h->lastStepAcc;
+}
+
+int16_t ENC_GetScaledSteps(ENC_Handle_t *h)
+{
+    int16_t steps = h->lastStepDelta;
+    int16_t abs_steps = (steps < 0) ? (int16_t)(-steps) : steps;
+    int16_t multiplier = 1;
+
+    if (abs_steps >= 4) {
+        multiplier = 4;
+    } else if (abs_steps >= 2) {
+        multiplier = 2;
+    }
+
+    if (steps < 0) {
+        multiplier = (int16_t)(-multiplier);
+    }
+
+    return multiplier;
 }
