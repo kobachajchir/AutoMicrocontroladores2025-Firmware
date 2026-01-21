@@ -192,9 +192,10 @@ void StateLED_Task_10ms(volatile LedStatus_t *led)
  */
 void Button_Task_10ms(volatile ButtonState_t *btn)
 {
-    uint8_t raw = (uint8_t)HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1);
+    GPIO_PinState raw = HAL_GPIO_ReadPin(btn->port, btn->pin);
+    uint8_t pressed = (raw == GPIO_PIN_SET);
 
-    if (raw == 1 && !IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
+    if (pressed && !IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
         // Flanco de subida
         btn->counter = 1;
         SET_FLAG(btn->flags, BTN_USER_PREVSTATE);
@@ -202,7 +203,7 @@ void Button_Task_10ms(volatile ButtonState_t *btn)
         CLEAR_FLAG(btn->flags, BTN_USER_LONG_PRESS);
         NIBBLEH_SET_STATE(btn->flags, 0);
     }
-    else if (raw == 1 && IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
+    else if (pressed && IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
         // Mantenido
         if (btn->counter < 255)
             btn->counter++;
@@ -219,7 +220,7 @@ void Button_Task_10ms(volatile ButtonState_t *btn)
             NIBBLEH_SET_STATE(btn->flags, ovf);
         }
     }
-    else if (raw == 0 && IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
+    else if (!pressed && IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
         // Flanco de bajada
         if (NIBBLEH_GET_STATE(btn->flags) == 0) {
             if (btn->counter >= 10 && btn->counter < 30) {

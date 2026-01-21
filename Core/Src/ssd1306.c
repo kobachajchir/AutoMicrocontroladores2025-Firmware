@@ -273,8 +273,8 @@ uint8_t ssd1306_Init(void)
   ssd1306_WriteCommand_Blocking(0x14);
   ssd1306_WriteCommand_Blocking(MEMORYMODE);
   ssd1306_WriteCommand_Blocking(0x00);
-  ssd1306_WriteCommand_Blocking(SEGREMAP);
-  ssd1306_WriteCommand_Blocking(COMSCANINC);
+  ssd1306_WriteCommand_Blocking(SEGREMAP | 0x01);
+  ssd1306_WriteCommand_Blocking(COMSCANDEC);
   ssd1306_WriteCommand_Blocking(SETCOMPINS);
 
   if (display_geometry == GEOMETRY_128_64)

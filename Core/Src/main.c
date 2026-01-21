@@ -955,7 +955,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : User_BTN_Pin */
   GPIO_InitStruct.Pin = User_BTN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(User_BTN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : nRF24_CSN_Pin Motor_Enable_Pin Luces_IR_Pin */
