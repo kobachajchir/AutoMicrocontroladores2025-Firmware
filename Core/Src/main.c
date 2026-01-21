@@ -140,6 +140,7 @@ void OLED_Is_Ready(void) {
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
         menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
         menuSystem.renderFlag = true;
+        oled_first_draw = true;
         SET_FLAG(systemFlags, OLED_READY);
         __NOP();
     }
