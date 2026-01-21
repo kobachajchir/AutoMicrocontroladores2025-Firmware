@@ -98,7 +98,6 @@ volatile uint8_t motorSpeed    = 100;
 volatile uint8_t motorDir      = 0; // 0: adelante, 1: atrás
 
 // Bandera para I2C_Manager (bus ocupado)
-volatile uint8_t i2c_busy_flag = 0;
 
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
     TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
@@ -301,42 +300,6 @@ void renderFnWrapper(void) {
 
 }
 
-static void MPU_I2C_OnGranted(void *ctx) {
-    MPU6050_Handle_t *mpu = (MPU6050_Handle_t *)ctx;
-    if (!mpu) return;
-    __NOP();
-    MPU_GrantAccessCallback(mpu);
-}
-
-static void MPU_I2C_OnTxDone(void *ctx) {
-    MPU6050_Handle_t *mpu = (MPU6050_Handle_t *)ctx;
-    if (!mpu) return;
-    MPU_DMA_CompleteCallback(mpu, 1);
-}
-
-static void MPU_I2C_OnRxDone(void *ctx) {
-    MPU6050_Handle_t *mpu = (MPU6050_Handle_t *)ctx;
-    if (!mpu) return;
-    MPU_DMA_CompleteCallback(mpu, 0);
-}
-
-static void MPU_I2C_OnError(void *ctx, I2C_ManagerError err) {
-    (void)ctx;
-    (void)err;
-}
-
-void MPU_RequestBusUse_I2CManager(void) {
-    // Pide acceso inmediato al manager
-	__NOP();
-    I2C_Manager_RequestBus(&i2cManager, DEVICE_ID_MPU);
-}
-
-void MPU_ReleaseBusUse_I2CManager(void) {
-    // Pide acceso inmediato al manager
-	I2C_Manager_ReleaseBus(&i2cManager, DEVICE_ID_MPU);
-	__NOP();
-}
-
 void MPU_Data_Ready(void) {
     SET_FLAG(systemFlags, MPU_GET_DATA); //Setea bandera de data para volver a pedir
 }
@@ -420,39 +383,29 @@ int main(void)
 	 I2C_Manager_Init(&i2cManager, &hi2c1, 0);
 	 /*I2C_Manager_ScanBus();*/
 	 if (I2C_Manager_IsAddressReady(&i2cManager, I2C_ADDR_MPU) == HAL_OK) {
-	     HAL_StatusTypeDef res = I2C_Manager_RegisterDevice(
-	         &i2cManager,
-	         DEVICE_ID_MPU,
-	         I2C_ADDR_MPU,
-	         1,
-	         &mpuTask,
-	         MPU_I2C_OnGranted,
-	         MPU_I2C_OnTxDone,
-	         MPU_I2C_OnRxDone,
-	         MPU_I2C_OnError
-	     );
-	     if (res == HAL_OK) {
-	         MPU6050_Init(
+	     if (MPU6050_Init(
 	             &mpuTask,
-	             DEVICE_ID_MPU,
 	             I2C_ADDR_MPU,
 	             &hi2c1,
-	             &i2c_busy_flag,
 	             MPU_Data_Ready,                  // callback usuario
-	             MPU_RequestBusUse_I2CManager,
-	             MPU_ReleaseBusUse_I2CManager,
 	             &mpu_trigger
+	         ) == HAL_OK) {
+	         HAL_StatusTypeDef res = MPU6050_BindI2CManager(
+	             &mpuTask,
+	             &i2cManager,
+	             DEVICE_ID_MPU,
+	             1
 	         );
-	         MPU6050_Configure(&mpuTask);
-	         MPU6050_CalibrateGyro(&mpuTask, 250);
-	         SET_FLAG(systemFlags, MPU_GET_DATA);
-		 } else {
-			  // Falló al registrar (posiblemente sin espacio en la tabla)
-
-		 }
-	 }else {
-		  // El OLED no respondió en el bus
-
+	         if (res == HAL_OK) {
+	             MPU6050_Configure(&mpuTask);
+	             MPU6050_CalibrateGyro(&mpuTask, 250);
+	             SET_FLAG(systemFlags, MPU_GET_DATA);
+	         } else {
+	             // Falló al registrar (posiblemente sin espacio en la tabla)
+	         }
+	     }
+	 } else {
+	     // El MPU no respondió en el bus
 	 }
 	 if (I2C_Manager_IsAddressReady(&i2cManager, I2C_ADDR_OLED) == HAL_OK) {
 	     result = ssd1306_BindI2CManager(&i2cManager, DEVICE_ID_OLED);

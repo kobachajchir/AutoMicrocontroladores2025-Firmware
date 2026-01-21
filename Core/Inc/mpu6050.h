@@ -82,11 +82,6 @@ typedef union {
 
 /** Callback que se ejecuta cuando los datos del MPU6050 están listos. */
 typedef void (*MPU6050_Callback)(void);
-typedef void (*I2C_Request_Bus_Use)(void);
-typedef void (*I2C_Release_Bus_Use)(void);
-typedef void (*I2C_RequestApprovedCb)(void);
-typedef void (*I2C_TransferCompleteCb)(uint8_t is_tx);
-
 /** Datos procesados en enteros. */
 typedef struct {
     int16_t accel_x_mg;
@@ -98,27 +93,46 @@ typedef struct {
     int16_t gyro_z_mdps;
 } MPU6050_IntData_t;
 
+typedef struct {
+    int32_t angle_x_md;
+    int32_t angle_y_md;
+    int32_t angle_z_md;
+} MPU6050_Orientation_t;
+
+typedef enum {
+    MPU6050_READ_ALL = 0,
+    MPU6050_READ_ACCEL,
+    MPU6050_READ_GYRO,
+    MPU6050_READ_TEMP,
+    MPU6050_READ_ORIENTATION
+} MPU6050_ReadMode;
+
+typedef enum {
+    MPU6050_XFER_IDLE = 0,
+    MPU6050_XFER_WAIT_GRANT,
+    MPU6050_XFER_TX_REG,
+    MPU6050_XFER_RX_DATA
+} MPU6050_TransferState;
+
 /** Handle único que el usuario externaliza. */
 typedef struct {
     I2C_HandleTypeDef *hi2c;            ///< I2C hardware handle
-    uint8_t       dev_id;          ///< ID lógico en I2C_Manager
+    I2C_ManagerHandle *i2c_mgr;         ///< I2C manager handle
+    uint8_t            dev_id;          ///< ID lógico en I2C_Manager
     uint8_t            i2c_address;     ///< Dirección 7-bit (0x68)
-
-    volatile uint8_t  *busy_flag;
 
     uint8_t            tx_buffer[1];    ///< {0x3B}
     uint8_t            rx_buffer[14];   ///< Raw data
     uint8_t            expected_rx_len; ///< 14
+    MPU6050_ReadMode   read_mode;
+    MPU6050_ReadMode   last_read_mode;
+    MPU6050_TransferState transfer_state;
 
     MPU_Byte_Flag_Struct_t flags;
     MPU6050_IntData_t  data;            ///< Datos convertidos
 
     /** Usuario callback */
     MPU6050_Callback   on_data_ready_cb;
-
-    /** Callbacks para el arbitraje I2C */
-    I2C_Request_Bus_Use      request_cb;   ///< Wrapper: I2C_Manager_RequestBus
-    I2C_Release_Bus_Use      release_cb;   ///< Wrapper: I2C_Manager_ReleaseBus
 
     uint16_t dt_div;
 
@@ -135,16 +149,21 @@ typedef struct {
  */
 HAL_StatusTypeDef MPU6050_Init(
     MPU6050_Handle_t *hmpu,
-    uint8_t      id,
     uint8_t           address,
     I2C_HandleTypeDef *hi2c,
-    volatile uint8_t *bus_busy_flag,
     MPU6050_Callback  on_data_ready,
-	I2C_Request_Bus_Use      req_cb,
-	I2C_Release_Bus_Use     rel_cb,
     volatile bool    *trigger    // <-- debe estar aquí
 );
 
+/**
+ * @brief Registra el MPU en el I2C Manager (DMA y no bloqueante).
+ */
+HAL_StatusTypeDef MPU6050_BindI2CManager(
+    MPU6050_Handle_t *hmpu,
+    I2C_ManagerHandle *hmgr,
+    I2C_DeviceID dev_id,
+    uint8_t priority
+);
 
 /**
  * @brief Configura el MPU: WHO_AM_I, wakeup, 1 kHz, DLPF=3, ±250 °/s, ±2g
@@ -158,10 +177,21 @@ void MPU6050_CalibrateGyro(MPU6050_Handle_t *h, uint16_t samples);
  */
 void MPU6050_CheckTrigger(MPU6050_Handle_t *hmpu);
 
+HAL_StatusTypeDef MPU6050_RequestAllData(MPU6050_Handle_t *hmpu);
+HAL_StatusTypeDef MPU6050_RequestAccel(MPU6050_Handle_t *hmpu);
+HAL_StatusTypeDef MPU6050_RequestGyro(MPU6050_Handle_t *hmpu);
+HAL_StatusTypeDef MPU6050_RequestTemp(MPU6050_Handle_t *hmpu);
+HAL_StatusTypeDef MPU6050_RequestOrientation(MPU6050_Handle_t *hmpu);
+
 /**
  * @brief Devuelve el puntero a los datos convertidos (mg, mdps, °C×100).
  */
 const MPU6050_IntData_t* MPU6050_GetData(MPU6050_Handle_t *hmpu);
+
+/**
+ * @brief Devuelve orientación integrada en milideg.
+ */
+void MPU6050_GetOrientation(const MPU6050_Handle_t *hmpu, MPU6050_Orientation_t *out);
 
 /**
  * @brief Convierte el buffer raw en valores enteros.
@@ -175,10 +205,6 @@ HAL_StatusTypeDef MPU6050_ReadWhoAmI(
     MPU6050_Handle_t *hmpu,
     uint8_t          *whoami
 );
-
-void MPU_DMA_CompleteCallback(MPU6050_Handle_t *hmpu, uint8_t is_tx);
-
-void MPU_GrantAccessCallback(MPU6050_Handle_t *hmpu);
 
 #ifdef __cplusplus
 }
