@@ -10,6 +10,7 @@
 #include "stm32f1xx_hal.h"  // para HAL_GPIO_ReadPin
 #include "i2c_manager.h"
 #include "uner_protocol.h"
+#include "user_button.h"
 
 /* Libera busy al completar */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
@@ -80,7 +81,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             // Llamar a las rutinas de 10 ms
             StateLED_Task_10ms(&ledStatus);
             if (IS_FLAG_SET(systemFlags, INIT_CAR)) {
-				Button_Task_10ms(&btnUser);
+				UserButton_Task10ms(&btnUser);
 				ENC_Task_N10ms(&encoder);
 			}
             if (IS_FLAG_SET(systemFlags, OLED_READY)) {
@@ -185,56 +186,7 @@ void StateLED_Task_10ms(volatile LedStatus_t *led)
     }
 }
 
-/**
- * @brief Se invoca cada 10 ms desde el callback de TIM3.
- *        Lee PB1 y actualiza flags, counter y overflow count (nibble alto).
- * @param btn Puntero a la estructura ButtonState_t
- */
-void Button_Task_10ms(volatile ButtonState_t *btn)
-{
-    GPIO_PinState raw = HAL_GPIO_ReadPin(btn->port, btn->pin);
-    uint8_t pressed = (raw == GPIO_PIN_SET);
 
-    if (pressed && !IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
-        // Flanco de subida
-        btn->counter = 1;
-        SET_FLAG(btn->flags, BTN_USER_PREVSTATE);
-        CLEAR_FLAG(btn->flags, BTN_USER_SHORT_PRESS);
-        CLEAR_FLAG(btn->flags, BTN_USER_LONG_PRESS);
-        NIBBLEH_SET_STATE(btn->flags, 0);
-    }
-    else if (pressed && IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
-        // Mantenido
-        if (btn->counter < 255)
-            btn->counter++;
-
-        if (btn->counter > 100) {
-            btn->counter = 0;
-            uint8_t ovf = NIBBLEH_GET_STATE(btn->flags);
-            ovf++;
-            if (ovf > 9) {
-                btn->flags.byte = 0;
-                btn->counter = 0;
-                return;
-            }
-            NIBBLEH_SET_STATE(btn->flags, ovf);
-        }
-    }
-    else if (!pressed && IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
-        // Flanco de bajada
-        if (NIBBLEH_GET_STATE(btn->flags) == 0) {
-            if (btn->counter >= 10 && btn->counter < 30) {
-                SET_FLAG(btn->flags, BTN_USER_SHORT_PRESS);
-            }
-            else if (btn->counter >= 30 && btn->counter <= 100) {
-                SET_FLAG(btn->flags, BTN_USER_LONG_PRESS);
-            }
-        }
-
-        CLEAR_FLAG(btn->flags, BTN_USER_PREVSTATE);
-        btn->counter = 0;
-    }
-}
 
 
 void Handle_ModeChange_ByButton(volatile ButtonState_t *btn, volatile LedStatus_t *led)
