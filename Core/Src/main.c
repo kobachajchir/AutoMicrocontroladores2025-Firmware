@@ -1105,11 +1105,13 @@ void UserBtn_MainTask(UserButton_Handle_t *btnUser) {
 
 void Encoder_MainTask(ENC_Handle_t *encoder) {
     UserEvent_t local_ev = UE_NONE;
+    int16_t scaled_steps = 0;
 
     // rotación
     if (IS_FLAG_SET(encoder->flags, ENC_FLAG_UPDATED)) {
         CLEAR_FLAG(encoder->flags, ENC_FLAG_UPDATED);
         local_ev = (encoder->dir == ENC_DIR_CW ? UE_ROTATE_CW : UE_ROTATE_CCW);
+        scaled_steps = ENC_GetScaledSteps(encoder);
     }
     // click encoder
     else if (IS_FLAG_SET(encoder->btnState.flags, ENC_BTN_SHORT_PRESS)) {
@@ -1122,7 +1124,25 @@ void Encoder_MainTask(ENC_Handle_t *encoder) {
     }
 
     if (local_ev != UE_NONE && encoder->allowEncoderInput) {
-        UiEventRouter_HandleEvent(local_ev);
+        if (local_ev == UE_ROTATE_CW || local_ev == UE_ROTATE_CCW) {
+            int16_t repeats = 1;
+
+            if (!inside_menu_flag) {
+                repeats = scaled_steps;
+                if (repeats < 0) {
+                    repeats = (int16_t)(-repeats);
+                }
+                if (repeats < 1) {
+                    repeats = 1;
+                }
+            }
+
+            for (int16_t i = 0; i < repeats; i++) {
+                UiEventRouter_HandleEvent(local_ev);
+            }
+        } else {
+            UiEventRouter_HandleEvent(local_ev);
+        }
     }
 }
 

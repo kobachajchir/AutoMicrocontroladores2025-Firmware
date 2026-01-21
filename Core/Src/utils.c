@@ -12,6 +12,8 @@
 #include "uner_protocol.h"
 #include "user_button.h"
 
+void Uart1_RxFeedParser_FromDMA(void);
+
 /* Libera busy al completar */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
