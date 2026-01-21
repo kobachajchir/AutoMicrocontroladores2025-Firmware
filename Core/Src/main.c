@@ -428,6 +428,10 @@ int main(void)
 	 if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
 		  initCarMode();
 		  initMenuSystemTask();
+		  if (IS_FLAG_SET(systemFlags, OLED_READY)) {
+			  menuSystem.renderFlag = true;
+			  OLED_MainTask();
+		  }
 	 }
 
   //Solo llamo initCarMode() una vez, antes del while
