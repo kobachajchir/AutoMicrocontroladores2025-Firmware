@@ -439,6 +439,13 @@ void OledUtils_RenderDashboard(void)
     Oled_DrawXBM(111, 45, 13, 13, Icon_Encoder_bits);
 }
 
+void OledUtils_RenderTestScreen(void)
+{
+    Oled_SetFont(&Font_14x17_Min);
+    ssd1306_SetCursor(20, 32 - Oled_FontHeight());
+    Oled_DrawStr("Hola mundo");
+}
+
 
 /**
  * @brief  Dibuja todos los valores del MPU (raw y ángulos) alineados en 3 filas.
