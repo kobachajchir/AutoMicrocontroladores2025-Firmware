@@ -75,6 +75,7 @@ static uint32_t g_seq = 0;
 static uint8_t oled_inflight_slot = 0xFFu;
 static uint8_t oled_inflight_page = 0;
 static uint8_t oled_inflight_keep_bus = 0;
+static uint8_t oled_inflight_active = 0;
 static uint8_t oled_pages_in_lease = 0;
 static const uint8_t oled_max_pages_per_lease = 4;
 
@@ -109,6 +110,7 @@ static void OLED_StartFrame(uint8_t page)
 {
   oled_page = page;
   oled_sm = OLED_SM_CMD_PAGE;
+  oled_inflight_active = 1;
 
   __NOP(); // BREAKPOINT: inicio de frame OLED (page 0)
   oled_cmd_byte = (uint8_t)(0xB0u + oled_page);
@@ -221,6 +223,9 @@ static void OLED_I2C_RequestApproved(void *ctx)
   (void)ctx;
   if (oled_sm == OLED_SM_IDLE)
   {
+    if (oled_inflight_active) {
+      return;
+    }
     uint8_t slot_idx = 0xFFu;
     if (!OLED_QueueSelectNext(&slot_idx)) {
       if (g_i2c_mgr) {
@@ -246,7 +251,7 @@ static void OLED_I2C_TxComplete(void *ctx)
   if (g_i2c_mgr && I2C_Manager_GetOwner(g_i2c_mgr) != g_oled_dev_id) {
     return;
   }
-  if (oled_sm == OLED_SM_IDLE) {
+  if (oled_sm == OLED_SM_IDLE || !oled_inflight_active) {
     return;
   }
   OLED_I2C_TransferComplete();
@@ -292,6 +297,7 @@ static void OLED_I2C_TransferComplete(void)
       __NOP(); // BREAKPOINT: frame OLED completo
 
       oled_pages_in_lease++;
+      oled_inflight_active = 0;
       if (oled_inflight_slot != 0xFFu) {
         g_page_q[oled_inflight_slot].used = 0;
       }
