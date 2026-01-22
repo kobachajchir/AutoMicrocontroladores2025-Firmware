@@ -149,6 +149,10 @@ void ssd1306_WriteCommand(uint8_t command);
 // Bind con el I2C Manager (una sola vez)
 HAL_StatusTypeDef ssd1306_BindI2CManager(I2C_ManagerHandle *hmgr, I2C_DeviceID dev_id);
 
+HAL_StatusTypeDef ssd1306_RequestPageUpdate(uint8_t page,
+                                            I2C_RequestPrio prio,
+                                            uint8_t keep_bus);
+
 #if  SSD1306_USE_DMA == 0
 void ssd1306_UpdateScreen(void);      /* copy the contents of the Screenbuffer (SSD1306_Buffer) to the display */
 #define ssd1306_UpdateScreenCompleted() 1
@@ -160,6 +164,8 @@ void ssd1306_UpdateScreen(void);      /* copy the contents of the Screenbuffer (
 void ssd1306_UpdateScreen(void);      /* copy the contents of the Screenbuffer (SSD1306_Buffer) to the display */
 char ssd1306_UpdateScreenCompleted(void); /* asks if the update is already complete (0:not completed, 1:completed) */
 __weak void ssd1306_UpdateCompletedCallback(void); /* you can create a function for the end of the update (attention!: interrupt function) */
+__weak void ssd1306_PageSentCallback(uint8_t page);
+__weak void ssd1306_QueueEmptyCallback(void);
 #define ssd1306_ContUpdateEnable()
 #define ssd1306_ContUpdateDisable()
 #define ssd1306_SetRasterInt(r)

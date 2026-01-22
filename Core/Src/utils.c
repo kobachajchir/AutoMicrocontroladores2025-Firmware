@@ -50,6 +50,11 @@ void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c) {
 	I2C_Manager_OnRxCplt(&i2cManager, hi2c);
 }
 
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+    I2C_Manager_OnRxCplt(&i2cManager, hi2c);
+}
+
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 {
     I2C_Manager_OnError(&i2cManager, hi2c);
