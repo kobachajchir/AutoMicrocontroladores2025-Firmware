@@ -85,7 +85,7 @@ typedef enum {
   OLED_SM_CMD_LOWCOL,
   OLED_SM_CMD_HIGHCOL,
   OLED_SM_DATA,
-  OLED_SM_DONE
+  OLED_SM_PAGE_DONE
 } OLED_SM_State;
 
 static volatile OLED_SM_State oled_sm = OLED_SM_IDLE;
