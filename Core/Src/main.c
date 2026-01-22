@@ -138,7 +138,8 @@ void OledUtils_Clear_Wrapper(){
 
 void OLED_Is_Ready(void) {
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
-        menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+        // menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+        menuSystem.renderFn = OledUtils_RenderTestScreen_Wrapper;
         menuSystem.renderFlag = true;
         oled_first_draw = true;
         SET_FLAG(systemFlags, OLED_READY);
@@ -1421,7 +1422,9 @@ void initMenuSystemTask(void) {
         OledUtils_RenderDashboard_Wrapper,
         &inside_menu_flag,
 		OledUtils_RenderDashboard_Wrapper);
-    menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+    if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
+        menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+    }
     menuSystem.renderFlag = true;
     oled_first_draw = true;
 }

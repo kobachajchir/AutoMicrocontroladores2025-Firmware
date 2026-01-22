@@ -20,6 +20,7 @@ void renderValoresMPU_Wrapper(void);
 
 /** Renderiza la pantalla principal (dashboard: "HOLA MUNDO" centrado) */
 void renderDashboard_Wrapper(void);
+void renderTestScreen_Wrapper(void);
 
 // ─── Funciones de despliegue ─────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ void displayMenuCustom(MenuSystem *system);
 void OledUtils_RenderVerticalMenu(MenuSystem *ms);
 
 void OledUtils_RenderDashboard(void);
+void OledUtils_RenderTestScreen(void);
 
 void OledUtils_Clear(void);
 
