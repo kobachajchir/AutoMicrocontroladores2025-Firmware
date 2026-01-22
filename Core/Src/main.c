@@ -132,6 +132,22 @@ UNERProtocolParserState uner_parser;
 I2C_ManagerHandle i2cManager;
 volatile bool oled_first_draw = false;
 
+static bool Oled_WaitReady(I2C_ManagerHandle *manager, uint16_t addr_7bit, uint32_t retries, uint32_t delay_ms)
+{
+    if (!manager) {
+        return false;
+    }
+
+    for (uint32_t attempt = 0; attempt < retries; attempt++) {
+        if (I2C_Manager_IsAddressReady(manager, addr_7bit) == HAL_OK) {
+            return true;
+        }
+        HAL_Delay(delay_ms);
+    }
+
+    return false;
+}
+
 void OledUtils_Clear_Wrapper(){
 	OledUtils_Clear();
 }
@@ -410,7 +426,7 @@ int main(void)
 	 } else {
 	     // El MPU no respondió en el bus
 	 }
-	 if (I2C_Manager_IsAddressReady(&i2cManager, I2C_ADDR_OLED) == HAL_OK) {
+	 if (Oled_WaitReady(&i2cManager, I2C_ADDR_OLED, 5, 10)) {
 	     result = ssd1306_BindI2CManager(&i2cManager, DEVICE_ID_OLED);
 
 	     if (result == HAL_OK) {
