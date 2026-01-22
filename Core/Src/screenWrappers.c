@@ -43,6 +43,21 @@ void OledUtils_RenderDashboard_Wrapper(void)
     // ¡no vuelvo a tocar menuSystem.renderFlag!
 }
 
+void OledUtils_RenderTestScreen_Wrapper(void)
+{
+    OledUtils_DisableContinuousRender();
+    menuSystem.userEventManagerFn = dashboardEventManager;
+    __NOP();
+    inside_menu_flag = false;
+
+    oled_first_draw = true;
+
+    encoder.allowEncoderInput = IS_FLAG_SET(systemFlags2, OLED_ACTIVE);
+
+    OledUtils_Clear();
+    OledUtils_RenderTestScreen();
+}
+
 /**
  * @brief  Wrapper que decide si redibuja todo o sólo mueve cursor.
  */
