@@ -91,6 +91,7 @@ static void OLED_StartFrame(void)
   oled_page = 0;
   oled_sm = OLED_SM_CMD_PAGE;
 
+  __NOP(); // BREAKPOINT: inicio de frame OLED (page 0)
   oled_cmd_byte = (uint8_t)(0xB0u + oled_page);
   (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &oled_cmd_byte, 1);
 }
@@ -103,6 +104,7 @@ static void OLED_I2C_RequestApproved(void *ctx)
   {
     if (oled_update_pending)
     {
+      __NOP(); // BREAKPOINT: bus I2C otorgado al OLED (update pendiente)
       if (HAL_I2C_GetState(&SSD1306_I2C_PORT) != HAL_I2C_STATE_READY) {
         oled_update_pending = 1;
         if (g_i2c_mgr) {
@@ -148,18 +150,21 @@ static void OLED_I2C_TransferComplete(void)
   {
     case OLED_SM_CMD_PAGE:
       oled_sm = OLED_SM_CMD_LOWCOL;
+      __NOP(); // BREAKPOINT: comando de low column
       oled_cmd_byte = (uint8_t)SETLOWCOLUMN;
       (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &oled_cmd_byte, 1);
       break;
 
     case OLED_SM_CMD_LOWCOL:
       oled_sm = OLED_SM_CMD_HIGHCOL;
+      __NOP(); // BREAKPOINT: comando de high column
       oled_cmd_byte = (uint8_t)SETHIGHCOLUMN;
       (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &oled_cmd_byte, 1);
       break;
 
     case OLED_SM_CMD_HIGHCOL:
       oled_sm = OLED_SM_DATA;
+      __NOP(); // BREAKPOINT: envío de datos de página
       (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1,
                                   &SSD1306_Buffer[SSD1306_WIDTH * oled_page],
                                   width());
@@ -170,6 +175,7 @@ static void OLED_I2C_TransferComplete(void)
       if (oled_page >= (SSD1306_HEIGHT / 8))
       {
         oled_sm = OLED_SM_IDLE;
+        __NOP(); // BREAKPOINT: frame OLED completo
 
         // notify user callback (interrupt context)
         ssd1306_UpdateCompletedCallback();
@@ -190,6 +196,7 @@ static void OLED_I2C_TransferComplete(void)
       else
       {
         oled_sm = OLED_SM_CMD_PAGE;
+        __NOP(); // BREAKPOINT: siguiente página OLED
         oled_cmd_byte = (uint8_t)(0xB0u + oled_page);
         (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &oled_cmd_byte, 1);
       }
@@ -222,6 +229,7 @@ HAL_StatusTypeDef ssd1306_BindI2CManager(I2C_ManagerHandle *hmgr, I2C_DeviceID d
   g_i2c_mgr = hmgr;
   g_oled_dev_id = dev_id;
 
+  __NOP(); // BREAKPOINT: bind OLED al I2C Manager
   return I2C_Manager_RegisterDevice(
       hmgr,
       dev_id,
@@ -254,6 +262,7 @@ static void ssd1306_WriteCommand_Blocking(uint8_t command)
 //  Initialize the oled screen
 uint8_t ssd1306_Init(void)
 {
+  __NOP(); // BREAKPOINT: inicio de ssd1306_Init
   /* Check if LCD connected to I2C */
 #if SSD1306_USE_I2C_MANAGER == 1
   // Manager must be initialized+registered BEFORE init:
@@ -264,6 +273,9 @@ uint8_t ssd1306_Init(void)
     SSD1306.Initialized = 0;
     return 0;
   }
+#endif
+#if SSD1306_USE_I2C_MANAGER == 1
+  __NOP(); // BREAKPOINT: OLED listo en I2C (init)
 #else
   if (HAL_I2C_IsDeviceReady(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 5, 1000) != HAL_OK)
   {
@@ -321,6 +333,7 @@ uint8_t ssd1306_Init(void)
   ssd1306_WriteCommand_Blocking(NORMALDISPLAY);
   ssd1306_WriteCommand_Blocking(0x2e);            // stop scroll
   ssd1306_WriteCommand_Blocking(DISPLAYON);
+  __NOP(); // BREAKPOINT: comandos de init enviados
 
   // Set default values for screen object
   SSD1306.CurrentX = 0;
@@ -336,6 +349,7 @@ uint8_t ssd1306_Init(void)
 #endif
 
   // Flush buffer to screen (non-blocking in DMA mode)
+  __NOP(); // BREAKPOINT: primer UpdateScreen del OLED
   ssd1306_UpdateScreen();
 
   SSD1306.Initialized = 1;
@@ -999,6 +1013,7 @@ void ssd1306_UpdateScreen(void)
 {
 #if SSD1306_USE_I2C_MANAGER == 1
   // Mark a full refresh as pending and ask the manager for the bus.
+  __NOP(); // BREAKPOINT: solicitud de refresco OLED
   oled_update_pending = 1;
   if (oled_sm == OLED_SM_IDLE)
   {

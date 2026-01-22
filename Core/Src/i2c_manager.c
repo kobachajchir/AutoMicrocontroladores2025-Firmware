@@ -77,6 +77,7 @@ static void grant_to_index(I2C_ManagerHandle *hmgr, uint8_t idx)
     hmgr->owner_index = idx;
     hmgr->lease_start_tick = HAL_GetTick();
 
+    __NOP(); // BREAKPOINT: bus I2C otorgado a un dispositivo
     if (hmgr->devices[idx].on_granted) {
         hmgr->devices[idx].on_granted(hmgr->devices[idx].ctx);
     }
@@ -289,5 +290,4 @@ void I2C_Manager_Tick(I2C_ManagerHandle *hmgr)
         }
     }
 }
-
 
