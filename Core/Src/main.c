@@ -1431,11 +1431,13 @@ void OLED_MainTask(void) {
 }
 
 void initMenuSystemTask(void) {
+    RenderFunction initialRender = menuSystem.renderFn ? menuSystem.renderFn
+                                                      : OledUtils_RenderDashboard_Wrapper;
     MenuSys_Init(&menuSystem);
     MenuSys_SetCallbacks(&menuSystem,
         OledUtils_Clear_Wrapper,
         OledUtils_DrawItem_Wrapper,
-        OledUtils_RenderDashboard_Wrapper,
+        initialRender,
         &inside_menu_flag,
 		OledUtils_RenderDashboard_Wrapper);
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
