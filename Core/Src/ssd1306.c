@@ -243,6 +243,12 @@ static void OLED_I2C_RequestApproved(void *ctx)
 static void OLED_I2C_TxComplete(void *ctx)
 {
   (void)ctx;
+  if (g_i2c_mgr && I2C_Manager_GetOwner(g_i2c_mgr) != g_oled_dev_id) {
+    return;
+  }
+  if (oled_sm == OLED_SM_IDLE) {
+    return;
+  }
   OLED_I2C_TransferComplete();
 }
 
