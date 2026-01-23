@@ -46,6 +46,13 @@ typedef void (*I2C_OnTxDoneCb)(void *ctx);
 typedef void (*I2C_OnRxDoneCb)(void *ctx);
 typedef void (*I2C_OnErrorCb)(void *ctx, I2C_ManagerError err);
 
+// ---------- Request priority ----------
+typedef enum {
+    I2C_REQ_PRIO_LOW = 0,
+    I2C_REQ_PRIO_REGULAR = 1,
+    I2C_REQ_PRIO_HIGH = 2
+} I2C_RequestPrio;
+
 // ---------- Device entry ----------
 typedef struct {
     I2C_DeviceID id;           // internal ID
@@ -53,6 +60,7 @@ typedef struct {
     uint8_t      priority;     // 0..15 (optional use)
     uint8_t      enabled;      // 0/1
     uint8_t      pending;      // 0/1 (wants bus)
+    I2C_RequestPrio pending_prio; // accumulated pending prio (max)
 
     void        *ctx;          // user context (OLED handle*, MPU handle*, etc.)
     I2C_OnGrantedCb on_granted;
@@ -73,6 +81,11 @@ typedef struct {
 
     uint32_t lease_start_tick;   // for timeout watchdog
     uint32_t lease_timeout_ms;   // 0 disables timeout
+    void (*recover_cb)(I2C_HandleTypeDef *hi2c); // optional recovery hook
+
+    uint32_t spurious_tx;
+    uint32_t spurious_rx;
+    uint32_t spurious_err;
 
 } I2C_ManagerHandle;
 
@@ -91,6 +104,9 @@ HAL_StatusTypeDef I2C_Manager_RegisterDevice(I2C_ManagerHandle *hmgr,
                                             I2C_OnRxDoneCb on_rx_done,
                                             I2C_OnErrorCb on_error);
 
+HAL_StatusTypeDef I2C_Manager_RequestBusPrio(I2C_ManagerHandle *hmgr,
+                                             I2C_DeviceID id,
+                                             I2C_RequestPrio prio);
 HAL_StatusTypeDef I2C_Manager_RequestBus(I2C_ManagerHandle *hmgr, I2C_DeviceID id);
 HAL_StatusTypeDef I2C_Manager_ReleaseBus(I2C_ManagerHandle *hmgr, I2C_DeviceID id);
 
