@@ -77,6 +77,7 @@ static uint8_t oled_inflight_page = 0;
 static uint8_t oled_inflight_keep_bus = 0;
 static uint8_t oled_inflight_active = 0;
 static uint8_t oled_tx_inflight = 0;
+static volatile OLED_SM_State oled_tx_expected_sm = OLED_SM_IDLE;
 static uint8_t oled_pages_in_lease = 0;
 static const uint8_t oled_max_pages_per_lease = 4;
 
@@ -113,6 +114,7 @@ static void OLED_StartFrame(uint8_t page)
   oled_sm = OLED_SM_CMD_PAGE;
   oled_inflight_active = 1;
   oled_tx_inflight = 1;
+  oled_tx_expected_sm = OLED_SM_CMD_PAGE;
 
   __NOP(); // BREAKPOINT: inicio de frame OLED (page 0)
   oled_cmd_byte = (uint8_t)(0xB0u + oled_page);
@@ -256,7 +258,11 @@ static void OLED_I2C_TxComplete(void *ctx)
   if (oled_sm == OLED_SM_IDLE || !oled_inflight_active || !oled_tx_inflight) {
     return;
   }
+  if (oled_sm != oled_tx_expected_sm) {
+    return;
+  }
   oled_tx_inflight = 0;
+  oled_tx_expected_sm = OLED_SM_IDLE;
   OLED_I2C_TransferComplete();
 }
 
@@ -278,6 +284,7 @@ static void OLED_I2C_TransferComplete(void)
       __NOP(); // BREAKPOINT: comando de low column
       oled_cmd_byte = (uint8_t)SETLOWCOLUMN;
       oled_tx_inflight = 1;
+      oled_tx_expected_sm = OLED_SM_CMD_LOWCOL;
       (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &oled_cmd_byte, 1);
       break;
 
@@ -286,6 +293,7 @@ static void OLED_I2C_TransferComplete(void)
       __NOP(); // BREAKPOINT: comando de high column
       oled_cmd_byte = (uint8_t)SETHIGHCOLUMN;
       oled_tx_inflight = 1;
+      oled_tx_expected_sm = OLED_SM_CMD_HIGHCOL;
       (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &oled_cmd_byte, 1);
       break;
 
@@ -293,6 +301,7 @@ static void OLED_I2C_TransferComplete(void)
       oled_sm = OLED_SM_DATA;
       __NOP(); // BREAKPOINT: envío de datos de página
       oled_tx_inflight = 1;
+      oled_tx_expected_sm = OLED_SM_DATA;
       (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1,
                                   &SSD1306_Buffer[SSD1306_WIDTH * oled_page],
                                   width());
@@ -358,6 +367,7 @@ static void OLED_I2C_Error(void *ctx, I2C_ManagerError err)
   (void)err;
   oled_sm = OLED_SM_IDLE;
   oled_tx_inflight = 0;
+  oled_tx_expected_sm = OLED_SM_IDLE;
   if (g_i2c_mgr) {
     (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
   }
