@@ -13,6 +13,8 @@
 #include "../types/carmode_type.h"
 
 extern volatile Byte_Flag_Struct systemFlags;
+extern volatile Byte_Flag_Struct systemFlags2;
+extern volatile Byte_Flag_Struct carModeFlags;
 
 // ====================== Máscaras ========================= //
 
@@ -81,8 +83,8 @@ extern volatile Byte_Flag_Struct systemFlags;
 #define NIBBLEL_GET_STATE(object)  (uint8_t)((object).byte & NIBBLE_L_MASK)
 
 // Macros para leer/escribir el modo en nibble H
-#define GET_CAR_MODE()         (NIBBLEH_GET_STATE(systemFlags))
-#define SET_CAR_MODE(m)        NIBBLEH_SET_STATE(systemFlags, (m) & 0x0F)
+#define GET_CAR_MODE()         (NIBBLEH_GET_STATE(carModeFlags))
+#define SET_CAR_MODE(m)        NIBBLEH_SET_STATE(carModeFlags, (m) & 0x0F)
 #define ADVANCE_CAR_MODE()     SET_CAR_MODE((GET_CAR_MODE() + 1) % CAR_MODE_MAX)
 
 #endif /* INC_UTILS_MACROS_UTILS_H_ */

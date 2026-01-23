@@ -88,6 +88,7 @@ extern volatile uint32_t contador;
 extern volatile LedStatus_t ledStatus;
 extern volatile Byte_Flag_Struct systemFlags;
 extern volatile Byte_Flag_Struct systemFlags2;
+extern volatile Byte_Flag_Struct carModeFlags;
 extern volatile CarMode_t carMode;
 extern volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 extern TCRT_LightConfig_t myLight;

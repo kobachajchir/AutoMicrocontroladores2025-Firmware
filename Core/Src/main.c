@@ -83,6 +83,7 @@ volatile bool mpu_trigger = false;
 volatile LedStatus_t ledStatus;
 volatile Byte_Flag_Struct systemFlags;
 volatile Byte_Flag_Struct systemFlags2;
+volatile Byte_Flag_Struct carModeFlags;
 volatile CarMode_t carMode;
 volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 TCRT_LightConfig_t tcrtLight;
@@ -429,7 +430,7 @@ int main(void)
 	 } else {
 	     // El MPU no respondió en el bus
 	 }
-	 if (Oled_WaitReady(&i2cManager, I2C_ADDR_OLED, 5, 10)) {
+	 if (I2C_Manager_IsAddressReady(&i2cManager, I2C_ADDR_OLED) == HAL_OK) {
 	     __NOP(); // BREAKPOINT: I2C detectó el OLED
 	     result = ssd1306_BindI2CManager(&i2cManager, DEVICE_ID_OLED);
 
@@ -1090,7 +1091,7 @@ void initUNERProtocol(void) {
 
 
 void initCarMode(){
-	NIBBLEH_SET_STATE(systemFlags, IDLE_MODE);
+	SET_CAR_MODE(IDLE_MODE);
 	carMode = GET_CAR_MODE();
 	ledStatus.gpio_port = LED_GPIO_Port;
 	ledStatus.gpio_pin = LED_Pin;
