@@ -85,7 +85,6 @@ typedef enum {
   OLED_SM_PAGE_DONE
 } OLED_SM_State;
 
-static volatile OLED_SM_State oled_sm = OLED_SM_IDLE;
 static volatile uint8_t oled_page = 0;
 
 // we reuse a single byte buffer for commands (DMA needs RAM address)
@@ -107,7 +106,6 @@ static void OLED_SendForState(uint8_t page, OLED_SM_State state);
 static void OLED_StartFrame(uint8_t page)
 {
   oled_page = page;
-  oled_sm = OLED_SM_CMD_PAGE;
 
   __NOP(); // BREAKPOINT: inicio de frame OLED (page 0)
   oled_cmd_byte = (uint8_t)(0xB0u + oled_page);
@@ -232,9 +230,6 @@ static HAL_StatusTypeDef OLED_QueueUpsert(uint8_t page, I2C_RequestPrio prio, ui
 static void OLED_I2C_RequestApproved(void *ctx)
 {
   (void)ctx;
-  if (oled_sm != OLED_SM_IDLE) {
-    return;
-  }
   if (oled_inflight_page != 0xFFu) {
     return;
   }
@@ -269,7 +264,7 @@ static void OLED_I2C_TxComplete(void *ctx)
 static void OLED_I2C_TransferComplete(void)
 {
   // OLED only does TX in this driver. If manager passes RX, ignore safely.
-  if (oled_sm == OLED_SM_IDLE) {
+  if (oled_inflight_page == 0xFFu) {
     // spurious callback
     if (g_i2c_mgr) {
       (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
@@ -280,7 +275,6 @@ static void OLED_I2C_TransferComplete(void)
   uint8_t slot_idx = 0xFFu;
   if (!OLED_QueueFindByPage(oled_inflight_page, &slot_idx)) {
     oled_inflight_page = 0xFFu;
-    oled_sm = OLED_SM_IDLE;
     if (g_i2c_mgr) {
       (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
     }
@@ -291,28 +285,24 @@ static void OLED_I2C_TransferComplete(void)
   {
     case OLED_SM_CMD_PAGE:
       g_page_q[slot_idx].state = OLED_SM_CMD_LOWCOL;
-      oled_sm = OLED_SM_CMD_LOWCOL;
       __NOP(); // BREAKPOINT: comando de low column
       OLED_SendForState(oled_inflight_page, OLED_SM_CMD_LOWCOL);
       break;
 
     case OLED_SM_CMD_LOWCOL:
       g_page_q[slot_idx].state = OLED_SM_CMD_HIGHCOL;
-      oled_sm = OLED_SM_CMD_HIGHCOL;
       __NOP(); // BREAKPOINT: comando de high column
       OLED_SendForState(oled_inflight_page, OLED_SM_CMD_HIGHCOL);
       break;
 
     case OLED_SM_CMD_HIGHCOL:
       g_page_q[slot_idx].state = OLED_SM_DATA;
-      oled_sm = OLED_SM_DATA;
       __NOP(); // BREAKPOINT: envío de datos de página
       OLED_SendForState(oled_inflight_page, OLED_SM_DATA);
       break;
 
     case OLED_SM_DATA:
       g_page_q[slot_idx].state = OLED_SM_PAGE_DONE;
-      oled_sm = OLED_SM_PAGE_DONE;
       __NOP(); // BREAKPOINT: frame OLED completo
 
       ssd1306_PageSentCallback(oled_inflight_page);
@@ -321,7 +311,6 @@ static void OLED_I2C_TransferComplete(void)
       uint8_t keep_bus = g_page_q[slot_idx].keep_bus;
       oled_inflight_page = 0xFFu;
 
-      oled_sm = OLED_SM_IDLE;
       if (g_i2c_mgr) {
         (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
       }
@@ -341,7 +330,7 @@ static void OLED_I2C_TransferComplete(void)
 
     default:
       // Fail-safe: never deadlock the bus
-      oled_sm = OLED_SM_IDLE;
+      oled_inflight_page = 0xFFu;
       if (g_i2c_mgr) {
         (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
       }
@@ -353,7 +342,6 @@ static void OLED_I2C_Error(void *ctx, I2C_ManagerError err)
 {
   (void)ctx;
   (void)err;
-  oled_sm = OLED_SM_IDLE;
   oled_inflight_page = 0xFFu;
   if (g_i2c_mgr) {
     (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
@@ -425,7 +413,7 @@ HAL_StatusTypeDef ssd1306_RequestPageUpdate(uint8_t page,
   if (OLED_QueueUpsert(page, prio, keep_bus) != HAL_OK) {
     return HAL_ERROR;
   }
-  if (oled_sm == OLED_SM_IDLE && g_i2c_mgr) {
+  if (oled_inflight_page == 0xFFu && g_i2c_mgr) {
     (void)I2C_Manager_RequestBusPrio(g_i2c_mgr, g_oled_dev_id, prio);
   }
   return HAL_OK;
@@ -1227,7 +1215,7 @@ void ssd1306_UpdateScreen(void)
 char ssd1306_UpdateScreenCompleted(void)
 {
 #if SSD1306_USE_I2C_MANAGER == 1
-  return (oled_sm == OLED_SM_IDLE && !OLED_QueueHasPending() && oled_inflight_page == 0xFFu) ? 1 : 0;
+  return (!OLED_QueueHasPending() && oled_inflight_page == 0xFFu) ? 1 : 0;
 #else
   if(ssd1306_updatestatus)
     return 0;
