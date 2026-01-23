@@ -140,6 +140,7 @@ static bool Oled_WaitReady(I2C_ManagerHandle *manager, uint16_t addr_7bit, uint3
 
     for (uint32_t attempt = 0; attempt < retries; attempt++) {
         if (I2C_Manager_IsAddressReady(manager, addr_7bit) == HAL_OK) {
+            __NOP(); // BREAKPOINT: OLED respondió en I2C
             return true;
         }
         HAL_Delay(delay_ms);
@@ -391,6 +392,7 @@ int main(void)
   MX_ADC1_Init();
   MX_USART1_UART_Init();
   MX_I2C1_Init();
+  __NOP(); // BREAKPOINT: I2C1 inicializado
   MX_TIM2_Init();
   MX_SPI2_Init();
   MX_TIM4_Init();
@@ -400,6 +402,7 @@ int main(void)
 	 initTCRTLib();
 	 InitMotorTask();
 	 I2C_Manager_Init(&i2cManager, &hi2c1, 0);
+	 __NOP(); // BREAKPOINT: I2C Manager inicializado
 	 /*I2C_Manager_ScanBus();*/
 	 if (I2C_Manager_IsAddressReady(&i2cManager, I2C_ADDR_MPU) == HAL_OK) {
 	     if (MPU6050_Init(
@@ -427,11 +430,15 @@ int main(void)
 	     // El MPU no respondió en el bus
 	 }
 	 if (Oled_WaitReady(&i2cManager, I2C_ADDR_OLED, 5, 10)) {
+	     __NOP(); // BREAKPOINT: I2C detectó el OLED
 	     result = ssd1306_BindI2CManager(&i2cManager, DEVICE_ID_OLED);
 
 	     if (result == HAL_OK) {
+	         __NOP(); // BREAKPOINT: OLED registrado en I2C Manager
 	         if (ssd1306_Init()) {
+	             __NOP(); // BREAKPOINT: OLED inicializado
 	             OLED_Is_Ready();
+	             __NOP(); // BREAKPOINT: OLED marcado como listo
 	         }
 	     } else {
 	         // Falló al registrar
@@ -657,6 +664,7 @@ static void MX_I2C1_Init(void)
   {
     Error_Handler();
   }
+  __NOP(); // BREAKPOINT: HAL_I2C_Init completo
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
@@ -1420,12 +1428,14 @@ void OLED_MainTask(void) {
     bool did_render = false;
     if (menuSystem.renderFlag && menuSystem.renderFn) {
         menuSystem.renderFlag = false;
+        __NOP(); // BREAKPOINT: render de OLED solicitado
         menuSystem.renderFn();
         did_render = true;
     }
 
     // 4) Enviar el buffer al display (no bloqueante con DMA/I2C manager)
     if (did_render) {
+        __NOP(); // BREAKPOINT: inicio de ssd1306_UpdateScreen
         ssd1306_UpdateScreen();
     }
 }

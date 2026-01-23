@@ -62,6 +62,25 @@ void ssd1306_SetColor(SSD1306_COLOR color) { SSD1306.Color = color; }
 static I2C_DeviceID g_oled_dev_id = DEVICE_ID_OLED;
 static I2C_ManagerHandle *g_i2c_mgr = NULL;
 
+typedef struct {
+  uint8_t used;
+  uint8_t page;
+  I2C_RequestPrio prio;
+  uint8_t keep_bus;
+  uint32_t seq;
+} OLED_PageReq;
+
+static OLED_PageReq g_page_q[8];
+static uint32_t g_seq = 0;
+static uint8_t oled_inflight_slot = 0xFFu;
+static uint8_t oled_inflight_page = 0;
+static uint8_t oled_inflight_keep_bus = 0;
+static uint8_t oled_inflight_active = 0;
+static uint8_t oled_tx_inflight = 0;
+static volatile OLED_SM_State oled_tx_expected_sm = OLED_SM_IDLE;
+static uint8_t oled_pages_in_lease = 0;
+static const uint8_t oled_max_pages_per_lease = 4;
+
 // simple state machine for page update
 typedef enum {
   OLED_SM_IDLE = 0,
@@ -69,12 +88,11 @@ typedef enum {
   OLED_SM_CMD_LOWCOL,
   OLED_SM_CMD_HIGHCOL,
   OLED_SM_DATA,
-  OLED_SM_DONE
+  OLED_SM_PAGE_DONE
 } OLED_SM_State;
 
 static volatile OLED_SM_State oled_sm = OLED_SM_IDLE;
 static volatile uint8_t oled_page = 0;
-static volatile uint8_t oled_update_pending = 0;
 
 // we reuse a single byte buffer for commands (DMA needs RAM address)
 static uint8_t oled_cmd_byte = 0;
@@ -84,43 +102,147 @@ static void OLED_I2C_RequestApproved(void *ctx);
 static void OLED_I2C_TxComplete(void *ctx);
 static void OLED_I2C_TransferComplete(void);
 static void OLED_I2C_Error(void *ctx, I2C_ManagerError err);
+static uint8_t OLED_QueueHasPending(void);
+static uint8_t OLED_QueueMaxPrio(void);
+static uint8_t OLED_QueueSelectNext(uint8_t *slot_idx);
+static HAL_StatusTypeDef OLED_QueueUpsert(uint8_t page, I2C_RequestPrio prio, uint8_t keep_bus);
 
 // helper: start first step of a frame
-static void OLED_StartFrame(void)
+static void OLED_StartFrame(uint8_t page)
 {
-  oled_page = 0;
+  oled_page = page;
   oled_sm = OLED_SM_CMD_PAGE;
+  oled_inflight_active = 1;
+  oled_tx_inflight = 1;
+  oled_tx_expected_sm = OLED_SM_CMD_PAGE;
 
+  __NOP(); // BREAKPOINT: inicio de frame OLED (page 0)
   oled_cmd_byte = (uint8_t)(0xB0u + oled_page);
   (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &oled_cmd_byte, 1);
+}
+
+static uint8_t OLED_QueueHasPending(void)
+{
+  for (uint8_t i = 0; i < 8; i++) {
+    if (g_page_q[i].used) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static uint8_t OLED_QueueMaxPrio(void)
+{
+  I2C_RequestPrio max_prio = I2C_REQ_PRIO_LOW;
+  for (uint8_t i = 0; i < 8; i++) {
+    if (g_page_q[i].used && g_page_q[i].prio > max_prio) {
+      max_prio = g_page_q[i].prio;
+    }
+  }
+  return (uint8_t)max_prio;
+}
+
+static uint8_t OLED_QueueSelectNext(uint8_t *slot_idx)
+{
+  uint8_t best = 0xFFu;
+  I2C_RequestPrio best_prio = I2C_REQ_PRIO_LOW;
+  uint32_t best_seq = 0xFFFFFFFFu;
+
+  for (uint8_t i = 0; i < 8; i++) {
+    if (!g_page_q[i].used || i == oled_inflight_slot) {
+      continue;
+    }
+    if (best == 0xFFu ||
+        g_page_q[i].prio > best_prio ||
+        (g_page_q[i].prio == best_prio && g_page_q[i].seq < best_seq)) {
+      best = i;
+      best_prio = g_page_q[i].prio;
+      best_seq = g_page_q[i].seq;
+    }
+  }
+
+  if (best == 0xFFu) {
+    return 0;
+  }
+
+  *slot_idx = best;
+  return 1;
+}
+
+static HAL_StatusTypeDef OLED_QueueUpsert(uint8_t page, I2C_RequestPrio prio, uint8_t keep_bus)
+{
+  uint8_t free_idx = 0xFFu;
+  uint8_t victim = 0xFFu;
+  I2C_RequestPrio victim_prio = I2C_REQ_PRIO_HIGH;
+  uint32_t victim_seq = 0;
+
+  for (uint8_t i = 0; i < 8; i++) {
+    if (g_page_q[i].used && g_page_q[i].page == page) {
+      g_page_q[i].prio = (g_page_q[i].prio < prio) ? prio : g_page_q[i].prio;
+      g_page_q[i].keep_bus = keep_bus;
+      g_page_q[i].seq = g_seq++;
+      return HAL_OK;
+    }
+    if (!g_page_q[i].used && free_idx == 0xFFu) {
+      free_idx = i;
+    }
+  }
+
+  if (free_idx != 0xFFu) {
+    g_page_q[free_idx].used = 1;
+    g_page_q[free_idx].page = page;
+    g_page_q[free_idx].prio = prio;
+    g_page_q[free_idx].keep_bus = keep_bus;
+    g_page_q[free_idx].seq = g_seq++;
+    return HAL_OK;
+  }
+
+  for (uint8_t i = 0; i < 8; i++) {
+    if (!g_page_q[i].used) {
+      continue;
+    }
+    if (victim == 0xFFu ||
+        g_page_q[i].prio < victim_prio ||
+        (g_page_q[i].prio == victim_prio && g_page_q[i].seq < victim_seq)) {
+      victim = i;
+      victim_prio = g_page_q[i].prio;
+      victim_seq = g_page_q[i].seq;
+    }
+  }
+
+  if (victim != 0xFFu) {
+    g_page_q[victim].used = 1;
+    g_page_q[victim].page = page;
+    g_page_q[victim].prio = prio;
+    g_page_q[victim].keep_bus = keep_bus;
+    g_page_q[victim].seq = g_seq++;
+    return HAL_OK;
+  }
+
+  return HAL_ERROR;
 }
 
 static void OLED_I2C_RequestApproved(void *ctx)
 {
   (void)ctx;
-  // If an update is requested and we are idle, start it.
   if (oled_sm == OLED_SM_IDLE)
   {
-    if (oled_update_pending)
-    {
-      if (HAL_I2C_GetState(&SSD1306_I2C_PORT) != HAL_I2C_STATE_READY) {
-        oled_update_pending = 1;
-        if (g_i2c_mgr) {
-          (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
-        }
-        return;
-      }
-      oled_update_pending = 0;
-      OLED_StartFrame();
+    if (oled_inflight_active) {
+      return;
     }
-    else
-    {
-      // nothing to do, release bus immediately
+    uint8_t slot_idx = 0xFFu;
+    if (!OLED_QueueSelectNext(&slot_idx)) {
       if (g_i2c_mgr) {
         (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
       }
+      return;
     }
-    return;
+    oled_pages_in_lease = 0;
+    oled_inflight_slot = slot_idx;
+    oled_inflight_page = g_page_q[slot_idx].page;
+    oled_inflight_keep_bus = g_page_q[slot_idx].keep_bus;
+    __NOP(); // BREAKPOINT: bus I2C otorgado al OLED (update pendiente)
+    OLED_StartFrame(oled_inflight_page);
   }
 
   // If we got granted while already mid-transfer, do nothing.
@@ -130,6 +252,17 @@ static void OLED_I2C_RequestApproved(void *ctx)
 static void OLED_I2C_TxComplete(void *ctx)
 {
   (void)ctx;
+  if (g_i2c_mgr && I2C_Manager_GetOwner(g_i2c_mgr) != g_oled_dev_id) {
+    return;
+  }
+  if (oled_sm == OLED_SM_IDLE || !oled_inflight_active || !oled_tx_inflight) {
+    return;
+  }
+  if (oled_sm != oled_tx_expected_sm) {
+    return;
+  }
+  oled_tx_inflight = 0;
+  oled_tx_expected_sm = OLED_SM_IDLE;
   OLED_I2C_TransferComplete();
 }
 
@@ -148,50 +281,59 @@ static void OLED_I2C_TransferComplete(void)
   {
     case OLED_SM_CMD_PAGE:
       oled_sm = OLED_SM_CMD_LOWCOL;
+      __NOP(); // BREAKPOINT: comando de low column
       oled_cmd_byte = (uint8_t)SETLOWCOLUMN;
+      oled_tx_inflight = 1;
+      oled_tx_expected_sm = OLED_SM_CMD_LOWCOL;
       (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &oled_cmd_byte, 1);
       break;
 
     case OLED_SM_CMD_LOWCOL:
       oled_sm = OLED_SM_CMD_HIGHCOL;
+      __NOP(); // BREAKPOINT: comando de high column
       oled_cmd_byte = (uint8_t)SETHIGHCOLUMN;
+      oled_tx_inflight = 1;
+      oled_tx_expected_sm = OLED_SM_CMD_HIGHCOL;
       (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &oled_cmd_byte, 1);
       break;
 
     case OLED_SM_CMD_HIGHCOL:
       oled_sm = OLED_SM_DATA;
+      __NOP(); // BREAKPOINT: envío de datos de página
+      oled_tx_inflight = 1;
+      oled_tx_expected_sm = OLED_SM_DATA;
       (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1,
                                   &SSD1306_Buffer[SSD1306_WIDTH * oled_page],
                                   width());
       break;
 
     case OLED_SM_DATA:
-      oled_page++;
-      if (oled_page >= (SSD1306_HEIGHT / 8))
-      {
-        oled_sm = OLED_SM_IDLE;
+      oled_sm = OLED_SM_PAGE_DONE;
+      __NOP(); // BREAKPOINT: frame OLED completo
 
-        // notify user callback (interrupt context)
-        ssd1306_UpdateCompletedCallback();
-
-        // release bus so MPU (or others) can run
-        if (g_i2c_mgr) {
-          (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
-        }
-
-        // if another update was requested while we were busy, ask again
-        if (oled_update_pending)
-        {
-          if (g_i2c_mgr) {
-            (void)I2C_Manager_RequestBus(g_i2c_mgr, g_oled_dev_id);
-          }
-        }
+      oled_pages_in_lease++;
+      oled_inflight_active = 0;
+      if (oled_inflight_slot != 0xFFu) {
+        g_page_q[oled_inflight_slot].used = 0;
       }
-      else
-      {
-        oled_sm = OLED_SM_CMD_PAGE;
-        oled_cmd_byte = (uint8_t)(0xB0u + oled_page);
-        (void)HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &oled_cmd_byte, 1);
+      ssd1306_PageSentCallback(oled_inflight_page);
+      oled_inflight_slot = 0xFFu;
+
+      oled_sm = OLED_SM_IDLE;
+      if (g_i2c_mgr) {
+        (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
+      }
+
+      if (OLED_QueueHasPending()) {
+        if (g_i2c_mgr) {
+          (void)I2C_Manager_RequestBusPrio(
+              g_i2c_mgr,
+              g_oled_dev_id,
+              (I2C_RequestPrio)OLED_QueueMaxPrio());
+        }
+      } else {
+        ssd1306_UpdateCompletedCallback();
+        ssd1306_QueueEmptyCallback();
       }
       break;
 
@@ -210,7 +352,11 @@ static void OLED_I2C_Error(void *ctx, I2C_ManagerError err)
   (void)ctx;
   (void)err;
   oled_sm = OLED_SM_IDLE;
-  oled_update_pending = 1;
+  oled_tx_inflight = 0;
+  oled_tx_expected_sm = OLED_SM_IDLE;
+  if (g_i2c_mgr) {
+    (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
+  }
 }
 
 #endif /* SSD1306_USE_I2C_MANAGER */
@@ -222,6 +368,7 @@ HAL_StatusTypeDef ssd1306_BindI2CManager(I2C_ManagerHandle *hmgr, I2C_DeviceID d
   g_i2c_mgr = hmgr;
   g_oled_dev_id = dev_id;
 
+  __NOP(); // BREAKPOINT: bind OLED al I2C Manager
   return I2C_Manager_RegisterDevice(
       hmgr,
       dev_id,
@@ -240,6 +387,30 @@ HAL_StatusTypeDef ssd1306_BindI2CManager(I2C_ManagerHandle *hmgr, I2C_DeviceID d
 #endif
 }
 
+HAL_StatusTypeDef ssd1306_RequestPageUpdate(uint8_t page,
+                                            I2C_RequestPrio prio,
+                                            uint8_t keep_bus)
+{
+#if SSD1306_USE_I2C_MANAGER == 1
+  uint8_t max_pages = (uint8_t)(SSD1306_HEIGHT / 8);
+  if (page >= max_pages) {
+    return HAL_ERROR;
+  }
+  if (OLED_QueueUpsert(page, prio, keep_bus) != HAL_OK) {
+    return HAL_ERROR;
+  }
+  if (oled_sm == OLED_SM_IDLE && g_i2c_mgr) {
+    (void)I2C_Manager_RequestBusPrio(g_i2c_mgr, g_oled_dev_id, prio);
+  }
+  return HAL_OK;
+#else
+  (void)page;
+  (void)prio;
+  (void)keep_bus;
+  return HAL_ERROR;
+#endif
+}
+
 
 /* -------------------------------------------------------------------------- */
 /* INIT                                                                        */
@@ -254,6 +425,7 @@ static void ssd1306_WriteCommand_Blocking(uint8_t command)
 //  Initialize the oled screen
 uint8_t ssd1306_Init(void)
 {
+  __NOP(); // BREAKPOINT: inicio de ssd1306_Init
   /* Check if LCD connected to I2C */
 #if SSD1306_USE_I2C_MANAGER == 1
   // Manager must be initialized+registered BEFORE init:
@@ -264,6 +436,9 @@ uint8_t ssd1306_Init(void)
     SSD1306.Initialized = 0;
     return 0;
   }
+#endif
+#if SSD1306_USE_I2C_MANAGER == 1
+  __NOP(); // BREAKPOINT: OLED listo en I2C (init)
 #else
   if (HAL_I2C_IsDeviceReady(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 5, 1000) != HAL_OK)
   {
@@ -321,6 +496,7 @@ uint8_t ssd1306_Init(void)
   ssd1306_WriteCommand_Blocking(NORMALDISPLAY);
   ssd1306_WriteCommand_Blocking(0x2e);            // stop scroll
   ssd1306_WriteCommand_Blocking(DISPLAYON);
+  __NOP(); // BREAKPOINT: comandos de init enviados
 
   // Set default values for screen object
   SSD1306.CurrentX = 0;
@@ -336,6 +512,7 @@ uint8_t ssd1306_Init(void)
 #endif
 
   // Flush buffer to screen (non-blocking in DMA mode)
+  __NOP(); // BREAKPOINT: primer UpdateScreen del OLED
   ssd1306_UpdateScreen();
 
   SSD1306.Initialized = 1;
@@ -998,13 +1175,11 @@ void ssd1306_WriteCommand(uint8_t command)
 void ssd1306_UpdateScreen(void)
 {
 #if SSD1306_USE_I2C_MANAGER == 1
-  // Mark a full refresh as pending and ask the manager for the bus.
-  oled_update_pending = 1;
-  if (oled_sm == OLED_SM_IDLE)
-  {
-    if (g_i2c_mgr) {
-      (void)I2C_Manager_RequestBus(g_i2c_mgr, g_oled_dev_id);
-    }
+  __NOP(); // BREAKPOINT: solicitud de refresco OLED
+  uint8_t max_pages = (uint8_t)(SSD1306_HEIGHT / 8);
+  for (uint8_t page = 0; page < max_pages; page++) {
+    uint8_t keep_bus = (page + 1u) < max_pages;
+    (void)ssd1306_RequestPageUpdate(page, I2C_REQ_PRIO_REGULAR, keep_bus);
   }
 #else
   uint8_t  command;
@@ -1026,7 +1201,7 @@ void ssd1306_UpdateScreen(void)
 char ssd1306_UpdateScreenCompleted(void)
 {
 #if SSD1306_USE_I2C_MANAGER == 1
-  return (oled_sm == OLED_SM_IDLE) ? 1 : 0;
+  return (oled_sm == OLED_SM_IDLE && !OLED_QueueHasPending() && oled_inflight_slot == 0xFFu) ? 1 : 0;
 #else
   if(ssd1306_updatestatus)
     return 0;
@@ -1036,6 +1211,8 @@ char ssd1306_UpdateScreenCompleted(void)
 }
 
 __weak void ssd1306_UpdateCompletedCallback(void) { };
+__weak void ssd1306_PageSentCallback(uint8_t page) { (void)page; };
+__weak void ssd1306_QueueEmptyCallback(void) { };
 
 #elif SSD1306_CONTUPDATE == 1
 

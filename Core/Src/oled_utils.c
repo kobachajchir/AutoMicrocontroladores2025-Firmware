@@ -41,6 +41,7 @@ static uint8_t Oled_FontWidth(void)
 
 static void Oled_DrawStr(const char *text)
 {
+    __NOP(); // BREAKPOINT: impresión de texto en buffer
     ssd1306_SetColor(White);
     ssd1306_WriteString((char *)text, *oled_font);
 }
@@ -66,6 +67,7 @@ static void Oled_DrawFrame(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 
 static void Oled_DrawXBM(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const uint8_t *bits)
 {
+    __NOP(); // BREAKPOINT: impresión de bitmap en buffer
     ssd1306_SetColor(White);
     ssd1306_DrawBitmap(x, y, w, h, bits);
 }
@@ -345,6 +347,7 @@ void OledUtils_RenderVerticalMenu(MenuSystem *ms) {
 }
 
 void OledUtils_Clear(void) {
+    __NOP(); // BREAKPOINT: limpieza del buffer OLED
     ssd1306_Clear();
 }
 

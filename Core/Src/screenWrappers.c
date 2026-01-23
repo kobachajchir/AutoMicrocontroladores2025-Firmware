@@ -24,6 +24,7 @@ void OledUtils_DrawItem_Wrapper(const MenuItem *item,
  */
 void OledUtils_RenderDashboard_Wrapper(void)
 {
+    __NOP(); // BREAKPOINT: wrapper dashboard
     // 1) Deshabilito el refresco periódico
 	OledUtils_DisableContinuousRender();
 	menuSystem.userEventManagerFn = dashboardEventManager;
@@ -45,6 +46,7 @@ void OledUtils_RenderDashboard_Wrapper(void)
 
 void OledUtils_RenderTestScreen_Wrapper(void)
 {
+    __NOP(); // BREAKPOINT: wrapper pantalla de prueba
     OledUtils_DisableContinuousRender();
     menuSystem.userEventManagerFn = dashboardEventManager;
     __NOP();
@@ -62,6 +64,7 @@ void OledUtils_RenderTestScreen_Wrapper(void)
  * @brief  Wrapper que decide si redibuja todo o sólo mueve cursor.
  */
 void MenuSys_RenderMenu_Wrapper(void) {
+    __NOP(); // BREAKPOINT: wrapper menú
     OledUtils_DisableContinuousRender();
     menuSystem.userEventManagerFn = menuEventManager;
 
