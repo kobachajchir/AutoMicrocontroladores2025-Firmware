@@ -62,6 +62,16 @@ void ssd1306_SetColor(SSD1306_COLOR color) { SSD1306.Color = color; }
 static I2C_DeviceID g_oled_dev_id = DEVICE_ID_OLED;
 static I2C_ManagerHandle *g_i2c_mgr = NULL;
 
+// simple state machine for page update
+typedef enum {
+  OLED_SM_IDLE = 0,
+  OLED_SM_CMD_PAGE,
+  OLED_SM_CMD_LOWCOL,
+  OLED_SM_CMD_HIGHCOL,
+  OLED_SM_DATA,
+  OLED_SM_PAGE_DONE
+} OLED_SM_State;
+
 typedef struct {
   uint8_t used;
   uint8_t page;
@@ -74,16 +84,6 @@ typedef struct {
 static OLED_PageReq g_page_q[8];
 static uint32_t g_seq = 0;
 static uint8_t oled_inflight_page = 0xFFu;
-
-// simple state machine for page update
-typedef enum {
-  OLED_SM_IDLE = 0,
-  OLED_SM_CMD_PAGE,
-  OLED_SM_CMD_LOWCOL,
-  OLED_SM_CMD_HIGHCOL,
-  OLED_SM_DATA,
-  OLED_SM_PAGE_DONE
-} OLED_SM_State;
 
 static volatile uint8_t oled_page = 0;
 
@@ -280,7 +280,7 @@ static void OLED_I2C_TransferComplete(void)
     }
     return;
   }
-
+  __NOP();
   switch (g_page_q[slot_idx].state)
   {
     case OLED_SM_CMD_PAGE:
@@ -407,6 +407,7 @@ HAL_StatusTypeDef ssd1306_RequestPageUpdate(uint8_t page,
 {
 #if SSD1306_USE_I2C_MANAGER == 1
   uint8_t max_pages = (uint8_t)(SSD1306_HEIGHT / 8);
+  __NOP();
   if (page >= max_pages) {
     return HAL_ERROR;
   }
@@ -1193,6 +1194,7 @@ void ssd1306_UpdateScreen(void)
   uint8_t max_pages = (uint8_t)(SSD1306_HEIGHT / 8);
   for (uint8_t page = 0; page < max_pages; page++) {
     uint8_t keep_bus = (page + 1u) < max_pages;
+    __NOP();
     (void)ssd1306_RequestPageUpdate(page, I2C_REQ_PRIO_REGULAR, keep_bus);
   }
 #else

@@ -1,7 +1,7 @@
 Core/Src/menusystem.o: ../Core/Src/menusystem.c \
  ../Core/Inc/types/menu_types.h ../Core/Inc/globals.h \
- ../Core/Inc/types/button_state.h ../Core/Inc/types/bitmap_type.h \
- ../Core/Inc/utils/macros_utils.h \
+ ../Core/Inc/user_button.h ../Core/Inc/types/button_state.h \
+ ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
  ../Core/Inc/utils/../types/bitmap_type.h \
  ../Core/Inc/utils/../types/carmode_type.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h \
@@ -43,6 +43,7 @@ Core/Src/menusystem.o: ../Core/Src/menusystem.c \
  ../Core/Inc/menusystem.h
 ../Core/Inc/types/menu_types.h:
 ../Core/Inc/globals.h:
+../Core/Inc/user_button.h:
 ../Core/Inc/types/button_state.h:
 ../Core/Inc/types/bitmap_type.h:
 ../Core/Inc/utils/macros_utils.h:

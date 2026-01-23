@@ -1,6 +1,6 @@
 Core/Src/utils.o: ../Core/Src/utils.c ../Core/Inc/globals.h \
- ../Core/Inc/types/button_state.h ../Core/Inc/types/bitmap_type.h \
- ../Core/Inc/utils/macros_utils.h \
+ ../Core/Inc/user_button.h ../Core/Inc/types/button_state.h \
+ ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
  ../Core/Inc/utils/../types/bitmap_type.h \
  ../Core/Inc/utils/../types/carmode_type.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h \
@@ -39,8 +39,10 @@ Core/Src/utils.o: ../Core/Src/utils.c ../Core/Inc/globals.h \
  ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
  ../Core/Inc/menusystem.h ../Core/Inc/types/userEvent_type.h \
  ../Core/Inc/mpu6050.h ../Core/Inc/uner_protocol.h ../Core/Inc/utils.h \
- ../Core/Inc/i2c_manager.h ../Core/Inc/uner_protocol.h
+ ../Core/Inc/i2c_manager.h ../Core/Inc/uner_protocol.h \
+ ../Core/Inc/user_button.h
 ../Core/Inc/globals.h:
+../Core/Inc/user_button.h:
 ../Core/Inc/types/button_state.h:
 ../Core/Inc/types/bitmap_type.h:
 ../Core/Inc/utils/macros_utils.h:
@@ -91,3 +93,4 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/Fi
 ../Core/Inc/utils.h:
 ../Core/Inc/i2c_manager.h:
 ../Core/Inc/uner_protocol.h:
+../Core/Inc/user_button.h:

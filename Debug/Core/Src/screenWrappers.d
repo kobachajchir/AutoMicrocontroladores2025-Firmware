@@ -1,7 +1,7 @@
 Core/Src/screenWrappers.o: ../Core/Src/screenWrappers.c \
  ../Core/Inc/screenWrappers.h ../Core/Inc/globals.h \
- ../Core/Inc/types/button_state.h ../Core/Inc/types/bitmap_type.h \
- ../Core/Inc/utils/macros_utils.h ../Core/Inc/globals.h \
+ ../Core/Inc/user_button.h ../Core/Inc/types/button_state.h \
+ ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
  ../Core/Inc/utils/../types/bitmap_type.h \
  ../Core/Inc/utils/../types/carmode_type.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h \
@@ -44,10 +44,10 @@ Core/Src/screenWrappers.o: ../Core/Src/screenWrappers.c \
  ../Core/Inc/eventManagers.h
 ../Core/Inc/screenWrappers.h:
 ../Core/Inc/globals.h:
+../Core/Inc/user_button.h:
 ../Core/Inc/types/button_state.h:
 ../Core/Inc/types/bitmap_type.h:
 ../Core/Inc/utils/macros_utils.h:
-../Core/Inc/globals.h:
 ../Core/Inc/utils/../types/bitmap_type.h:
 ../Core/Inc/utils/../types/carmode_type.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h:

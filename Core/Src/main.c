@@ -448,15 +448,8 @@ int main(void)
 	 }
 	 HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
 	 HAL_TIM_Base_Start_IT(&htim3);
-	 //Solo llamo initCarMode() una vez, antes del while
-	 if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
-		  initCarMode();
-		  initMenuSystemTask();
-		  if (IS_FLAG_SET(systemFlags, OLED_READY)) {
-			  menuSystem.renderFlag = true;
-			  OLED_MainTask();
-		  }
-	 }
+	 initCarMode();
+	 initMenuSystemTask();
 
   //Solo llamo initCarMode() una vez, antes del while
   /* USER CODE END 2 */
@@ -466,10 +459,8 @@ int main(void)
 	while (1) {
 		TCRT_MainTask();
 		i2cManager_MainTask();
-		if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
-			UserBtn_MainTask(&btnUser);
-			Encoder_MainTask(&encoder);
-		}
+		UserBtn_MainTask(&btnUser);
+		Encoder_MainTask(&encoder);
 		OLED_MainTask();
 		MPU_MainTask();
 		Motor_MainTask();
@@ -1412,6 +1403,7 @@ void i2cManager_MainTask(){
 void OLED_MainTask(void) {
     // 0) Esperamos a que el SSD esté listo
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
+    	__NOP();
         return;
     }
 
@@ -1450,11 +1442,6 @@ void initMenuSystemTask(void) {
         initialRender,
         &inside_menu_flag,
 		OledUtils_RenderDashboard_Wrapper);
-    if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
-        menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
-    }
-    menuSystem.renderFlag = true;
-    oled_first_draw = true;
 }
 
 /* USER CODE END 4 */

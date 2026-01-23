@@ -197,6 +197,7 @@ HAL_StatusTypeDef I2C_Manager_ReleaseBus(I2C_ManagerHandle *hmgr, I2C_DeviceID i
     }
 
     // Release
+    __NOP();
     hmgr->last_owner_id = hmgr->owner_id;
     hmgr->owner_id = (I2C_DeviceID)I2C_MANAGER_DEVICE_NONE;
     hmgr->owner_index = IDX_INVALID;
