@@ -27,4 +27,4 @@
 ../Core/Src/main.c:1404:6:OLED_MainTask	8	static,ignoring_inline_asm
 ../Core/Src/main.c:1436:6:initMenuSystemTask	24	static
 ../Core/Src/main.c:366:5:main	120	static,ignoring_inline_asm
-../Core/Src/main.c:1454:6:Error_Handler	0	static,ignoring_inline_asm
+../Core/Src/main.c:1455:6:Error_Handler	0	static,ignoring_inline_asm
