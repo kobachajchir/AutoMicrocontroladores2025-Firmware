@@ -79,6 +79,7 @@ typedef struct {
   uint8_t keep_bus;
   uint32_t seq;
   OLED_SM_State state;
+  uint8_t pending_refresh;
 } OLED_PageReq;
 
 static OLED_PageReq g_page_q[8];
@@ -182,8 +183,13 @@ static HAL_StatusTypeDef OLED_QueueUpsert(uint8_t page, I2C_RequestPrio prio, ui
     if (g_page_q[i].used && g_page_q[i].page == page) {
       g_page_q[i].prio = (g_page_q[i].prio < prio) ? prio : g_page_q[i].prio;
       g_page_q[i].keep_bus = keep_bus;
-      g_page_q[i].state = OLED_SM_IDLE;
       g_page_q[i].seq = g_seq++;
+      if (page == oled_inflight_page && g_page_q[i].state != OLED_SM_IDLE) {
+        g_page_q[i].pending_refresh = 1;
+      } else {
+        g_page_q[i].state = OLED_SM_IDLE;
+        g_page_q[i].pending_refresh = 0;
+      }
       return HAL_OK;
     }
     if (!g_page_q[i].used && free_idx == 0xFFu) {
@@ -197,6 +203,7 @@ static HAL_StatusTypeDef OLED_QueueUpsert(uint8_t page, I2C_RequestPrio prio, ui
     g_page_q[free_idx].prio = prio;
     g_page_q[free_idx].keep_bus = keep_bus;
     g_page_q[free_idx].state = OLED_SM_IDLE;
+    g_page_q[free_idx].pending_refresh = 0;
     g_page_q[free_idx].seq = g_seq++;
     return HAL_OK;
   }
@@ -220,6 +227,7 @@ static HAL_StatusTypeDef OLED_QueueUpsert(uint8_t page, I2C_RequestPrio prio, ui
     g_page_q[victim].prio = prio;
     g_page_q[victim].keep_bus = keep_bus;
     g_page_q[victim].state = OLED_SM_IDLE;
+    g_page_q[victim].pending_refresh = 0;
     g_page_q[victim].seq = g_seq++;
     return HAL_OK;
   }
@@ -306,16 +314,23 @@ static void OLED_I2C_TransferComplete(void)
       __NOP(); // BREAKPOINT: frame OLED completo
 
       ssd1306_PageSentCallback(oled_inflight_page);
-      g_page_q[slot_idx].used = 0;
-
       uint8_t keep_bus = g_page_q[slot_idx].keep_bus;
+      uint8_t needs_refresh = g_page_q[slot_idx].pending_refresh;
+      if (needs_refresh) {
+        g_page_q[slot_idx].pending_refresh = 0;
+        g_page_q[slot_idx].state = OLED_SM_IDLE;
+        g_page_q[slot_idx].seq = g_seq++;
+      } else {
+        g_page_q[slot_idx].used = 0;
+      }
       oled_inflight_page = 0xFFu;
 
       if (g_i2c_mgr) {
         (void)I2C_Manager_ReleaseBus(g_i2c_mgr, g_oled_dev_id);
       }
 
-      if (keep_bus && OLED_QueueHasPending()) {
+      uint8_t should_request_bus = (uint8_t)(keep_bus || needs_refresh);
+      if (should_request_bus && OLED_QueueHasPending()) {
         if (g_i2c_mgr) {
           (void)I2C_Manager_RequestBusPrio(
               g_i2c_mgr,

@@ -5,7 +5,7 @@
 ../Core/Src/oled_utils.c:84:6:OledUtils_PrintOverlayBuffer_Wrapper	1
 ../Core/Src/oled_utils.c:90:6:OledUtils_EnableContinuousRender	1
 ../Core/Src/oled_utils.c:95:6:OledUtils_DisableContinuousRender	1
-../Core/Src/oled_utils.c:99:6:OledUtils_RenderLockState	1
+../Core/Src/oled_utils.c:99:6:OledUtils_RenderLockState	2
 ../Core/Src/oled_utils.c:116:6:OledUtils_DrawIRBars	3
 ../Core/Src/oled_utils.c:145:6:OledUtils_RenderRadarGraph	1
 ../Core/Src/oled_utils.c:154:6:OledUtils_RenderRadarGraph_Objs	1
