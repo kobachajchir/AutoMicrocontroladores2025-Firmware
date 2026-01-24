@@ -80,7 +80,7 @@ extern "C" {
 		RenderFunction dashboardRender;
 		UserEventManagerFn   userEventManagerFn;
 		volatile uint8_t *insideMenuFlag;   ///< Puntero a una bandera externa que indica si estamos dentro del menú
-		bool renderFlag;
+		volatile bool renderFlag;
 		bool allowPeriodicRefresh;
 	} MenuSystem;
 

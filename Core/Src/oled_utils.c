@@ -72,6 +72,7 @@ static void Oled_DrawXBM(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const uint8
     ssd1306_DrawBitmap(x, y, w, h, bits);
 }
 
+
 // ============================================================================
 // Wrappers de render
 // ============================================================================
