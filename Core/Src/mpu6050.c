@@ -20,8 +20,41 @@ static void MPU_I2C_RequestApproved(void *ctx);
 static void MPU_I2C_TxComplete(void *ctx);
 static void MPU_I2C_RxComplete(void *ctx);
 static void MPU_I2C_Error(void *ctx, I2C_ManagerError err);
+static HAL_StatusTypeDef MPU6050_RequestTransfer(MPU6050_Handle_t *hmpu,
+                                                 MPU6050_Operation op,
+                                                 uint8_t tx_len,
+                                                 uint8_t rx_len);
+static HAL_StatusTypeDef MPU6050_RequestWrite(MPU6050_Handle_t *hmpu,
+                                              uint8_t reg,
+                                              uint8_t value);
+static HAL_StatusTypeDef MPU6050_RequestConfigRead(MPU6050_Handle_t *hmpu,
+                                                   uint8_t reg);
+static void MPU6050_AdvanceConfig(MPU6050_Handle_t *hmpu);
 
 static HAL_StatusTypeDef MPU6050_RequestRead(MPU6050_Handle_t *hmpu, MPU6050_ReadMode mode, uint8_t start_reg, uint8_t len)
+{
+    if (!hmpu || !hmpu->i2c_mgr) {
+        return HAL_ERROR;
+    }
+
+    if (!hmpu->configured) {
+        return HAL_BUSY;
+    }
+
+    if (hmpu->transfer_state != MPU6050_XFER_IDLE) {
+        return HAL_BUSY;
+    }
+
+    hmpu->read_mode = mode;
+    hmpu->tx_buffer[0] = start_reg;
+    hmpu->tx_len = 1;
+    return MPU6050_RequestTransfer(hmpu, MPU6050_OP_DATA, 1, len);
+}
+
+static HAL_StatusTypeDef MPU6050_RequestTransfer(MPU6050_Handle_t *hmpu,
+                                                 MPU6050_Operation op,
+                                                 uint8_t tx_len,
+                                                 uint8_t rx_len)
 {
     if (!hmpu || !hmpu->i2c_mgr) {
         return HAL_ERROR;
@@ -31,17 +64,83 @@ static HAL_StatusTypeDef MPU6050_RequestRead(MPU6050_Handle_t *hmpu, MPU6050_Rea
         return HAL_BUSY;
     }
 
-    hmpu->read_mode = mode;
-    hmpu->tx_buffer[0] = start_reg;
-    hmpu->expected_rx_len = len;
+    hmpu->operation = op;
+    hmpu->tx_len = tx_len;
+    hmpu->expected_rx_len = rx_len;
     hmpu->transfer_state = MPU6050_XFER_WAIT_GRANT;
 
     HAL_StatusTypeDef res = I2C_Manager_RequestBus(hmpu->i2c_mgr, hmpu->dev_id);
     if (res == HAL_ERROR) {
         hmpu->transfer_state = MPU6050_XFER_IDLE;
+        hmpu->operation = MPU6050_OP_IDLE;
     }
 
     return res;
+}
+
+static HAL_StatusTypeDef MPU6050_RequestWrite(MPU6050_Handle_t *hmpu,
+                                              uint8_t reg,
+                                              uint8_t value)
+{
+    if (!hmpu) {
+        return HAL_ERROR;
+    }
+    hmpu->tx_buffer[0] = reg;
+    hmpu->tx_buffer[1] = value;
+    return MPU6050_RequestTransfer(hmpu, MPU6050_OP_CONFIG, 2, 0);
+}
+
+static HAL_StatusTypeDef MPU6050_RequestConfigRead(MPU6050_Handle_t *hmpu,
+                                                   uint8_t reg)
+{
+    if (!hmpu) {
+        return HAL_ERROR;
+    }
+    hmpu->tx_buffer[0] = reg;
+    return MPU6050_RequestTransfer(hmpu, MPU6050_OP_CONFIG, 1, 1);
+}
+
+static void MPU6050_AdvanceConfig(MPU6050_Handle_t *hmpu)
+{
+    if (!hmpu) {
+        return;
+    }
+
+    switch (hmpu->config_state) {
+        case MPU6050_CONFIG_WHOAMI:
+            hmpu->config_state = MPU6050_CONFIG_PWR;
+            (void)MPU6050_RequestWrite(hmpu, MPU6050_REG_PWR_MGMT_1, 0);
+            break;
+        case MPU6050_CONFIG_PWR:
+            hmpu->config_state = MPU6050_CONFIG_SMPLRT;
+            (void)MPU6050_RequestWrite(hmpu, MPU6050_REG_SMPLRT_DIV, 7);
+            break;
+        case MPU6050_CONFIG_SMPLRT:
+            hmpu->config_state = MPU6050_CONFIG_DLPF;
+            (void)MPU6050_RequestWrite(hmpu, MPU6050_REG_CONFIG, 3);
+            break;
+        case MPU6050_CONFIG_DLPF:
+            hmpu->config_state = MPU6050_CONFIG_GYRO;
+            (void)MPU6050_RequestWrite(hmpu, MPU6050_REG_GYRO_CFG, 0);
+            break;
+        case MPU6050_CONFIG_GYRO:
+            hmpu->config_state = MPU6050_CONFIG_ACCEL;
+            (void)MPU6050_RequestWrite(hmpu, MPU6050_REG_ACCEL_CFG, 0);
+            break;
+        case MPU6050_CONFIG_ACCEL:
+            hmpu->config_state = MPU6050_CONFIG_DONE;
+            hmpu->configured = true;
+            hmpu->operation = MPU6050_OP_IDLE;
+            if (hmpu->calib_pending) {
+                hmpu->calib_pending = false;
+                if (hmpu->trigger) {
+                    *(hmpu->trigger) = true;
+                }
+            }
+            break;
+        default:
+            break;
+    }
 }
 
 /* -------------------------------------------------------------------------
@@ -68,6 +167,10 @@ HAL_StatusTypeDef MPU6050_Init(
     hmpu->read_mode        = MPU6050_READ_ALL;
     hmpu->last_read_mode   = MPU6050_READ_ALL;
     hmpu->transfer_state   = MPU6050_XFER_IDLE;
+    hmpu->operation        = MPU6050_OP_IDLE;
+    hmpu->config_state     = MPU6050_CONFIG_NONE;
+    hmpu->configured       = false;
+    hmpu->calib_pending    = false;
     memset(&hmpu->data, 0, sizeof(hmpu->data));
 
     hmpu->flags.byte = 0;
@@ -106,36 +209,33 @@ HAL_StatusTypeDef MPU6050_BindI2CManager(
 }
 
 HAL_StatusTypeDef MPU6050_Configure(MPU6050_Handle_t *hmpu) {
-    uint8_t tmp;
-    /* WHO_AM_I */
-    if (HAL_I2C_Mem_Read(hmpu->hi2c,
-                        (hmpu->i2c_address << 1),
-                        MPU6050_REG_WHO_AM_I, 1,
-                        &tmp, 1, 1000) != HAL_OK) {
+    if (!hmpu || !hmpu->i2c_mgr) {
         return HAL_ERROR;
     }
-    if (tmp != hmpu->i2c_address) {
-        return HAL_ERROR;
+
+    if (hmpu->configured) {
+        return HAL_OK;
     }
-    /* Saca de sleep, sample rate, filtros, fullscale gyro/accel */
-    tmp = 0;
-    HAL_I2C_Mem_Write(hmpu->hi2c, (hmpu->i2c_address << 1),
-                      MPU6050_REG_PWR_MGMT_1, 1, &tmp, 1, 1000);
-    tmp = 7;
-    HAL_I2C_Mem_Write(hmpu->hi2c, (hmpu->i2c_address << 1),
-                      MPU6050_REG_SMPLRT_DIV, 1, &tmp, 1, 1000);
-    tmp = 3;
-    HAL_I2C_Mem_Write(hmpu->hi2c, (hmpu->i2c_address << 1),
-                      MPU6050_REG_CONFIG, 1, &tmp, 1, 1000);
-    tmp = 0;
-    HAL_I2C_Mem_Write(hmpu->hi2c, (hmpu->i2c_address << 1),
-                      MPU6050_REG_GYRO_CFG, 1, &tmp, 1, 1000);
-    HAL_I2C_Mem_Write(hmpu->hi2c, (hmpu->i2c_address << 1),
-                      MPU6050_REG_ACCEL_CFG, 1, &tmp, 1, 1000);
-    return HAL_OK;
+
+    if (hmpu->transfer_state != MPU6050_XFER_IDLE ||
+        hmpu->config_state == MPU6050_CONFIG_WHOAMI ||
+        hmpu->config_state == MPU6050_CONFIG_PWR ||
+        hmpu->config_state == MPU6050_CONFIG_SMPLRT ||
+        hmpu->config_state == MPU6050_CONFIG_DLPF ||
+        hmpu->config_state == MPU6050_CONFIG_GYRO ||
+        hmpu->config_state == MPU6050_CONFIG_ACCEL) {
+        return HAL_BUSY;
+    }
+
+    hmpu->config_state = MPU6050_CONFIG_WHOAMI;
+    return MPU6050_RequestConfigRead(hmpu, MPU6050_REG_WHO_AM_I);
 }
 
 void MPU6050_CheckTrigger(MPU6050_Handle_t *hmpu) {
+    if (!hmpu->configured) {
+        return;
+    }
+
     if (*(hmpu->trigger)) {
         /* Limpio flag */
         *(hmpu->trigger) = false;
@@ -258,7 +358,7 @@ static void MPU_I2C_RequestApproved(void *ctx)
         hmpu->hi2c,
         (hmpu->i2c_address << 1),
         &hmpu->tx_buffer[0],
-        1
+        hmpu->tx_len
     );
     SET_FLAG(hmpu->flags, TX_SENT);
 }
@@ -271,6 +371,16 @@ static void MPU_I2C_TxComplete(void *ctx)
     }
 
     if (hmpu->transfer_state != MPU6050_XFER_TX_REG) {
+        return;
+    }
+
+    if (hmpu->expected_rx_len == 0) {
+        hmpu->transfer_state = MPU6050_XFER_IDLE;
+        CLEAR_FLAG(hmpu->flags, TX_SENT);
+        (void)I2C_Manager_ReleaseBus(hmpu->i2c_mgr, hmpu->dev_id);
+        if (hmpu->operation == MPU6050_OP_CONFIG) {
+            MPU6050_AdvanceConfig(hmpu);
+        }
         return;
     }
 
@@ -296,9 +406,24 @@ static void MPU_I2C_RxComplete(void *ctx)
     }
 
     hmpu->transfer_state = MPU6050_XFER_IDLE;
-    hmpu->last_read_mode = hmpu->read_mode;
 
     (void)I2C_Manager_ReleaseBus(hmpu->i2c_mgr, hmpu->dev_id);
+
+    if (hmpu->operation == MPU6050_OP_CONFIG) {
+        if (hmpu->config_state == MPU6050_CONFIG_WHOAMI) {
+            uint8_t whoami = hmpu->rx_buffer[0];
+            if (whoami != hmpu->i2c_address) {
+                hmpu->config_state = MPU6050_CONFIG_ERROR;
+                hmpu->operation = MPU6050_OP_IDLE;
+                return;
+            }
+        }
+        MPU6050_AdvanceConfig(hmpu);
+        return;
+    }
+
+    hmpu->last_read_mode = hmpu->read_mode;
+    hmpu->operation = MPU6050_OP_IDLE;
     SET_FLAG(hmpu->flags, DATA_READY);
 }
 
@@ -314,6 +439,12 @@ static void MPU_I2C_Error(void *ctx, I2C_ManagerError err)
     hmpu->last_read_mode = hmpu->read_mode;
     CLEAR_FLAG(hmpu->flags, TX_SENT);
     memset(hmpu->rx_buffer, 0, hmpu->expected_rx_len);
+    if (hmpu->operation == MPU6050_OP_CONFIG) {
+        hmpu->config_state = MPU6050_CONFIG_ERROR;
+        hmpu->operation = MPU6050_OP_IDLE;
+        return;
+    }
+    hmpu->operation = MPU6050_OP_IDLE;
     SET_FLAG(hmpu->flags, DATA_READY);
 }
 
@@ -339,6 +470,10 @@ void MPU6050_CalibrateGyro(MPU6050_Handle_t *h, uint16_t samples) {
     CLEAR_FLAG(h->flags, CALIBRATED);
 
     // 2) Disparar primer trigger (desde el init o aquí)
+    if (!h->configured) {
+        h->calib_pending = true;
+        return;
+    }
     *(h->trigger) = true;
     __NOP();
 }
