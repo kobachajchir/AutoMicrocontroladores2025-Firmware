@@ -1058,43 +1058,21 @@ void ssd1306_DrawProgressBar(uint16_t x, uint16_t y, uint16_t width, uint16_t he
 
 void ssd1306_DrawBitmap(uint8_t X, uint8_t Y, uint8_t W, uint8_t H, const uint8_t* pBMP)
 {
-  uint8_t pX;
-  uint8_t pY;
-  uint8_t tmpCh;
-  uint8_t bL;
+    uint8_t bytesPerRow = (W + 7) / 8;
 
-  pY = Y;
-  while (pY < Y + H)
-  {
-    pX = X;
-    while (pX < X + W)
+    for (uint8_t y = 0; y < H; y++)
     {
-      bL = 0;
-      tmpCh = *pBMP++;
-      if (tmpCh)
-      {
-        while (bL < 8)
+        for (uint8_t x = 0; x < W; x++)
         {
-          if (tmpCh & 0x01) ssd1306_DrawPixel(pX,pY + bL);
-          tmpCh >>= 1;
-          if (tmpCh)
-          {
-            bL++;
-          }
-          else
-          {
-            pX++;
-            break;
-          }
+            uint8_t byteIndex = y * bytesPerRow + (x / 8);
+            uint8_t bitIndex = x % 8;  // Cambio aquí: LSB primero en lugar de MSB
+
+            if (pBMP[byteIndex] & (1 << bitIndex))
+            {
+                ssd1306_DrawPixel(X + x, Y + y);
+            }
         }
-      }
-      else
-      {
-        pX++;
-      }
     }
-    pY += 8;
-  }
 }
 
 char ssd1306_WriteChar(char ch, FontDef Font)
