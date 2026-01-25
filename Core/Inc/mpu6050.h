@@ -150,6 +150,7 @@ typedef struct {
     MPU6050_ConfigState config_state;
     bool               configured;
     bool               calib_pending;
+    bool               config_step_pending;
 
     MPU_Byte_Flag_Struct_t flags;
     MPU6050_IntData_t  data;            ///< Datos convertidos
@@ -194,6 +195,11 @@ HAL_StatusTypeDef MPU6050_BindI2CManager(
 HAL_StatusTypeDef MPU6050_Configure(MPU6050_Handle_t *hmpu);
 
 void MPU6050_CalibrateGyro(MPU6050_Handle_t *h, uint16_t samples);
+
+/**
+ * @brief Avanza la máquina de configuración en el loop principal.
+ */
+void MPU6050_ProcessConfig(MPU6050_Handle_t *hmpu);
 
 /**
  * @brief Revisa la señal @p trigger; si está activa, la limpia y pide TX bus.

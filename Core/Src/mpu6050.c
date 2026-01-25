@@ -106,30 +106,30 @@ static void MPU6050_AdvanceConfig(MPU6050_Handle_t *hmpu)
         return;
     }
 
+    HAL_StatusTypeDef res = HAL_ERROR;
+
     switch (hmpu->config_state) {
         case MPU6050_CONFIG_WHOAMI:
-            hmpu->config_state = MPU6050_CONFIG_PWR;
-            (void)MPU6050_RequestWrite(hmpu, MPU6050_REG_PWR_MGMT_1, 0);
+            res = MPU6050_RequestConfigRead(hmpu, MPU6050_REG_WHO_AM_I);
             break;
         case MPU6050_CONFIG_PWR:
-            hmpu->config_state = MPU6050_CONFIG_SMPLRT;
-            (void)MPU6050_RequestWrite(hmpu, MPU6050_REG_SMPLRT_DIV, 7);
+            res = MPU6050_RequestWrite(hmpu, MPU6050_REG_PWR_MGMT_1, 0);
             break;
         case MPU6050_CONFIG_SMPLRT:
-            hmpu->config_state = MPU6050_CONFIG_DLPF;
-            (void)MPU6050_RequestWrite(hmpu, MPU6050_REG_CONFIG, 3);
+            res = MPU6050_RequestWrite(hmpu, MPU6050_REG_SMPLRT_DIV, 7);
             break;
         case MPU6050_CONFIG_DLPF:
-            hmpu->config_state = MPU6050_CONFIG_GYRO;
-            (void)MPU6050_RequestWrite(hmpu, MPU6050_REG_GYRO_CFG, 0);
+            res = MPU6050_RequestWrite(hmpu, MPU6050_REG_CONFIG, 3);
             break;
         case MPU6050_CONFIG_GYRO:
-            hmpu->config_state = MPU6050_CONFIG_ACCEL;
-            (void)MPU6050_RequestWrite(hmpu, MPU6050_REG_ACCEL_CFG, 0);
+            res = MPU6050_RequestWrite(hmpu, MPU6050_REG_GYRO_CFG, 0);
             break;
         case MPU6050_CONFIG_ACCEL:
-            hmpu->config_state = MPU6050_CONFIG_DONE;
+            res = MPU6050_RequestWrite(hmpu, MPU6050_REG_ACCEL_CFG, 0);
+            break;
+        case MPU6050_CONFIG_DONE:
             hmpu->configured = true;
+            hmpu->config_step_pending = false;
             hmpu->operation = MPU6050_OP_IDLE;
             if (hmpu->calib_pending) {
                 hmpu->calib_pending = false;
@@ -137,9 +137,13 @@ static void MPU6050_AdvanceConfig(MPU6050_Handle_t *hmpu)
                     *(hmpu->trigger) = true;
                 }
             }
-            break;
+            return;
         default:
-            break;
+            return;
+    }
+
+    if (res == HAL_OK) {
+        hmpu->config_step_pending = false;
     }
 }
 
@@ -171,6 +175,7 @@ HAL_StatusTypeDef MPU6050_Init(
     hmpu->config_state     = MPU6050_CONFIG_NONE;
     hmpu->configured       = false;
     hmpu->calib_pending    = false;
+    hmpu->config_step_pending = false;
     memset(&hmpu->data, 0, sizeof(hmpu->data));
 
     hmpu->flags.byte = 0;
@@ -228,7 +233,24 @@ HAL_StatusTypeDef MPU6050_Configure(MPU6050_Handle_t *hmpu) {
     }
 
     hmpu->config_state = MPU6050_CONFIG_WHOAMI;
-    return MPU6050_RequestConfigRead(hmpu, MPU6050_REG_WHO_AM_I);
+    hmpu->config_step_pending = true;
+    MPU6050_AdvanceConfig(hmpu);
+    return HAL_OK;
+}
+
+void MPU6050_ProcessConfig(MPU6050_Handle_t *hmpu)
+{
+    if (!hmpu || hmpu->configured) {
+        return;
+    }
+
+    if (hmpu->config_state == MPU6050_CONFIG_ERROR) {
+        return;
+    }
+
+    if (hmpu->config_step_pending && hmpu->transfer_state == MPU6050_XFER_IDLE) {
+        MPU6050_AdvanceConfig(hmpu);
+    }
 }
 
 void MPU6050_CheckTrigger(MPU6050_Handle_t *hmpu) {
@@ -379,7 +401,19 @@ static void MPU_I2C_TxComplete(void *ctx)
         CLEAR_FLAG(hmpu->flags, TX_SENT);
         (void)I2C_Manager_ReleaseBus(hmpu->i2c_mgr, hmpu->dev_id);
         if (hmpu->operation == MPU6050_OP_CONFIG) {
-            MPU6050_AdvanceConfig(hmpu);
+            if (hmpu->config_state == MPU6050_CONFIG_PWR) {
+                hmpu->config_state = MPU6050_CONFIG_SMPLRT;
+            } else if (hmpu->config_state == MPU6050_CONFIG_SMPLRT) {
+                hmpu->config_state = MPU6050_CONFIG_DLPF;
+            } else if (hmpu->config_state == MPU6050_CONFIG_DLPF) {
+                hmpu->config_state = MPU6050_CONFIG_GYRO;
+            } else if (hmpu->config_state == MPU6050_CONFIG_GYRO) {
+                hmpu->config_state = MPU6050_CONFIG_ACCEL;
+            } else if (hmpu->config_state == MPU6050_CONFIG_ACCEL) {
+                hmpu->config_state = MPU6050_CONFIG_DONE;
+            }
+            hmpu->operation = MPU6050_OP_IDLE;
+            hmpu->config_step_pending = true;
         }
         return;
     }
@@ -418,7 +452,11 @@ static void MPU_I2C_RxComplete(void *ctx)
                 return;
             }
         }
-        MPU6050_AdvanceConfig(hmpu);
+        if (hmpu->config_state == MPU6050_CONFIG_WHOAMI) {
+            hmpu->config_state = MPU6050_CONFIG_PWR;
+        }
+        hmpu->operation = MPU6050_OP_IDLE;
+        hmpu->config_step_pending = true;
         return;
     }
 
