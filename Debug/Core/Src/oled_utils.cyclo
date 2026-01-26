@@ -14,9 +14,9 @@
 ../Core/Src/oled_utils.c:350:6:OledUtils_Clear	1
 ../Core/Src/oled_utils.c:164:6:OledUtils_DrawIRGraph	2
 ../Core/Src/oled_utils.c:300:6:OledUtils_RenderVerticalMenu	4
-../Core/Src/oled_utils.c:543:6:OledUtils_RenderLockScreen	1
+../Core/Src/oled_utils.c:561:6:OledUtils_RenderLockScreen	1
 ../Core/Src/oled_utils.c:358:6:OledUtils_DrawItem	6
 ../Core/Src/oled_utils.c:395:6:displayMenuCustom	1
-../Core/Src/oled_utils.c:401:6:OledUtils_RenderDashboard	5
-../Core/Src/oled_utils.c:446:6:OledUtils_RenderTestScreen	1
-../Core/Src/oled_utils.c:457:6:OledUtils_RenderValoresMPUScreen	7
+../Core/Src/oled_utils.c:401:6:OledUtils_RenderDashboard	8
+../Core/Src/oled_utils.c:464:6:OledUtils_RenderTestScreen	1
+../Core/Src/oled_utils.c:475:6:OledUtils_RenderValoresMPUScreen	7

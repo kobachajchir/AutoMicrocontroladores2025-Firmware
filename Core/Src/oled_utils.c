@@ -428,19 +428,37 @@ void OledUtils_RenderDashboard(void)
     ssd1306_DrawHorizontalLine(1, 20, 125);
 
     Oled_SetFont(&Font_14x17_Min);
-    ssd1306_SetCursor(25, 42 - Oled_FontHeight());
+    ssd1306_SetCursor(2, 42 - Oled_FontHeight());
     Oled_DrawStr("Inicio");
 
-    Oled_DrawXBM(4, 44, 15, 16, Icon_UserBtn_bits);
+    Oled_SetFont(&Font_6x12_Min);
+    ssd1306_SetCursor(90, 38 - Oled_FontHeight());
+    const CarMode_t modo = GET_CAR_MODE();
+    switch (modo) {
+		case IDLE_MODE:
+		    Oled_DrawStr("IDLE");
+			break;
+		case FOLLOW_MODE:
+		    Oled_DrawStr("FOLLOW");
+			break;
+		case TEST_MODE:
+		    Oled_DrawStr("TEST");
+			break;
+		default:
+			Oled_DrawStr("DEF");
+			break;
+	}
+
+    Oled_DrawXBM(4, 47, 15, 16, Icon_UserBtn_bits);
 
     Oled_SetFont(&Font_6x12_Min);
-    ssd1306_SetCursor(24, 58 - Oled_FontHeight());
+    ssd1306_SetCursor(23, 61 - Oled_FontHeight());
     Oled_DrawStr("Menu");
 
-    ssd1306_SetCursor(83, 58 - Oled_FontHeight());
+    ssd1306_SetCursor(80, 61 - Oled_FontHeight());
     Oled_DrawStr("Modo");
 
-    Oled_DrawXBM(111, 45, 13, 13, Icon_Encoder_bits);
+    Oled_DrawXBM(111, 48, 13, 13, Icon_Encoder_bits);
 }
 
 void OledUtils_RenderTestScreen(void)

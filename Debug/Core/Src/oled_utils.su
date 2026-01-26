@@ -14,9 +14,9 @@
 ../Core/Src/oled_utils.c:350:6:OledUtils_Clear	0	static,ignoring_inline_asm
 ../Core/Src/oled_utils.c:164:6:OledUtils_DrawIRGraph	40	static
 ../Core/Src/oled_utils.c:300:6:OledUtils_RenderVerticalMenu	40	static
-../Core/Src/oled_utils.c:543:6:OledUtils_RenderLockScreen	16	static
+../Core/Src/oled_utils.c:561:6:OledUtils_RenderLockScreen	16	static
 ../Core/Src/oled_utils.c:358:6:OledUtils_DrawItem	32	static
 ../Core/Src/oled_utils.c:395:6:displayMenuCustom	0	static
 ../Core/Src/oled_utils.c:401:6:OledUtils_RenderDashboard	32	static
-../Core/Src/oled_utils.c:446:6:OledUtils_RenderTestScreen	8	static
-../Core/Src/oled_utils.c:457:6:OledUtils_RenderValoresMPUScreen	40	static
+../Core/Src/oled_utils.c:464:6:OledUtils_RenderTestScreen	8	static
+../Core/Src/oled_utils.c:475:6:OledUtils_RenderValoresMPUScreen	40	static

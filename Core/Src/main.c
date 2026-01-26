@@ -84,7 +84,6 @@ volatile LedStatus_t ledStatus;
 volatile Byte_Flag_Struct systemFlags;
 volatile Byte_Flag_Struct systemFlags2;
 volatile Byte_Flag_Struct carModeFlags;
-volatile CarMode_t carMode;
 volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 TCRT_LightConfig_t tcrtLight;
 volatile uint8_t cnt_adc_trigger = 0;
@@ -166,13 +165,13 @@ void OLED_Is_Ready(void) {
 }
 
 void setMode_IDLE(void){
-	carMode = IDLE_MODE;
+	SET_CAR_MODE(IDLE_MODE);
 }
 void setMode_FOLLOW(void){
-	carMode = FOLLOW_MODE;
+	SET_CAR_MODE(FOLLOW_MODE);
 }
 void setMode_TEST(void){
-	carMode = TEST_MODE;
+	SET_CAR_MODE(TEST_MODE);
 }
 /* --- Variables globales --- */
 
@@ -1092,7 +1091,6 @@ void initUNERProtocol(void) {
 
 void initCarMode(){
 	SET_CAR_MODE(IDLE_MODE);
-	carMode = GET_CAR_MODE();
 	ledStatus.gpio_port = LED_GPIO_Port;
 	ledStatus.gpio_pin = LED_Pin;
 	ledStatus.flags.byte = 0;
