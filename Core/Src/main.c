@@ -401,6 +401,7 @@ int main(void)
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 	 HAL_StatusTypeDef result;
+	 bool mpu_registered = false;
 	 initUNERProtocol();
 	 initTCRTLib();
 	 InitMotorTask();
@@ -422,7 +423,7 @@ int main(void)
 	             1
 	         );
 	         if (res == HAL_OK) {
-	             MPU6050_Configure(&mpuTask);
+	             mpu_registered = true;
 	         } else {
 	             // Falló al registrar (posiblemente sin espacio en la tabla)
 	         }
@@ -446,6 +447,9 @@ int main(void)
 	     }
 	 } else {
 	     // El OLED no respondió
+	 }
+	 if (mpu_registered) {
+	     (void)MPU6050_Configure(&mpuTask);
 	 }
 	 HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
 	 HAL_TIM_Base_Start_IT(&htim3);
