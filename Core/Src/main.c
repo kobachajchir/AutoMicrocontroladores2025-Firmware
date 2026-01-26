@@ -423,8 +423,6 @@ int main(void)
 	         );
 	         if (res == HAL_OK) {
 	             MPU6050_Configure(&mpuTask);
-	             MPU6050_CalibrateGyro(&mpuTask, 250);
-	             SET_FLAG(systemFlags, MPU_GET_DATA);
 	         } else {
 	             // Falló al registrar (posiblemente sin espacio en la tabla)
 	         }
@@ -1341,6 +1339,20 @@ void Motor_MainTask(void)
 
 
 void MPU_MainTask(void) {
+    if (!mpuTask.configured) {
+        return;
+    }
+
+    if (!mpuTask.calibration_started) {
+        if (MPU6050_IsAutoRequestEnabled(&mpuTask)) {
+            MPU6050_CalibrateGyro(&mpuTask, 250);
+            mpuTask.calibration_started = true;
+            SET_FLAG(systemFlags, MPU_GET_DATA);
+        } else {
+            return;
+        }
+    }
+
     // ——————————————————————————————————————————
     // 1) Trigger periódico
     // ——————————————————————————————————————————
