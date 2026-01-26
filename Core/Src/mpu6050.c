@@ -75,6 +75,7 @@ HAL_StatusTypeDef MPU6050_Init(
 
     hmpu->trigger          = trigger;
     hmpu->dt_div = 125;
+    hmpu->auto_request_enabled = true;
 
     return HAL_OK;
 }
@@ -341,4 +342,23 @@ void MPU6050_CalibrateGyro(MPU6050_Handle_t *h, uint16_t samples) {
     // 2) Disparar primer trigger (desde el init o aquí)
     *(h->trigger) = true;
     __NOP();
+}
+
+void MPU6050_EnableAutoRequest(MPU6050_Handle_t *hmpu, bool enable)
+{
+    if (!hmpu) {
+        return;
+    }
+    hmpu->auto_request_enabled = enable;
+    if (!enable && hmpu->trigger) {
+        *(hmpu->trigger) = false;
+    }
+}
+
+bool MPU6050_IsAutoRequestEnabled(const MPU6050_Handle_t *hmpu)
+{
+    if (!hmpu) {
+        return false;
+    }
+    return hmpu->auto_request_enabled;
 }

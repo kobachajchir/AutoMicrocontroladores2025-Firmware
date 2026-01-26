@@ -136,6 +136,8 @@ typedef struct {
 
     uint16_t dt_div;
 
+    bool auto_request_enabled;
+
     volatile bool     *trigger;         ///< Señal externa de disparo
     int32_t gyro_bias_x, gyro_bias_y, gyro_bias_z;
 	int32_t calib_sum_x,  calib_sum_y,  calib_sum_z;
@@ -171,6 +173,16 @@ HAL_StatusTypeDef MPU6050_BindI2CManager(
 HAL_StatusTypeDef MPU6050_Configure(MPU6050_Handle_t *hmpu);
 
 void MPU6050_CalibrateGyro(MPU6050_Handle_t *h, uint16_t samples);
+
+/**
+ * @brief Habilita o deshabilita el pedido cíclico de datos.
+ */
+void MPU6050_EnableAutoRequest(MPU6050_Handle_t *hmpu, bool enable);
+
+/**
+ * @brief Devuelve si el pedido cíclico de datos está activo.
+ */
+bool MPU6050_IsAutoRequestEnabled(const MPU6050_Handle_t *hmpu);
 
 /**
  * @brief Revisa la señal @p trigger; si está activa, la limpia y pide TX bus.
