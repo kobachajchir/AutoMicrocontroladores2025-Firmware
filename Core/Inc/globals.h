@@ -42,6 +42,9 @@
 #define AP_ACTIVE BIT2_MASK
 #define USB_ACTIVE BIT3_MASK
 #define RF_ACTIVE BIT4_MASK
+#define MODIFYING_CARMODE BIT5_MASK
+#define ESP_PRESENT BIT6_MASK
+#define SHOWSECONDSCREEN BIT7_MASK
 
 //Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
@@ -113,6 +116,7 @@ extern MPU6050_Handle_t mpuTask;
 extern UserButton_Handle_t btnUser;
 extern ENC_Handle_t encoder;
 extern UNERProtocolParserState uner_parser;
+extern CarMode_t auxCarMode;
 
 // Este es el buffer real que usará el DMA
 extern uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];

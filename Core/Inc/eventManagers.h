@@ -14,5 +14,7 @@
 void menuEventManager(UserEvent_t ev);
 void dashboardEventManager(UserEvent_t ev);
 void motorTestEventManager(UserEvent_t ev);
+void ItemEventManager(UserEvent_t ev, RenderFunction renderFn);
+void About_UserEventManager(UserEvent_t ev);
 
 #endif /* INC_EVENTMANAGERS_H_ */

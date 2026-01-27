@@ -199,8 +199,7 @@ void StateLED_Task_10ms(volatile LedStatus_t *led)
 void Handle_ModeChange_ByButton(volatile ButtonState_t *btn, volatile LedStatus_t *led)
 {
 	ADVANCE_CAR_MODE();  // Cambio cíclico
-	carMode = GET_CAR_MODE();
-	switch (carMode) {
+	switch (GET_CAR_MODE()) {
 	case IDLE_MODE:
 		led->onTime = LED_IDLE_ONTIME;
 		led->offTime = LED_IDLE_OFFTIME;

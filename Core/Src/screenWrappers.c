@@ -138,6 +138,29 @@ void OledUtils_RenderRadar_Wrapper(void) {
 	}
 }
 
+void OledUtils_About_Wrapper(void)
+{
+    // Estado base de esta pantalla
+    OledUtils_EnableContinuousRender();
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = true;
+
+    // Seleccionar cuál pantalla real renderizar según flag
+    if (IS_FLAG_SET(systemFlags2, SHOWSECONDSCREEN)) {
+        menuSystem.renderFn = OledUtils_RenderProyectInfoScreen;
+    } else {
+        menuSystem.renderFn = OledUtils_RenderProyectScreen;
+    }
+
+    // Activar el manager de eventos para esta pantalla
+    menuSystem.userEventManagerFn = About_UserEventManager;
+
+    // Forzar redraw
+    menuSystem.clearScreen();
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
 /**
  * @brief  Wrapper para la pantalla de Valores IR.
  */

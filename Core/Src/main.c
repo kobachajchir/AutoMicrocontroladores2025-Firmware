@@ -130,6 +130,7 @@ UserButton_Handle_t btnUser;
 ENC_Handle_t encoder;
 UNERProtocolParserState uner_parser;
 I2C_ManagerHandle i2cManager;
+CarMode_t auxCarMode;
 volatile bool oled_first_draw = false;
 
 static bool Oled_WaitReady(I2C_ManagerHandle *manager, uint16_t addr_7bit, uint32_t retries, uint32_t delay_ms)
@@ -176,6 +177,27 @@ void setMode_TEST(void){
 /* --- Variables globales --- */
 
 // Sistema de menú
+
+
+// submenuESPItems
+MenuItem submenuESPItems[] = {
+    {"Chk Conexion", NULL, NULL, Icon_Link_bits, NULL},
+    {"Firmware",    NULL, NULL, Icon_Info_bits,  NULL},
+	{"Reset ESP",    NULL, NULL, Icon_Refrescar_bits,  NULL},
+    {"Volver",       MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper}
+};
+
+
+SubMenu submenuESP = {
+    .name                = "Enlace ESP",
+    .items               = submenuESPItems,
+    .itemCount           = sizeof(submenuESPItems)/sizeof(submenuESPItems[0]),
+    .currentItemIndex    = 0,
+    .firstVisibleItem    = 0,
+    .parent              = &submenu1,
+    .icon                = NULL
+};
+
 MenuSystem menuSystem = {
     .currentMenu      = &mainMenu,
     .clearScreen      = OledUtils_Clear_Wrapper,
@@ -207,10 +229,10 @@ SubMenu mainMenu = {
 
 // Ítems del submenu 1: MODO (sin pantalla asociada por ahora)
 MenuItem submenu1Items[] = {
-    {"IDLE",   setMode_IDLE,       NULL, NULL, NULL},
-    {"FOLLOW", setMode_FOLLOW,     NULL, NULL, NULL},
-    {"TEST",   setMode_TEST,       NULL, NULL, NULL},
-    {"VOLVER", MenuSys_GoBack_Wrapper, &mainMenu, NULL, MenuSys_RenderMenu_Wrapper}
+    {"Info AP",   NULL,       NULL, Icon_Info_bits, NULL},
+    {"Buscar APs", NULL,     NULL, Icon_Refrescar_bits, NULL},
+    {"Conexion ESP",   NULL,       &submenuESP, Icon_Link_bits, MenuSys_RenderMenu_Wrapper},
+    {"Volver", MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper}
 };
 
 SubMenu submenu1 = {
@@ -225,10 +247,10 @@ SubMenu submenu1 = {
 
 // Ítems del submenu 2 (“Pantallas”)
 MenuItem submenu2Items[] = {
-    {"Valores IR",     NULL,               NULL, NULL, OledUtils_RenderValoresIR_Wrapper},
-	{"Valores MPU",     NULL,               NULL, NULL, OledUtils_RenderValoresMPU_Wrapper},
-	{"Test motores",     NULL,               NULL, NULL, OledUtils_RenderMotorTest_Wrapper},
-    {"VOLVER",         MenuSys_GoBack_Wrapper, &mainMenu, NULL, MenuSys_RenderMenu_Wrapper}
+    {"Valores IR",     NULL,               NULL, Icon_Tool_bits, OledUtils_RenderValoresIR_Wrapper},
+	{"Valores MPU",     NULL,               NULL, Icon_Tool_bits, OledUtils_RenderValoresMPU_Wrapper},
+	{"Test motores",     NULL,               NULL, Icon_Tool_bits, OledUtils_RenderMotorTest_Wrapper},
+    {"Volver",         MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper}
 };
 
 SubMenu submenu2 = {
@@ -241,12 +263,13 @@ SubMenu submenu2 = {
     .icon                = NULL
 };
 
-// Ítems del submenu 3: Mockup sin pantallas por ahora
+// submenu3Items
 MenuItem submenu3Items[] = {
-    {"Option 1", NULL,               NULL, NULL, NULL},
-    {"Option 2", NULL,               NULL, NULL, NULL},
-    {"VOLVER",   MenuSys_GoBack_Wrapper, &mainMenu, NULL, MenuSys_RenderMenu_Wrapper}
+    {"Preferencias", NULL, NULL, Icon_Prefs_bits, NULL},
+    {"Acerca de",    NULL, NULL, Icon_Info_bits,  OledUtils_About_Wrapper},
+    {"Volver",       MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper}
 };
+
 
 SubMenu submenu3 = {
     .name                = "Config.",
@@ -257,6 +280,7 @@ SubMenu submenu3 = {
     .parent              = &mainMenu,
     .icon                = NULL
 };
+
 
 /* USER CODE END PV */
 
@@ -450,6 +474,8 @@ int main(void)
 	 HAL_TIM_Base_Start_IT(&htim3);
 	 initCarMode();
 	 initMenuSystemTask();
+	 //Aca debemos poner la inicializacion de la ESP
+	 SET_FLAG(systemFlags2, ESP_PRESENT);
 
   //Solo llamo initCarMode() una vez, antes del while
   /* USER CODE END 2 */

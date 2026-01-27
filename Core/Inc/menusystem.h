@@ -42,6 +42,8 @@ extern "C" {
 	 */
 	typedef void (*RenderFunction)();
 
+	typedef void (*RenderWrapperFn)(void);
+
 	typedef void (*RenderScreenFunction)();
 
 	typedef void (*UserEventManagerFn)(UserEvent_t ev);

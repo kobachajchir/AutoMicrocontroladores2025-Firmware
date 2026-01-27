@@ -355,15 +355,14 @@ void OledUtils_Clear(void) {
 /**
  * @brief  Dibuja un ítem de menú (texto + icono + cursor) directamente desde el MenuItem.
  */
-void OledUtils_DrawItem(const MenuItem *item, uint8_t y, bool selected) {
-    // 1) dibujar el marco alrededor del ítem
+void OledUtils_DrawItem(const MenuItem *item, uint8_t y, bool selected)
+{
     Oled_DrawFrame(0, y - 3, 128, 20);
 
-    // 2) dibujar el icono (si lo hay)
     if (item->icon) {
         uint8_t iconW, iconH;
         if      (item->icon == Icon_Wifi_bits)    { iconW = 19; iconH = 16; }
-        else if (item->icon == Icon_Volver_bits)  { iconW = 18; iconH = 15; }
+        else if (item->icon == Icon_Volver_bits)  { iconW = 16; iconH = 16; }
         else if (item->icon == Icon_Sensors_bits) { iconW = 14; iconH = 16; }
         else if (item->icon == Icon_Config_bits)  { iconW = 16; iconH = 16; }
         else {
@@ -372,21 +371,19 @@ void OledUtils_DrawItem(const MenuItem *item, uint8_t y, bool selected) {
         Oled_DrawXBM(6, y - 1, iconW, iconH, item->icon);
     }
 
-    // 3) dibujar el texto
     Oled_SetFont(&Font_6x12_Min);
-    ssd1306_SetCursor(31, y);
+    ssd1306_SetCursor(27, y+3);
     Oled_DrawStr((char*)item->name);
 
-    // 4) dibujar o borrar el cursor
     const uint8_t CUR_W = 7, CUR_H = 16;
     const uint8_t CUR_X = 117, CUR_Y = y;
     if (selected) {
         Oled_DrawXBM(CUR_X, CUR_Y, CUR_W, CUR_H, Icon_Cursor_bits);
     } else {
-        // limpia el área anterior del cursor
         Oled_ClearBox(CUR_X, CUR_Y, CUR_W, CUR_H);
     }
 }
+
 
 
 /**
@@ -402,22 +399,29 @@ void OledUtils_RenderDashboard(void)
 {
     Oled_SetFont(&Font_6x12_Min);
     const uint8_t fh = Oled_FontHeight();
-    if(IS_FLAG_SET(systemFlags2, WIFI_ACTIVE)){
-        Oled_DrawXBM(1, 2, 19, 16, Icon_Wifi_bits);
-        ssd1306_SetCursor(21, 10 - fh);
-        Oled_DrawStr("Wifi name");
+    if(IS_FLAG_SET(systemFlags2, ESP_PRESENT)){
+		if(IS_FLAG_SET(systemFlags2, WIFI_ACTIVE)){
+			Oled_DrawXBM(1, 2, 19, 16, Icon_Wifi_bits);
+			ssd1306_SetCursor(21, 10 - fh);
+			Oled_DrawStr("Wifi name");
 
-        /* Texto “192.168.1.1” (fuente 6×12, baseline y=18) */
-        ssd1306_SetCursor(18, 20 - fh);
-        Oled_DrawStr("192.168.1.1");
-    }else if(IS_FLAG_SET(systemFlags2, AP_ACTIVE)){
-        Oled_DrawXBM(1, 2, 15, 16, Icon_APWifi_bits);
-        ssd1306_SetCursor(21, 10 - fh);
-        Oled_DrawStr("AP name");
+			/* Texto “192.168.1.1” (fuente 6×12, baseline y=18) */
+			ssd1306_SetCursor(18, 20 - fh);
+			Oled_DrawStr("192.168.1.1");
+		}else if(IS_FLAG_SET(systemFlags2, AP_ACTIVE)){
+			Oled_DrawXBM(1, 2, 15, 16, Icon_APWifi_bits);
+			ssd1306_SetCursor(21, 10 - fh);
+			Oled_DrawStr("AP name");
 
-        /* Texto “192.168.1.1” (fuente 6×12, baseline y=18) */
-        ssd1306_SetCursor(18, 20 - fh);
-        Oled_DrawStr("10.100.100.1");
+			/* Texto “192.168.1.1” (fuente 6×12, baseline y=18) */
+			ssd1306_SetCursor(18, 20 - fh);
+			Oled_DrawStr("10.100.100.1");
+		}
+    }else{
+		ssd1306_SetCursor(2, 10 - fh);
+		Oled_DrawStr("No ESP");
+		ssd1306_SetCursor(2, 20 - fh);
+		Oled_DrawStr("Sin WiFi");
     }
     if(IS_FLAG_SET(systemFlags2, USB_ACTIVE)){
         Oled_DrawXBM(91, 2, 16, 16, Icon_USB_bits);
@@ -432,9 +436,8 @@ void OledUtils_RenderDashboard(void)
     Oled_DrawStr("Inicio");
 
     Oled_SetFont(&Font_6x12_Min);
-    ssd1306_SetCursor(90, 38 - Oled_FontHeight());
-    const CarMode_t modo = GET_CAR_MODE();
-    switch (modo) {
+    ssd1306_SetCursor(80, 38 - Oled_FontHeight());
+    switch (GET_CAR_MODE()) {
 		case IDLE_MODE:
 		    Oled_DrawStr("IDLE");
 			break;
@@ -463,11 +466,166 @@ void OledUtils_RenderDashboard(void)
 
 void OledUtils_RenderTestScreen(void)
 {
-    Oled_SetFont(&Font_14x17_Min);
-    ssd1306_SetCursor(20, 32 - Oled_FontHeight());
-    Oled_DrawStr("Hola mundo");
+
 }
 
+/**
+ * @brief Pantalla principal de información del proyecto
+ */
+void OledUtils_RenderProyectScreen(void)
+{
+    ssd1306_SetColor(White);
+
+    // Texto principal "Proyecto Auto" con fuente grande
+    Oled_SetFont(&Font_14x17_Min);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(40, 19 - fh_grande);
+    Oled_DrawStr("Auto");
+
+    // Texto secundario "Microcontroladores" con fuente pequeña
+    Oled_SetFont(&Font_6x12_Min);
+    const uint8_t fh_pequena = Oled_FontHeight();
+    ssd1306_SetCursor(0, 30 - fh_pequena);
+    Oled_DrawStr("Microcontroladores");
+
+    // Icono de información (15x16 píxeles)
+    Oled_DrawXBM(20, 2, 15, 16, Icon_Info_bits);
+
+    // Flecha derecha (4x7 píxeles)
+
+    // Texto "Github"
+    ssd1306_SetCursor(60, 57 - fh_pequena);
+    Oled_DrawStr("Github");
+    Oled_DrawXBM(105, 49, 4, 7, Arrow_Right_bits);
+
+    // Nombre "Koba"
+    ssd1306_SetCursor(20, 42 - fh_pequena);
+    Oled_DrawStr("Koba Chajchir");
+
+    Oled_SetFont(&Font_14x17_Min);
+    ssd1306_SetCursor(4, 62 - fh_grande);
+    Oled_DrawStr("2026");
+}
+
+/**
+ * @brief Pantalla secundaria con QR del repositorio
+ */
+void OledUtils_RenderProyectInfoScreen(void)
+{
+    ssd1306_SetColor(White);
+
+    // Flecha izquierda (4x7 píxeles)
+    Oled_DrawXBM(12, 50, 4, 7, Arrow_Left_bits);
+
+    // Texto "Repo" con fuente pequeña
+    Oled_SetFont(&Font_6x12_Min);
+    const uint8_t fh = Oled_FontHeight();
+    ssd1306_SetCursor(11, 13 - fh);
+    Oled_DrawStr("Repo");
+    ssd1306_SetCursor(2, 25 - fh);
+    Oled_DrawStr("Firmware");
+    ssd1306_SetCursor(2, 37 - fh);
+    Oled_DrawStr("STM32");
+
+    // QR Code del repositorio (64x64 píxeles)
+    ssd1306_SetColor(White);
+    ssd1306_DrawQR_Fixed(64, 0, QRCode_Github_bits);  // Centrado en 128x64
+}
+
+void OledUtils_RenderModeChange_Full(void)
+{
+    // Título "Modo" con fuente grande
+    Oled_SetFont(&Font_14x17_Min);
+    const uint8_t fh_grande = Oled_FontHeight();
+    const uint8_t fw_grande = Oled_FontWidth();
+
+    // Centrar título "Modo" (4 caracteres)
+    uint8_t titulo_x = (SSD1306_WIDTH - (4 * fw_grande)) / 2;
+    ssd1306_SetCursor(titulo_x, 20 - fh_grande);
+    Oled_DrawStr("Modo");
+
+    // Dibujar modo actual
+    OledUtils_RenderModeChange_ModeOnly();
+
+    // Flechas centradas verticalmente con el texto
+    uint8_t modo_y = 42 - fh_grande;
+    uint8_t arrow_y = modo_y + (fh_grande / 2) - 3;
+    Oled_DrawXBM(14, arrow_y, 4, 7, Arrow_Left_bits);
+    Oled_DrawXBM(110, arrow_y, 4, 7, Arrow_Right_bits);
+
+    // Texto "Confirmar" e icono
+    Oled_SetFont(&Font_6x12_Min);
+    const uint8_t fh_pequena = Oled_FontHeight();
+    const uint8_t fw_pequena = Oled_FontWidth();
+
+    const uint8_t icon_width = 13;
+    const uint8_t icon_height = 13;
+    const uint8_t separacion = 3;
+
+    // "Confirmar" = 9 caracteres
+    uint8_t texto_width = 9 * fw_pequena;
+    uint8_t total_width = icon_width + separacion + texto_width;
+
+    // Centrar el conjunto
+    uint8_t start_x = (SSD1306_WIDTH - total_width) / 2;
+    uint8_t icon_x = start_x;
+    uint8_t icon_y = 50;
+    uint8_t texto_x = icon_x + icon_width + separacion;
+    uint8_t texto_y = icon_y + (icon_height / 2) - (fh_pequena / 2);
+
+    // Dibujar
+    Oled_DrawXBM(icon_x, icon_y, icon_width, icon_height, Icon_Encoder_bits);
+    ssd1306_SetCursor(texto_x, texto_y);
+    Oled_DrawStr("Confirmar");
+}
+
+void OledUtils_RenderModeChange_ModeOnly(void)
+{
+    // Fuente grande para el modo
+    Oled_SetFont(&Font_14x17_Min);
+    const uint8_t fh_grande = Oled_FontHeight();
+    const uint8_t fw_grande = Oled_FontWidth();
+
+    // Limpiar zona del modo (usar "FOLLOW" = 6 caracteres, la más larga)
+    const uint8_t max_modo_len = 6;  // "FOLLOW" es la más larga
+    uint8_t max_modo_width = max_modo_len * fw_grande;
+    uint8_t modo_clear_x = (SSD1306_WIDTH - max_modo_width) / 2;
+    uint8_t modo_y = 42 - fh_grande;
+
+    // Limpiar zona del texto del modo
+    Oled_ClearBox(modo_clear_x, modo_y, max_modo_width, fh_grande);
+
+    // Obtener texto del modo actual
+    const char *modo_texto;
+    uint8_t modo_len;
+    switch(auxCarMode)
+    {
+        case IDLE_MODE:
+            modo_texto = "IDLE";
+            modo_len = 4;
+            break;
+
+        case FOLLOW_MODE:
+            modo_texto = "FOLLOW";
+            modo_len = 6;
+            break;
+
+        case TEST_MODE:
+            modo_texto = "TEST";
+            modo_len = 4;
+            break;
+
+        default:
+            modo_texto = "ERROR";
+            modo_len = 5;
+            break;
+    }
+
+    // Dibujar texto del modo centrado
+    uint8_t modo_x = (SSD1306_WIDTH - (modo_len * fw_grande)) / 2;
+    ssd1306_SetCursor(modo_x, modo_y);
+    Oled_DrawStr(modo_texto);
+}
 
 /**
  * @brief  Dibuja todos los valores del MPU (raw y ángulos) alineados en 3 filas.

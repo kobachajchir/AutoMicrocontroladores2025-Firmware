@@ -35,6 +35,12 @@ void OledUtils_RenderVerticalMenu(MenuSystem *ms);
 void OledUtils_RenderDashboard(void);
 void OledUtils_RenderTestScreen(void);
 
+void OledUtils_RenderProyectScreen(void);
+void OledUtils_RenderProyectInfoScreen(void);
+
+void OledUtils_RenderModeChange_Full(void);
+void OledUtils_RenderModeChange_ModeOnly(void);
+
 void OledUtils_Clear(void);
 
 void OledUtils_DrawItem(const MenuItem *item, uint8_t y, bool selected);

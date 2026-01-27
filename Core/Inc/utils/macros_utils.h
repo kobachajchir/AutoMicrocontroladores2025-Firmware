@@ -86,5 +86,8 @@ extern volatile Byte_Flag_Struct carModeFlags;
 #define GET_CAR_MODE()         (NIBBLEH_GET_STATE(carModeFlags))
 #define SET_CAR_MODE(m)        NIBBLEH_SET_STATE(carModeFlags, (m) & 0x0F)
 #define ADVANCE_CAR_MODE()     SET_CAR_MODE((GET_CAR_MODE() + 1) % CAR_MODE_MAX)
+#define DECREMENT_CAR_MODE()  SET_CAR_MODE((GET_CAR_MODE() + CAR_MODE_MAX - 1) % CAR_MODE_MAX)
+#define NEXT_CAR_MODE() 	(GET_CAR_MODE() + 1) % CAR_MODE_MAX
+#define PREV_CAR_MODE() 	(GET_CAR_MODE() + CAR_MODE_MAX - 1) % CAR_MODE_MAX
 
 #endif /* INC_UTILS_MACROS_UTILS_H_ */

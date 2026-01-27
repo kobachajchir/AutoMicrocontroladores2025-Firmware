@@ -1075,6 +1075,29 @@ void ssd1306_DrawBitmap(uint8_t X, uint8_t Y, uint8_t W, uint8_t H, const uint8_
     }
 }
 
+void ssd1306_DrawQR_Fixed(uint8_t startX, uint8_t startY, const uint8_t* qrData)
+{
+    const uint8_t QR_SIZE = 64;
+    const uint8_t BYTES_PER_ROW = 8;  // 64 pixels / 8 = 8 bytes
+
+    for (uint8_t row = 0; row < QR_SIZE; row++)
+    {
+        for (uint8_t col = 0; col < QR_SIZE; col++)
+        {
+            // Calcular índice del byte
+            uint16_t byteIndex = row * BYTES_PER_ROW + (col / 8);
+
+            // Calcular posición del bit (MSB first: bit 7 = pixel 0)
+            uint8_t bitIndex = 7 - (col % 8);
+
+            // Leer el bit
+            if (qrData[byteIndex] & (1 << bitIndex))
+            {
+                ssd1306_DrawPixel(startX + col, startY + row);
+            }
+        }
+    }
+}
 char ssd1306_WriteChar(char ch, FontDef Font)
 {
   uint32_t i, b, j;

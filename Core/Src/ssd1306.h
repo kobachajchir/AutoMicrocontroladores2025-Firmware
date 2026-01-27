@@ -118,6 +118,7 @@ uint8_t ssd1306_Init(void);
 void ssd1306_Fill(void);
 void ssd1306_DrawPixel(uint8_t x, uint8_t y);
 void ssd1306_DrawBitmap(uint8_t X, uint8_t Y, uint8_t W, uint8_t H, const uint8_t* pBMP);
+void ssd1306_DrawQR_Fixed(uint8_t startX, uint8_t startY, const uint8_t* qrData);
 void ssd1306_DrawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1);
 void ssd1306_DrawVerticalLine(int16_t x, int16_t y, int16_t length);
 void ssd1306_DrawHorizontalLine(int16_t x, int16_t y, int16_t length);

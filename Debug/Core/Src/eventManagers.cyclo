@@ -1,3 +1,5 @@
-../Core/Src/eventManagers.c:12:6:dashboardEventManager	5
-../Core/Src/eventManagers.c:44:6:menuEventManager	8
-../Core/Src/eventManagers.c:76:6:motorTestEventManager	20
+../Core/Src/eventManagers.c:13:6:dashboardEventManager	11
+../Core/Src/eventManagers.c:101:6:menuEventManager	8
+../Core/Src/eventManagers.c:140:6:ItemEventManager	9
+../Core/Src/eventManagers.c:133:6:About_UserEventManager	1
+../Core/Src/eventManagers.c:189:6:motorTestEventManager	20

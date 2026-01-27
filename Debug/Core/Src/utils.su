@@ -11,4 +11,4 @@
 ../Core/Src/utils.c:139:6:OLED_Task_10ms	0	static
 ../Core/Src/utils.c:154:6:StateLED_Task_10ms	4	static
 ../Core/Src/utils.c:63:6:HAL_TIM_PeriodElapsedCallback	8	static,ignoring_inline_asm
-../Core/Src/utils.c:199:6:Handle_ModeChange_ByButton	0	static
+../Core/Src/utils.c:199:6:Handle_ModeChange_ByButton	8	static

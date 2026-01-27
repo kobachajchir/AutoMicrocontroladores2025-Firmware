@@ -37,6 +37,7 @@ extern const uint8_t Icon_Wifi_bits[];
 extern const uint8_t Icon_Sensors_bits[];
 extern const uint8_t Icon_Cursor_bits[];
 extern const uint8_t Icon_Config_bits[];
+extern const uint8_t Icon_Prefs_bits[];
 extern const uint8_t Icon_Encoder_bits[];
 extern const uint8_t Icon_Lock_bits[];
 extern const uint8_t Icon_Volver_bits[];
@@ -44,6 +45,14 @@ extern const uint8_t Icon_APWifi_bits[];
 extern const uint8_t Icon_USB_bits[];
 extern const uint8_t Icon_RF_bits[];
 extern const uint8_t Icon_Car_bits[];
+extern const uint8_t Arrow_Right_bits[];
+extern const uint8_t Arrow_Left_bits[];
+extern const uint8_t QRCode_Github_bits[];
+extern const uint8_t QrCodeAutoWEBGithub[];
+extern const uint8_t Icon_Info_bits[];
+extern const uint8_t Icon_Link_bits[];
+extern const uint8_t Icon_Refrescar_bits[];
+extern const uint8_t Icon_Tool_bits[];
 
 #endif
 
