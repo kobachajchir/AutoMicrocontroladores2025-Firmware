@@ -24,7 +24,6 @@
 /* USER CODE BEGIN Includes */
 #include "globals.h"
 #include "utils.h"
-#include "uner_protocol.h"
 #include "i2c_manager.h"
 /* USER CODE END Includes */
 
