@@ -37,7 +37,6 @@
 #include "mpu6050.h"             // donde se define MPU6050_Handle_t
 #include "screenWrappers.h"
 #include "eventManagers.h"
-#include "uner_protocol.h"
 //#include "oled_screens.h"
 
 /* USER CODE END Includes */
@@ -121,7 +120,6 @@ uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
 volatile uint16_t usart1_rx_prev_pos = 0;
 volatile uint8_t usart1_feed_pending;
 volatile uint8_t usart1_tx_busy;
-uint8_t tx_dma_buf[UNER_PCK_MAX_TOTAL];
 
 /* --- Handlers de librerias --- */
 USART_Buffer_t usart1Buf;
@@ -130,7 +128,6 @@ MotorControl_Handle motorTask;
 MPU6050_Handle_t mpuTask;
 UserButton_Handle_t btnUser;
 ENC_Handle_t encoder;
-UNERProtocolParserState uner_parser;
 I2C_ManagerHandle i2cManager;
 CarMode_t auxCarMode;
 volatile bool oled_first_draw = false;
@@ -312,7 +309,7 @@ void Motor_MainTask(void);
 void i2cManager_MainTask(void);
 void MPU_MainTask(void);
 void OLED_MainTask(void);
-void initUNERProtocol(void);
+void initUart1DmaRx(void);
 /**
  * @brief Tarea principal del encoder (main loop)
  *        Maneja eventos de botón corto/largo
@@ -355,30 +352,9 @@ void USART1_DMA_CheckRx(void)
 {
     uint16_t curr_pos = USART1_RX_DMA_BUF_LEN - __HAL_DMA_GET_COUNTER(&hdma_usart1_rx);
 
-    if (curr_pos != usart1_rx_prev_pos)
-    {
-        if (curr_pos > usart1_rx_prev_pos)
-        {
-            // Copia directa
-            for (uint16_t i = usart1_rx_prev_pos; i < curr_pos; ++i) {
-                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-            }
-        }
-        else
-        {
-            // Rollover
-            for (uint16_t i = usart1_rx_prev_pos; i < USART1_RX_DMA_BUF_LEN; ++i) {
-                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-            }
-            for (uint16_t i = 0; i < curr_pos; ++i) {
-                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-            }
-        }
-
+    if (curr_pos != usart1_rx_prev_pos) {
         usart1_rx_prev_pos = curr_pos;
-
-        // Luego parseamos todo lo nuevo
-        uner_parse(&uner_parser);
+        usart1_feed_pending = 1;
     }
 }
 
@@ -425,7 +401,7 @@ int main(void)
   MX_USB_PCD_Init();
   /* USER CODE BEGIN 2 */
 	 HAL_StatusTypeDef result;
-	 initUNERProtocol();
+	 initUart1DmaRx();
 	 initTCRTLib();
 	 InitMotorTask();
 	 I2C_Manager_Init(&i2cManager, &hi2c1, 0);
@@ -1066,86 +1042,29 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 
-UNERProtocolStatus uart1_send_bytes(const uint8_t *data, uint16_t len) {
-    if (!data || len == 0) return UNER_ERR_NULL_PTR;
-
-    return (HAL_UART_Transmit_DMA(&huart1, (uint8_t *)data, len) == HAL_OK)
-           ? UNER_OK : UNER_ERR_TX_FAIL;
-}
-
-void Uart1_RxFeedParser_FromDMA(void)
-{
-    /* Posición actual que va llenando el DMA:
-       NDTR = cuántos faltan → pos = llenados = total - NDTR */
-    uint16_t curr_pos = USART1_RX_DMA_BUF_LEN - __HAL_DMA_GET_COUNTER(&hdma_usart1_rx);
-
-    if (curr_pos == usart1_rx_prev_pos) return; // nada nuevo
-
-    if (curr_pos > usart1_rx_prev_pos) {
-        /* Bloque lineal: prev .. curr-1 */
-        for (uint16_t i = usart1_rx_prev_pos; i < curr_pos; ++i) {
-            uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-        }
-    } else {
-        /* Wrap: prev .. end-1, luego 0 .. curr-1 */
-        for (uint16_t i = usart1_rx_prev_pos; i < USART1_RX_DMA_BUF_LEN; ++i) {
-            uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-        }
-        for (uint16_t i = 0; i < curr_pos; ++i) {
-            uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-        }
+HAL_StatusTypeDef uart1_send_bytes(const uint8_t *data, uint16_t len) {
+    if (!data || len == 0) {
+        return HAL_ERROR;
     }
 
-    usart1_rx_prev_pos = curr_pos;
+    if (usart1_tx_busy) {
+        return HAL_BUSY;
+    }
 
-    /* Parsear lo que acabamos de empujar */
-    uner_parse(&uner_parser);
-}
-
-UNERProtocolStatus my_send_bytes_dma(const uint8_t *data, uint16_t len)
-{
-    if (usart1_tx_busy) return UNER_ERR_TX_FAIL;         // una a la vez
-    if (len > sizeof(tx_dma_buf)) return UNER_ERR_TX_FAIL;
-
-    memcpy(tx_dma_buf, data, len);
     usart1_tx_busy = 1;
-
-    if (HAL_UART_Transmit_DMA(&huart1, tx_dma_buf, len) != HAL_OK) {
+    if (HAL_UART_Transmit_DMA(&huart1, (uint8_t *)data, len) != HAL_OK) {
         usart1_tx_busy = 0;
-        return UNER_ERR_TX_FAIL;
+        return HAL_ERROR;
     }
-    return UNER_OK;
+
+    return HAL_OK;
 }
 
-void on_uner_packet(UNERProtocolPck *pck)
+void initUart1DmaRx(void)
 {
-    // Ejemplo: eco por el mismo canal
-    uint8_t frame[UNER_PCK_MAX_TOTAL];
-    UNERProtocolStatus n = uner_build_packet(pck, frame, sizeof(frame));
-    if (n >= 0) {
-        uner_send_packet(&uner_parser, (UNERProtocolPck*)pck); // o enviar `frame` con tu método
-        // Nota: `uner_send_packet` ya arma el frame adentro; si querés enviar `frame`
-        // directo, hacelo con tu TX (CDC/WS/…) o crea variante de API si preferís.
-    }
-}
-
-void initUNERProtocol(void) {
-    /* 1) UNER: init + callbacks */
-    uner_init(&uner_parser);
-    uner_parser.onPacketReady = on_uner_packet;
-
-    /* Elegí UNO de los dos senders: */
-    //uner.send_bytes = my_send_bytes_blocking;   // simple, seguro
-    uner_parser.send_bytes = my_send_bytes_dma;          // DMA no bloqueante (usa buffer interno)
-
-    /* 2) Arrancar DMA RX circular */
-    HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
-
-    /* 3) Habilitar interrupción por IDLE line (detecta “pausas” de RX) */
-    __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
-
-    /* 4) Reset índice previo */
+    usart1_feed_pending = 0;
     usart1_rx_prev_pos = 0;
+    HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
 }
 
 

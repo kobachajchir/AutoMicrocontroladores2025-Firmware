@@ -9,10 +9,10 @@
 #include "utils/macros_utils.h"
 #include "stm32f1xx_hal.h"  // para HAL_GPIO_ReadPin
 #include "i2c_manager.h"
-#include "uner_protocol.h"
 #include "user_button.h"
+#include "main.h"
 
-void Uart1_RxFeedParser_FromDMA(void);
+void USART1_DMA_CheckRx(void);
 
 /* Libera busy al completar */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
@@ -26,14 +26,14 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART1) {
-        Uart1_RxFeedParser_FromDMA();
+        USART1_DMA_CheckRx();
     }
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART1) {
-        Uart1_RxFeedParser_FromDMA();
+        USART1_DMA_CheckRx();
     }
 }
 
