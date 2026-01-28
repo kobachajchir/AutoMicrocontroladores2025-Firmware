@@ -16,7 +16,6 @@
 #include "i2c_manager.h"
 #include "menusystem.h"
 #include "mpu6050.h"
-#include "uner_protocol.h"
 
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
@@ -48,6 +47,7 @@
 
 //Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
+#define USART1_RX_DMA_BUF_LEN 64
 
 #define I2C_ADDR_OLED  0x3C
 #define I2C_ADDR_MPU  0x68  // 104 decimal
@@ -115,7 +115,6 @@ extern volatile bool oled_first_draw;
 extern MPU6050_Handle_t mpuTask;
 extern UserButton_Handle_t btnUser;
 extern ENC_Handle_t encoder;
-extern UNERProtocolParserState uner_parser;
 extern CarMode_t auxCarMode;
 
 // Este es el buffer real que usará el DMA
@@ -124,7 +123,6 @@ extern uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
 extern volatile uint16_t usart1_rx_prev_pos;
 extern volatile uint8_t usart1_feed_pending;
 extern volatile uint8_t usart1_tx_busy;
-extern uint8_t tx_dma_buf[UNER_PCK_MAX_TOTAL];
 
 extern MenuSystem    menuSystem;
 extern SubMenu       mainMenu, submenu1, submenu2, submenu3;
