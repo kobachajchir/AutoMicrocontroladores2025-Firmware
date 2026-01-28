@@ -75,6 +75,8 @@ UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart1_rx;
 
+PCD_HandleTypeDef hpcd_USB_FS;
+
 /* USER CODE BEGIN PV */
 
 volatile bool procesar_flag = false;
@@ -295,6 +297,7 @@ static void MX_I2C1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_USB_PCD_Init(void);
 /* USER CODE BEGIN PFP */
 void initCarMode();
 void UserBtn_MainTask(UserButton_Handle_t *h);
@@ -416,10 +419,10 @@ int main(void)
   MX_ADC1_Init();
   MX_USART1_UART_Init();
   MX_I2C1_Init();
-  __NOP(); // BREAKPOINT: I2C1 inicializado
   MX_TIM2_Init();
   MX_SPI2_Init();
   MX_TIM4_Init();
+  MX_USB_PCD_Init();
   /* USER CODE BEGIN 2 */
 	 HAL_StatusTypeDef result;
 	 initUNERProtocol();
@@ -538,8 +541,9 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC|RCC_PERIPHCLK_USB;
   PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
+  PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL_DIV1_5;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -681,7 +685,6 @@ static void MX_I2C1_Init(void)
   {
     Error_Handler();
   }
-  __NOP(); // BREAKPOINT: HAL_I2C_Init completo
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
@@ -927,6 +930,37 @@ static void MX_USART1_UART_Init(void)
 }
 
 /**
+  * @brief USB Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USB_PCD_Init(void)
+{
+
+  /* USER CODE BEGIN USB_Init 0 */
+
+  /* USER CODE END USB_Init 0 */
+
+  /* USER CODE BEGIN USB_Init 1 */
+
+  /* USER CODE END USB_Init 1 */
+  hpcd_USB_FS.Instance = USB;
+  hpcd_USB_FS.Init.dev_endpoints = 8;
+  hpcd_USB_FS.Init.speed = PCD_SPEED_FULL;
+  hpcd_USB_FS.Init.low_power_enable = DISABLE;
+  hpcd_USB_FS.Init.lpm_enable = DISABLE;
+  hpcd_USB_FS.Init.battery_charging_enable = DISABLE;
+  if (HAL_PCD_Init(&hpcd_USB_FS) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USB_Init 2 */
+
+  /* USER CODE END USB_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -1003,7 +1037,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : User_BTN_Pin */
   GPIO_InitStruct.Pin = User_BTN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(User_BTN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : nRF24_CSN_Pin Motor_Enable_Pin Luces_IR_Pin */
