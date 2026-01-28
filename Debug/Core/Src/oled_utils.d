@@ -39,8 +39,7 @@ Core/Src/oled_utils.o: ../Core/Src/oled_utils.c ../Core/Inc/oled_utils.h \
  ../Core/Inc/types/usart_buffer_type.h ../Core/Inc/types/bitmap_type.h \
  ../Core/Inc/utils/macros_utils.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/FirmwareAutitoMicro2025/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
- ../Core/Inc/motor_control.h ../Core/Inc/uner_protocol.h \
- ../Core/Inc/mpu6050.h ../Core/Src/ssd1306.h \
+ ../Core/Inc/motor_control.h ../Core/Inc/mpu6050.h ../Core/Src/ssd1306.h \
  ../Core/Src/ssd1306_defines.h ../Core/Inc/i2c_manager.h \
  ../Core/Src/fonts.h ../Core/Src/../Inc/fonts.h ../Core/Inc/main.h
 ../Core/Inc/oled_utils.h:
@@ -92,7 +91,6 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL
 ../Core/Inc/utils/macros_utils.h:
 C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/FirmwareAutitoMicro2025/HAL\ Libs/TCRT5000/Inc/tcrt5000.h:
 ../Core/Inc/motor_control.h:
-../Core/Inc/uner_protocol.h:
 ../Core/Inc/mpu6050.h:
 ../Core/Src/ssd1306.h:
 ../Core/Src/ssd1306_defines.h:

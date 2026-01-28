@@ -15,7 +15,7 @@
 "./Core/Src/sysmem.o"
 "./Core/Src/system_stm32f1xx.o"
 "./Core/Src/ui_event_router.o"
-"./Core/Src/uner_protocol.o"
+"./Core/Src/uner_core.o"
 "./Core/Src/user_button.o"
 "./Core/Src/utils.o"
 "./Core/Startup/startup_stm32f103c8tx.o"
