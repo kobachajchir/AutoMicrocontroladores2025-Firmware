@@ -84,6 +84,7 @@ volatile bool mpu_trigger = false;
 volatile LedStatus_t ledStatus;
 volatile Byte_Flag_Struct systemFlags;
 volatile Byte_Flag_Struct systemFlags2;
+volatile Byte_Flag_Struct systemFlags3;
 volatile Byte_Flag_Struct carModeFlags;
 volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 TCRT_LightConfig_t tcrtLight;

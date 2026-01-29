@@ -14,6 +14,7 @@
 
 extern volatile Byte_Flag_Struct systemFlags;
 extern volatile Byte_Flag_Struct systemFlags2;
+extern volatile Byte_Flag_Struct systemFlags3;
 extern volatile Byte_Flag_Struct carModeFlags;
 
 // ====================== Máscaras ========================= //

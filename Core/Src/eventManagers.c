@@ -10,132 +10,459 @@
 #include "oled_utils.h"
 #include "globals.h"
 
-void dashboardEventManager(UserEvent_t ev) {
-	__NOP();
-    switch(ev) {
-    case UE_ROTATE_CW:
-        if (!IS_FLAG_SET(systemFlags2, MODIFYING_CARMODE)) {
-            // Primera rotación
-            auxCarMode = GET_CAR_MODE();  // Cargar modo actual
-            menuSystem.clearScreen();
-            SET_FLAG(systemFlags2, MODIFYING_CARMODE);
+// ============================================================================
+// CALLBACKS PARA DASHBOARD (CAMBIO DE MODO)
+// ============================================================================
 
-            // IMPORTANTE: Calcular el SIGUIENTE modo desde el actual
-            auxCarMode = (auxCarMode + 1) % CAR_MODE_MAX;
+static void Dashboard_OnRotateCW(void)
+{
+    if (!IS_FLAG_SET(systemFlags2, MODIFYING_CARMODE)) {
+        // Primera rotación
+        auxCarMode = GET_CAR_MODE();
+        menuSystem.clearScreen();
+        SET_FLAG(systemFlags2, MODIFYING_CARMODE);
+        auxCarMode = (auxCarMode + 1) % CAR_MODE_MAX;
+        menuSystem.renderFn = OledUtils_RenderModeChange_Full;
+    } else {
+        // Rotaciones subsiguientes
+        auxCarMode = NEXT_CAR_MODE();
+        menuSystem.renderFn = OledUtils_RenderModeChange_ModeOnly;
+    }
+    menuSystem.renderFlag = true;
+}
 
-            // Renderizar pantalla completa mostrando el modo SIGUIENTE
-            menuSystem.renderFn = OledUtils_RenderModeChange_Full;
-            menuSystem.renderFlag = true;
-        } else {
-            // Rotaciones subsiguientes
-            auxCarMode = NEXT_CAR_MODE();
+static void Dashboard_OnRotateCCW(void)
+{
+    if (!IS_FLAG_SET(systemFlags2, MODIFYING_CARMODE)) {
+        // Primera rotación
+        auxCarMode = GET_CAR_MODE();
+        menuSystem.clearScreen();
+        SET_FLAG(systemFlags2, MODIFYING_CARMODE);
+        auxCarMode = (auxCarMode + CAR_MODE_MAX - 1) % CAR_MODE_MAX;
+        menuSystem.renderFn = OledUtils_RenderModeChange_Full;
+    } else {
+        // Rotaciones subsiguientes
+        auxCarMode = PREV_CAR_MODE();
+        menuSystem.renderFn = OledUtils_RenderModeChange_ModeOnly;
+    }
+    menuSystem.renderFlag = true;
+}
 
-            // Solo actualizar el texto del modo
-            menuSystem.renderFn = OledUtils_RenderModeChange_ModeOnly;
-            menuSystem.renderFlag = true;
-        }
-        break;
+static void Dashboard_OnShortPress(void)
+{
+    if (IS_FLAG_SET(systemFlags2, MODIFYING_CARMODE)) {
+        // Confirmar el modo
+        SET_CAR_MODE(auxCarMode);
+        CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
+        menuSystem.renderFn = OledUtils_RenderDashboard;
+        menuSystem.clearScreen();
+        menuSystem.renderFlag = true;
+    }
+    // Si no estamos modificando modo, no hacer nada
+}
 
-    case UE_ROTATE_CCW:
-        if (!IS_FLAG_SET(systemFlags2, MODIFYING_CARMODE)) {
-            // Primera rotación
-            auxCarMode = GET_CAR_MODE();  // Cargar modo actual
-            menuSystem.clearScreen();
-            SET_FLAG(systemFlags2, MODIFYING_CARMODE);
+static void Dashboard_OnUserButton(void)
+{
+    MenuSys_NavigateToMain(&menuSystem);
+    menuSystem.clearScreen();
+    menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 1;
+    }
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
 
-            // IMPORTANTE: Calcular el ANTERIOR modo desde el actual
-            auxCarMode = (auxCarMode + CAR_MODE_MAX - 1) % CAR_MODE_MAX;
+static void Dashboard_OnLongPress(void)
+{
+    if (menuSystem.dashboardRender) {
+        menuSystem.renderFn = menuSystem.dashboardRender;
+    }
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 0;
+    }
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
 
-            // Renderizar pantalla completa mostrando el modo ANTERIOR
-            menuSystem.renderFn = OledUtils_RenderModeChange_Full;
-            menuSystem.renderFlag = true;
-        } else {
-            // Rotaciones subsiguientes
-            auxCarMode = PREV_CAR_MODE();
+static const EventCallbacks_t dashboardCallbacks = {
+    .onRotateCW     = Dashboard_OnRotateCW,
+    .onRotateCCW    = Dashboard_OnRotateCCW,
+    .onShortPress   = Dashboard_OnShortPress,
+    .onLongPress    = Dashboard_OnLongPress,
+    .onUserButton   = Dashboard_OnUserButton,
+    .onEncLongPress = NULL
+};
 
-            // Solo actualizar el texto del modo
-            menuSystem.renderFn = OledUtils_RenderModeChange_ModeOnly;
-            menuSystem.renderFlag = true;
-        }
-        break;
+// ============================================================================
+// CALLBACKS PARA MENÚ
+// ============================================================================
 
-    case UE_ENC_SHORT_PRESS:
-        if (IS_FLAG_SET(systemFlags2, MODIFYING_CARMODE)) {
-            // Confirmar el modo
-            SET_CAR_MODE(auxCarMode);
-            CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
+static void Menu_OnRotateCW(void)
+{
+    MenuSys_MoveCursorUp(&menuSystem);
+    menuSystem.renderFlag = true;
+}
 
-            // Volver al dashboard
-            menuSystem.renderFn = OledUtils_RenderDashboard;
-            menuSystem.clearScreen();
-            menuSystem.renderFlag = true;
-        } else {
-            // Acción cuando no estamos modificando modo
-        }
-        break;
+static void Menu_OnRotateCCW(void)
+{
+    MenuSys_MoveCursorDown(&menuSystem);
+    menuSystem.renderFlag = true;
+}
+
+static void Menu_OnShortPress(void)
+{
+    MenuSys_HandleClick(&menuSystem);
+}
+
+static void Menu_OnEncLongPress(void)
+{
+    MenuSys_NavigateBack(&menuSystem);
+}
+
+static void Menu_OnLongPress(void)
+{
+    if (menuSystem.dashboardRender) {
+        menuSystem.renderFn = menuSystem.dashboardRender;
+    }
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 0;
+    }
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static const EventCallbacks_t menuCallbacks = {
+    .onRotateCW     = Menu_OnRotateCW,
+    .onRotateCCW    = Menu_OnRotateCCW,
+    .onShortPress   = Menu_OnShortPress,
+    .onLongPress    = Menu_OnLongPress,
+    .onUserButton   = NULL,
+    .onEncLongPress = Menu_OnEncLongPress
+};
+
+// ============================================================================
+// CALLBACKS PARA ABOUT/PROYECTO
+// ============================================================================
+
+static void About_OnRotate(void)
+{
+    // Toggle de la flag
+    if (IS_FLAG_SET(systemFlags2, SHOWSECONDSCREEN)) {
+        CLEAR_FLAG(systemFlags2, SHOWSECONDSCREEN);
+    } else {
+        SET_FLAG(systemFlags2, SHOWSECONDSCREEN);
+    }
+
+    // Actualizar render con el wrapper
+    menuSystem.clearScreen();
+    menuSystem.renderFn = OledUtils_About_Wrapper;
+    menuSystem.renderFlag = true;
+}
+
+static void About_OnShortPress(void)
+{
+    CLEAR_FLAG(systemFlags2, SHOWSECONDSCREEN);
+    MenuSys_NavigateToMain(&menuSystem);
+    menuSystem.clearScreen();
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 1;
+    }
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static void About_OnLongPress(void)
+{
+    CLEAR_FLAG(systemFlags2, SHOWSECONDSCREEN);
+    if (menuSystem.dashboardRender) {
+        menuSystem.renderFn = menuSystem.dashboardRender;
+    }
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 0;
+    }
+    menuSystem.clearScreen();
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static const EventCallbacks_t aboutCallbacks = {
+    .onRotateCW     = About_OnRotate,
+    .onRotateCCW    = About_OnRotate,
+    .onShortPress   = About_OnShortPress,
+    .onLongPress    = About_OnLongPress,
+    .onUserButton   = NULL,
+    .onEncLongPress = NULL
+};
+
+// ============================================================================
+// CALLBACKS PARA MOTOR TEST
+// ============================================================================
+
+static void MotorTest_OnRotateCW(void)
+{
+    uint8_t sel = NIBBLEH_GET_STATE(motorTask.motorData.flags);
+    Motor_Config_t *cfg = NULL;
+
+    if (sel == MOTORLEFT_SELECTED) {
+        cfg = &motorTask.motorData.motorLeft;
+    } else if (sel == MOTORRIGHT_SELECTED) {
+        cfg = &motorTask.motorData.motorRight;
+    }
+
+    if (cfg && cfg->motorSpeed <= 245) {
+        cfg->motorSpeed += 10;
+    }
+    menuSystem.renderFlag = true;
+}
+
+static void MotorTest_OnRotateCCW(void)
+{
+    uint8_t sel = NIBBLEH_GET_STATE(motorTask.motorData.flags);
+    Motor_Config_t *cfg = NULL;
+
+    if (sel == MOTORLEFT_SELECTED) {
+        cfg = &motorTask.motorData.motorLeft;
+    } else if (sel == MOTORRIGHT_SELECTED) {
+        cfg = &motorTask.motorData.motorRight;
+    }
+
+    if (cfg && cfg->motorSpeed >= 10) {
+        cfg->motorSpeed -= 10;
+    }
+    menuSystem.renderFlag = true;
+}
+
+static void MotorTest_OnShortPress(void)
+{
+    uint8_t sel = NIBBLEH_GET_STATE(motorTask.motorData.flags);
+    Motor_Config_t *cfg = NULL;
+
+    if (sel == MOTORLEFT_SELECTED) {
+        cfg = &motorTask.motorData.motorLeft;
+    } else if (sel == MOTORRIGHT_SELECTED) {
+        cfg = &motorTask.motorData.motorRight;
+    }
+
+    if (cfg) {
+        cfg->motorDirection = (cfg->motorDirection == MOTOR_DIR_FORWARD)
+                              ? MOTOR_DIR_BACKWARD
+                              : MOTOR_DIR_FORWARD;
+    }
+    menuSystem.renderFlag = true;
+}
+
+static void MotorTest_OnEncLongPress(void)
+{
+    uint8_t sel = NIBBLEH_GET_STATE(motorTask.motorData.flags);
+    sel = (sel + 1) % 3;
+    NIBBLEH_SET_STATE(motorTask.motorData.flags, sel);
+    menuSystem.renderFlag = true;
+}
+
+static void MotorTest_OnUserButton(void)
+{
+    if (IS_FLAG_SET(motorTask.motorData.flags, ENABLE_MOVEMENT)) {
+        CLEAR_FLAG(motorTask.motorData.flags, ENABLE_MOVEMENT);
+    } else {
+        SET_FLAG(motorTask.motorData.flags, ENABLE_MOVEMENT);
+    }
+    menuSystem.renderFlag = true;
+}
+
+static void MotorTest_OnLongPress(void)
+{
+    if (menuSystem.dashboardRender) {
+        menuSystem.renderFn = menuSystem.dashboardRender;
+    }
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 0;
+    }
+    CLEAR_FLAG(motorTask.motorData.flags, ENABLE_MOVEMENT);
+    menuSystem.clearScreen();
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static const EventCallbacks_t motorTestCallbacks = {
+    .onRotateCW     = MotorTest_OnRotateCW,
+    .onRotateCCW    = MotorTest_OnRotateCCW,
+    .onShortPress   = MotorTest_OnShortPress,
+    .onLongPress    = MotorTest_OnLongPress,
+    .onUserButton   = MotorTest_OnUserButton,
+    .onEncLongPress = MotorTest_OnEncLongPress
+};
+
+// ============================================================================
+// CALLBACKS PARA BÚSQUEDA WIFI
+// ============================================================================
+
+static void WiFiSearch_OnShortPress(void)
+{
+    // Cancelar búsqueda
+    // TODO: Implementar stopWiFiScan() cuando esté disponible
+    CLEAR_FLAG(systemFlags2, WIFI_SEARCHING);
+    MenuSys_NavigateToMain(&menuSystem);
+    menuSystem.clearScreen();
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 1;
+    }
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static void WiFiSearch_OnLongPress(void)
+{
+    // Cancelar y volver al dashboard
+    // TODO: Implementar stopWiFiScan() cuando esté disponible
+    CLEAR_FLAG(systemFlags2, WIFI_SEARCHING);
+    if (menuSystem.dashboardRender) {
+        menuSystem.renderFn = menuSystem.dashboardRender;
+    }
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 0;
+    }
+    menuSystem.clearScreen();
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static const EventCallbacks_t wifiSearchCallbacks = {
+    .onRotateCW     = NULL,  // No hacer nada al rotar durante búsqueda
+    .onRotateCCW    = NULL,
+    .onShortPress   = WiFiSearch_OnShortPress,
+    .onLongPress    = WiFiSearch_OnLongPress,
+    .onUserButton   = NULL,
+    .onEncLongPress = NULL
+};
+
+// ============================================================================
+// CALLBACKS PARA PANTALLAS DE SOLO LECTURA (IR, MPU, Radar)
+// ============================================================================
+
+static void ReadOnly_OnShortPress(void)
+{
+    MenuSys_NavigateToMain(&menuSystem);
+    menuSystem.clearScreen();
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 1;
+    }
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static void ReadOnly_OnLongPress(void)
+{
+    if (menuSystem.dashboardRender) {
+        menuSystem.renderFn = menuSystem.dashboardRender;
+    }
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 0;
+    }
+    menuSystem.clearScreen();
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static const EventCallbacks_t readOnlyCallbacks = {
+    .onRotateCW     = NULL,  // No hacer nada al rotar (solo lectura)
+    .onRotateCCW    = NULL,
+    .onShortPress   = ReadOnly_OnShortPress,
+    .onLongPress    = ReadOnly_OnLongPress,
+    .onUserButton   = NULL,
+    .onEncLongPress = NULL
+};
+
+// ============================================================================
+// MANAGER GENÉRICO DE EVENTOS
+// ============================================================================
+
+void GenericEventManager(UserEvent_t ev, const EventCallbacks_t *callbacks)
+{
+    if (!callbacks) return;
+
+    switch (ev)
+    {
+        case UE_ROTATE_CW:
+            if (callbacks->onRotateCW) {
+                callbacks->onRotateCW();
+            }
+            break;
+
+        case UE_ROTATE_CCW:
+            if (callbacks->onRotateCCW) {
+                callbacks->onRotateCCW();
+            }
+            break;
+
+        case UE_ENC_SHORT_PRESS:
+            if (callbacks->onShortPress) {
+                callbacks->onShortPress();
+            }
+            break;
+
         case UE_ENC_LONG_PRESS:
+            if (callbacks->onEncLongPress) {
+                callbacks->onEncLongPress();
+            }
             break;
+
         case UE_SHORT_PRESS:
-            MenuSys_NavigateToMain(&menuSystem);
-            menuSystem.clearScreen();
-            menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
-            *menuSystem.insideMenuFlag = 1;
-            menuSystem.renderFlag = true;
-            oled_first_draw = true;
+            if (callbacks->onUserButton) {
+                callbacks->onUserButton();
+            }
             break;
+
         case UE_LONG_PRESS:
-            if (menuSystem.dashboardRender) {
-                menuSystem.renderFn = menuSystem.dashboardRender;
+            if (callbacks->onLongPress) {
+                callbacks->onLongPress();
             }
-            if (menuSystem.insideMenuFlag) {
-                *menuSystem.insideMenuFlag = 0;
-            }
-            menuSystem.renderFlag = true;
-            oled_first_draw = true;
             break;
+
         default:
             break;
     }
 }
 
-void menuEventManager(UserEvent_t ev) {
-	__NOP();
-    switch(ev) {
-        case UE_ROTATE_CW:
-            MenuSys_MoveCursorUp(&menuSystem);
-            menuSystem.renderFlag = true;
-            break;
-        case UE_ROTATE_CCW:
-            MenuSys_MoveCursorDown(&menuSystem);
-            menuSystem.renderFlag = true;
-            break;
-        case UE_ENC_SHORT_PRESS:
-            MenuSys_HandleClick(&menuSystem);
-            break;
-        case UE_ENC_LONG_PRESS:
-            MenuSys_NavigateBack(&menuSystem);
-            break;
-        case UE_LONG_PRESS:
-            if (menuSystem.dashboardRender) {
-                menuSystem.renderFn = menuSystem.dashboardRender;
-            }
-            if (menuSystem.insideMenuFlag) {
-                *menuSystem.insideMenuFlag = 0;
-            }
-            menuSystem.renderFlag = true;
-            oled_first_draw = true;
-            break;
-        default:
-            break;
-    }
+// ============================================================================
+// FUNCIONES PÚBLICAS DE EVENT MANAGERS
+// ============================================================================
+
+void dashboardEventManager(UserEvent_t ev)
+{
+    __NOP();
+    GenericEventManager(ev, &dashboardCallbacks);
+}
+
+void menuEventManager(UserEvent_t ev)
+{
+    __NOP();
+    GenericEventManager(ev, &menuCallbacks);
 }
 
 void About_UserEventManager(UserEvent_t ev)
 {
-    // Mantiene tu switch centralizado en ItemEventManager
-    // y le pasa "qué wrapper usar" para refrescar el render según flag.
-    ItemEventManager(ev, OledUtils_About_Wrapper);
+    GenericEventManager(ev, &aboutCallbacks);
 }
+
+void motorTestEventManager(UserEvent_t ev)
+{
+    GenericEventManager(ev, &motorTestCallbacks);
+}
+
+void WiFiSearch_UserEventManager(UserEvent_t ev)
+{
+    GenericEventManager(ev, &wifiSearchCallbacks);
+}
+
+void ReadOnly_UserEventManager(UserEvent_t ev)
+{
+    GenericEventManager(ev, &readOnlyCallbacks);
+}
+
+// ============================================================================
+// LEGACY: ItemEventManager (mantener por compatibilidad si se usa en otro lado)
+// ============================================================================
 
 void ItemEventManager(UserEvent_t ev, RenderWrapperFn wrapper)
 {
@@ -143,110 +470,45 @@ void ItemEventManager(UserEvent_t ev, RenderWrapperFn wrapper)
     {
         case UE_ROTATE_CW:
         case UE_ROTATE_CCW:
-            // El control del evento queda ACÁ (como querías)
             if (IS_FLAG_SET(systemFlags2, SHOWSECONDSCREEN)) {
                 CLEAR_FLAG(systemFlags2, SHOWSECONDSCREEN);
             } else {
                 SET_FLAG(systemFlags2, SHOWSECONDSCREEN);
             }
 
-            // Si hay wrapper, que actualice qué pantalla toca
             if (wrapper) {
-                wrapper();
+                menuSystem.clearScreen();
+                menuSystem.renderFn = wrapper;
+                menuSystem.renderFlag = true;
             } else {
-                // fallback: al menos forzar redraw
                 menuSystem.renderFlag = true;
                 oled_first_draw = true;
             }
             break;
 
         case UE_ENC_SHORT_PRESS:
+            CLEAR_FLAG(systemFlags2, SHOWSECONDSCREEN);
             MenuSys_NavigateToMain(&menuSystem);
             menuSystem.clearScreen();
-            inside_menu_flag = 1;
+            if (menuSystem.insideMenuFlag) {
+                *menuSystem.insideMenuFlag = 1;
+            }
             menuSystem.renderFlag = true;
             oled_first_draw = true;
             break;
+
         case UE_ENC_LONG_PRESS:
             break;
 
         case UE_LONG_PRESS:
+            CLEAR_FLAG(systemFlags2, SHOWSECONDSCREEN);
             if (menuSystem.dashboardRender) {
                 menuSystem.renderFn = menuSystem.dashboardRender;
             }
             if (menuSystem.insideMenuFlag) {
                 *menuSystem.insideMenuFlag = 0;
             }
-            menuSystem.renderFlag = true;
-            oled_first_draw = true;
-            break;
-
-        default:
-            break;
-    }
-}
-
-void motorTestEventManager(UserEvent_t ev) {
-    /* Obtengo el motor seleccionado desde la parte alta de flags */
-    uint8_t sel = NIBBLEH_GET_STATE(motorTask.motorData.flags);
-    /* Puntero al config del motor activo (o NULL si ninguno) */
-    Motor_Config_t *cfg = NULL;
-    if (sel == MOTORLEFT_SELECTED) {
-        cfg = &motorTask.motorData.motorLeft;
-    } else if (sel == MOTORRIGHT_SELECTED) {
-        cfg = &motorTask.motorData.motorRight;
-    }
-
-    switch(ev) {
-        case UE_ROTATE_CW:
-            if (cfg && cfg->motorSpeed <= 245) {
-                cfg->motorSpeed += 10;
-            }
-            menuSystem.renderFlag = true;
-            break;
-
-        case UE_ROTATE_CCW:
-            if (cfg && cfg->motorSpeed >= 10) {
-                cfg->motorSpeed -= 10;
-            }
-            menuSystem.renderFlag = true;
-            break;
-
-        case UE_ENC_SHORT_PRESS:
-            if (cfg) {
-                /* Alternar dirección */
-                cfg->motorDirection = (cfg->motorDirection == MOTOR_DIR_FORWARD)
-                                      ? MOTOR_DIR_BACKWARD
-                                      : MOTOR_DIR_FORWARD;
-            }
-            menuSystem.renderFlag = true;
-            break;
-
-        case UE_ENC_LONG_PRESS:
-            /* Ciclar selección: Izquierdo → Derecho → Ninguno → Izquierdo */
-            sel = (sel + 1) % 3;
-            NIBBLEH_SET_STATE(motorTask.motorData.flags, sel);
-            menuSystem.renderFlag = true;
-            break;
-
-        case UE_SHORT_PRESS:
-            /* Activar/desactivar movimiento global */
-            if (IS_FLAG_SET(motorTask.motorData.flags, ENABLE_MOVEMENT)) {
-                CLEAR_FLAG(motorTask.motorData.flags, ENABLE_MOVEMENT);
-            } else {
-                SET_FLAG(motorTask.motorData.flags, ENABLE_MOVEMENT);
-            }
-            menuSystem.renderFlag = true;
-            break;
-
-        case UE_LONG_PRESS:
-            if (menuSystem.dashboardRender) {
-                menuSystem.renderFn = menuSystem.dashboardRender;
-            }
-            if (menuSystem.insideMenuFlag) {
-                *menuSystem.insideMenuFlag = 0;
-            }
-            CLEAR_FLAG(motorTask.motorData.flags, ENABLE_MOVEMENT);
+            menuSystem.clearScreen();
             menuSystem.renderFlag = true;
             oled_first_draw = true;
             break;

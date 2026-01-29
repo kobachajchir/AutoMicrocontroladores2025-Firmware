@@ -64,4 +64,18 @@ void OledUtils_DisableContinuousRender(void);
 void OledUtils_RenderLockScreen(void);
 void OledUtils_RenderLockState(uint8_t lockState);
 
+void OledUtils_ESPConnFailed(void);
+void OledUtils_ESPConnSucceeded(void);
+
+// --- Sensores IR ---
+void OledUtils_RenderIRGraphScene(void);
+void OledUtils_UpdateIRBars(volatile uint16_t *sensorData);
+
+// --- Sensor MPU ---
+void OledUtils_RenderMPUScene(void);
+void OledUtils_UpdateMPUValues(MPU6050_Handle_t *mpu);
+
+void OledUtils_RenderWiFiSearchScene(void);
+void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining);
+
 #endif /* INC_OLED_UTILS_H_ */

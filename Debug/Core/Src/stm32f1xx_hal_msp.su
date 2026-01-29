@@ -12,3 +12,5 @@
 ../Core/Src/stm32f1xx_hal_msp.c:530:6:HAL_TIM_Encoder_MspDeInit	0	static
 ../Core/Src/stm32f1xx_hal_msp.c:559:6:HAL_UART_MspInit	48	static
 ../Core/Src/stm32f1xx_hal_msp.c:635:6:HAL_UART_MspDeInit	8	static
+../Core/Src/stm32f1xx_hal_msp.c:670:6:HAL_PCD_MspInit	8	static
+../Core/Src/stm32f1xx_hal_msp.c:693:6:HAL_PCD_MspDeInit	0	static

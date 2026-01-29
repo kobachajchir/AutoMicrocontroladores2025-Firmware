@@ -44,6 +44,15 @@
 #define MODIFYING_CARMODE BIT5_MASK
 #define ESP_PRESENT BIT6_MASK
 #define SHOWSECONDSCREEN BIT7_MASK
+//SYS FLAG 3
+#define CHK_ESP_CONN BIT0_MASK
+/*#define WIFI_ACTIVE BIT1_MASK
+#define AP_ACTIVE BIT2_MASK
+#define USB_ACTIVE BIT3_MASK
+#define RF_ACTIVE BIT4_MASK
+#define MODIFYING_CARMODE BIT5_MASK
+#define ESP_PRESENT BIT6_MASK
+#define SHOWSECONDSCREEN BIT7_MASK*/
 
 //Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
@@ -89,9 +98,6 @@ extern volatile bool  mpu_trigger;
 extern volatile uint16_t tim3_overflow_count;
 extern volatile uint32_t contador;
 extern volatile LedStatus_t ledStatus;
-extern volatile Byte_Flag_Struct systemFlags;
-extern volatile Byte_Flag_Struct systemFlags2;
-extern volatile Byte_Flag_Struct carModeFlags;
 extern volatile CarMode_t carMode;
 extern volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
 extern TCRT_LightConfig_t myLight;

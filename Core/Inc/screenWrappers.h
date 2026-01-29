@@ -20,6 +20,7 @@ void OledUtils_RenderMotorTest_Wrapper(void);
 void OledUtils_RenderRadar_Wrapper(void);
 void OledUtils_RenderValoresIR_Wrapper(void);
 void OledUtils_RenderValoresMPU_Wrapper(void);
+void OledUtils_RenderWiFiSearching_Wrapper(void);
 void onRenderComplete(void);
 
 #endif /* INC_SCREENWRAPPERS_H_ */

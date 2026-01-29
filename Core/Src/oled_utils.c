@@ -22,7 +22,7 @@ const uint8_t bar_x[OLED_BAR_COUNT] = {
     65, 80, 95, 110
 };
 
-static const FontDef *oled_font = &Font_6x12_Min;
+static const FontDef *oled_font = &Font_7x10;
 
 static void Oled_SetFont(const FontDef *font)
 {
@@ -167,7 +167,7 @@ void OledUtils_DrawIRGraph(volatile uint16_t *irValues)
     OledUtils_Clear();
 
     // 2) Leyenda "IR1"… "IR8" con fuente 8×10
-    Oled_SetFont(&Font_5x10_Min);
+    Oled_SetFont(&Font_7x10);
     const uint8_t fh    = Oled_FontHeight();
     const uint8_t sep_y = fh + 1;
     char label[5];
@@ -219,7 +219,7 @@ void OledUtils_MotorTest_Complete(void) {
 
     const char *dirStr = (dir == MOTOR_DIR_FORWARD) ? "Adelante" : "Atras";
     char speedStr[8];
-    Oled_SetFont(&Font_5x10_Min);
+    Oled_SetFont(&Font_7x10);
 
     // Línea 1: nombre del motor
     ssd1306_SetCursor(3, 11 - Oled_FontHeight());
@@ -261,7 +261,7 @@ void OledUtils_MotorTest_Changes(void) {
     const char *dirStr = (dir == MOTOR_DIR_FORWARD) ? "Adelante" : "Atras";
 
     char speedStr[8];
-    Oled_SetFont(&Font_5x10_Min);
+    Oled_SetFont(&Font_7x10);
 
     // Línea 1: motor
     Oled_ClearBox(0, 11 - Oled_FontHeight(), 128, Oled_FontHeight());
@@ -307,7 +307,7 @@ void OledUtils_RenderVerticalMenu(MenuSystem *ms) {
 
     // 1) Limpiar pantalla
     OledUtils_Clear();
-    Oled_SetFont(&Font_6x12_Min);
+    Oled_SetFont(&Font_7x10);
 
     // 2) Dibujar los items visibles
     for (uint8_t i = first; i < last; i++) {
@@ -371,7 +371,7 @@ void OledUtils_DrawItem(const MenuItem *item, uint8_t y, bool selected)
         Oled_DrawXBM(6, y - 1, iconW, iconH, item->icon);
     }
 
-    Oled_SetFont(&Font_6x12_Min);
+    Oled_SetFont(&Font_7x10);
     ssd1306_SetCursor(27, y+3);
     Oled_DrawStr((char*)item->name);
 
@@ -397,7 +397,7 @@ void displayMenuCustom(MenuSystem *system)
 
 void OledUtils_RenderDashboard(void)
 {
-    Oled_SetFont(&Font_6x12_Min);
+    Oled_SetFont(&Font_7x10);
     const uint8_t fh = Oled_FontHeight();
     if(IS_FLAG_SET(systemFlags2, ESP_PRESENT)){
 		if(IS_FLAG_SET(systemFlags2, WIFI_ACTIVE)){
@@ -431,11 +431,11 @@ void OledUtils_RenderDashboard(void)
     }
     ssd1306_DrawHorizontalLine(1, 20, 125);
 
-    Oled_SetFont(&Font_14x17_Min);
+    Oled_SetFont(&Font_11x18);
     ssd1306_SetCursor(2, 42 - Oled_FontHeight());
     Oled_DrawStr("Inicio");
 
-    Oled_SetFont(&Font_6x12_Min);
+    Oled_SetFont(&Font_7x10);
     ssd1306_SetCursor(80, 38 - Oled_FontHeight());
     switch (GET_CAR_MODE()) {
 		case IDLE_MODE:
@@ -454,7 +454,7 @@ void OledUtils_RenderDashboard(void)
 
     Oled_DrawXBM(4, 47, 15, 16, Icon_UserBtn_bits);
 
-    Oled_SetFont(&Font_6x12_Min);
+    Oled_SetFont(&Font_7x10);
     ssd1306_SetCursor(23, 61 - Oled_FontHeight());
     Oled_DrawStr("Menu");
 
@@ -477,13 +477,13 @@ void OledUtils_RenderProyectScreen(void)
     ssd1306_SetColor(White);
 
     // Texto principal "Proyecto Auto" con fuente grande
-    Oled_SetFont(&Font_14x17_Min);
+    Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
     ssd1306_SetCursor(40, 19 - fh_grande);
     Oled_DrawStr("Auto");
 
     // Texto secundario "Microcontroladores" con fuente pequeña
-    Oled_SetFont(&Font_6x12_Min);
+    Oled_SetFont(&Font_7x10);
     const uint8_t fh_pequena = Oled_FontHeight();
     ssd1306_SetCursor(0, 30 - fh_pequena);
     Oled_DrawStr("Microcontroladores");
@@ -502,7 +502,7 @@ void OledUtils_RenderProyectScreen(void)
     ssd1306_SetCursor(20, 42 - fh_pequena);
     Oled_DrawStr("Koba Chajchir");
 
-    Oled_SetFont(&Font_14x17_Min);
+    Oled_SetFont(&Font_11x18);
     ssd1306_SetCursor(4, 62 - fh_grande);
     Oled_DrawStr("2026");
 }
@@ -518,7 +518,7 @@ void OledUtils_RenderProyectInfoScreen(void)
     Oled_DrawXBM(12, 50, 4, 7, Arrow_Left_bits);
 
     // Texto "Repo" con fuente pequeña
-    Oled_SetFont(&Font_6x12_Min);
+    Oled_SetFont(&Font_7x10);
     const uint8_t fh = Oled_FontHeight();
     ssd1306_SetCursor(11, 13 - fh);
     Oled_DrawStr("Repo");
@@ -535,7 +535,7 @@ void OledUtils_RenderProyectInfoScreen(void)
 void OledUtils_RenderModeChange_Full(void)
 {
     // Título "Modo" con fuente grande
-    Oled_SetFont(&Font_14x17_Min);
+    Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
     const uint8_t fw_grande = Oled_FontWidth();
 
@@ -554,7 +554,7 @@ void OledUtils_RenderModeChange_Full(void)
     Oled_DrawXBM(110, arrow_y, 4, 7, Arrow_Right_bits);
 
     // Texto "Confirmar" e icono
-    Oled_SetFont(&Font_6x12_Min);
+    Oled_SetFont(&Font_7x10);
     const uint8_t fh_pequena = Oled_FontHeight();
     const uint8_t fw_pequena = Oled_FontWidth();
 
@@ -582,7 +582,7 @@ void OledUtils_RenderModeChange_Full(void)
 void OledUtils_RenderModeChange_ModeOnly(void)
 {
     // Fuente grande para el modo
-    Oled_SetFont(&Font_14x17_Min);
+    Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
     const uint8_t fw_grande = Oled_FontWidth();
 
@@ -633,7 +633,7 @@ void OledUtils_RenderModeChange_ModeOnly(void)
 void OledUtils_RenderValoresMPUScreen(MPU6050_Handle_t *mpu)
 {
     char buf[8];
-    Oled_SetFont(&Font_6x12_Min);
+    Oled_SetFont(&Font_7x10);
     const uint8_t fw = Oled_FontWidth();
     const uint8_t fh = Oled_FontHeight();
     const uint8_t val_width  = fw * 5;  // espacio para “-16384” o “-180”
@@ -721,7 +721,7 @@ void OledUtils_RenderLockScreen(void) {
     OledUtils_Clear();
 
     // 2) Texto “Pantalla”
-    Oled_SetFont(&Font_14x17_Min);
+    Oled_SetFont(&Font_11x18);
     ssd1306_SetCursor(28, 42 - Oled_FontHeight());
     Oled_DrawStr("Pantalla");
 
@@ -732,3 +732,300 @@ void OledUtils_RenderLockScreen(void) {
     // 4) Icono de candado
     Oled_DrawXBM(LOCK_ICON_X, LOCK_ICON_Y, LOCK_ICON_W, LOCK_ICON_H, Icon_Lock_bits);
 }
+
+/**
+ * @brief Pantalla de conexión ESP exitosa
+ */
+void OledUtils_ESPConnSucceeded(void)
+{
+    ssd1306_SetColor(White);
+
+    // Texto "Conexion" con fuente grande
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(27, 36 - fh_grande);
+    Oled_DrawStr("Conexion");
+
+    // Texto "exitosa"
+    ssd1306_SetCursor(32, 49 - fh_grande);
+    Oled_DrawStr("exitosa");
+
+    // Botón OK (13x13 píxeles)
+    Oled_DrawXBM(111, 47, 13, 13, Icon_Encoder_bits);
+
+    // Icono de check/tilde (14x16 píxeles)
+    Oled_DrawXBM(57, 6, 14, 16, Icon_Checked_bits);
+}
+
+/**
+ * @brief Pantalla de conexión ESP fallida
+ */
+void OledUtils_ESPConnFailed(void)
+{
+    ssd1306_SetColor(White);
+
+    // Texto "Conexion" con fuente grande
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(27, 36 - fh_grande);
+    Oled_DrawStr("Conexion");
+
+    // Texto "fallida"
+    ssd1306_SetCursor(32, 49 - fh_grande);
+    Oled_DrawStr("fallida");
+
+    // Botón OK (13x13 píxeles)
+    Oled_DrawXBM(111, 47, 13, 13, Icon_Encoder_bits);
+
+    // Icono de cruz/X (11x16 píxeles) - centrado igual que el check
+    Oled_DrawXBM(58, 9, 11, 16, Icon_Crossed_bits);
+}
+
+/**
+ * @brief Dibuja la escena completa del gráfico IR (leyenda + separador + barras vacías)
+ *        Se llama solo una vez al entrar a la pantalla
+ */
+void OledUtils_RenderIRGraphScene(void)
+{
+    ssd1306_SetColor(White);
+
+    // Línea separadora horizontal
+    ssd1306_DrawLine(0, 9, 127, 9);
+
+    // Leyenda "IR1" a "IR8" con fuente pequeña
+    Oled_SetFont(&Font_7x10);
+    const uint8_t fh = Oled_FontHeight();
+
+    ssd1306_SetCursor(0, 7 - fh);
+    Oled_DrawStr("IR1");
+
+    ssd1306_SetCursor(16, 7 - fh);
+    Oled_DrawStr("IR2");
+
+    ssd1306_SetCursor(32, 7 - fh);
+    Oled_DrawStr("IR3");
+
+    ssd1306_SetCursor(48, 7 - fh);
+    Oled_DrawStr("IR4");
+
+    ssd1306_SetCursor(63, 7 - fh);
+    Oled_DrawStr("IR5");
+
+    ssd1306_SetCursor(79, 7 - fh);
+    Oled_DrawStr("IR6");
+
+    ssd1306_SetCursor(95, 7 - fh);
+    Oled_DrawStr("IR7");
+
+    ssd1306_SetCursor(111, 7 - fh);
+    Oled_DrawStr("IR8");
+}
+
+/**
+ * @brief Actualiza solo las barras del gráfico IR según los valores del sensor
+ * @param sensorData Puntero al array de 8 valores de sensores IR (0-4095)
+ */
+void OledUtils_UpdateIRBars(volatile uint16_t *sensorData)
+{
+    const uint8_t barX[8] = {0, 16, 32, 48, 64, 80, 96, 112};
+    const uint8_t barWidth = 14;
+    const uint8_t barMaxHeight = 52;
+    const uint8_t barBaseY = 12;  // Desde donde empiezan las barras
+
+    ssd1306_SetColor(White);
+
+    for (uint8_t i = 0; i < TCRT5000_NUM_SENSORS; i++) {
+        // Limitar valor a 4095
+        uint16_t value = (sensorData[i] > 4095) ? 4095 : sensorData[i];
+
+        // Calcular altura de la barra proporcional al valor (0-4095 → 0-52 píxeles)
+        uint8_t barHeight = (uint32_t)value * barMaxHeight / 4095;
+
+        // Calcular Y inicial (desde abajo hacia arriba)
+        uint8_t barY = barBaseY + (barMaxHeight - barHeight);
+
+        // Limpiar toda la columna de la barra
+        ssd1306_SetColor(Black);
+        ssd1306_FillRect(barX[i], barBaseY, barWidth, barMaxHeight);
+
+        // Dibujar la barra con la altura calculada
+        ssd1306_SetColor(White);
+        ssd1306_FillRect(barX[i], barY, barWidth, barHeight);
+    }
+}
+
+/**
+ * @brief Dibuja la escena completa del MPU (título + etiquetas)
+ *        Se llama solo una vez al entrar a la pantalla
+ */
+void OledUtils_RenderMPUScene(void)
+{
+    ssd1306_SetColor(White);
+
+    // Título "Sensor MPU" con fuente grande
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(5, 16 - fh_grande);
+    Oled_DrawStr("Sensor MPU");
+
+    // Etiquetas de acelerómetro y giroscopio con fuente pequeña
+    Oled_SetFont(&Font_7x10);
+    const uint8_t fh_pequena = Oled_FontHeight();
+
+    // Columna izquierda: AX, AY, AZ
+    ssd1306_SetCursor(5, 32 - fh_pequena);
+    Oled_DrawStr("AX");
+
+    ssd1306_SetCursor(5, 42 - fh_pequena);
+    Oled_DrawStr("AY");
+
+    ssd1306_SetCursor(5, 52 - fh_pequena);
+    Oled_DrawStr("AZ");
+
+    // Columna derecha: GX, GY, GZ
+    ssd1306_SetCursor(68, 33 - fh_pequena);
+    Oled_DrawStr("GX");
+
+    ssd1306_SetCursor(68, 43 - fh_pequena);
+    Oled_DrawStr("GY");
+
+    ssd1306_SetCursor(68, 53 - fh_pequena);
+    Oled_DrawStr("GZ");
+}
+
+/**
+ * @brief Actualiza solo los valores del MPU en pantalla
+ * @param mpu Puntero a la estructura del MPU con los datos
+ */
+void OledUtils_UpdateMPUValues(MPU6050_Handle_t *mpu)
+{
+    char buf[8];
+    ssd1306_SetColor(White);
+
+    Oled_SetFont(&Font_7x10);
+    const uint8_t fh = Oled_FontHeight();
+    const uint8_t fw = Oled_FontWidth();
+    const uint8_t valueWidth = fw * 6;  // Ancho aproximado para "-32768"
+
+    // Posiciones X para los valores
+    const uint8_t axValueX = 24;
+    const uint8_t gxValueX = 88;
+
+    // Limpiar y actualizar AX
+    Oled_ClearBox(axValueX, 32 - fh, valueWidth, fh);
+    ssd1306_SetCursor(axValueX, 32 - fh);
+    snprintf(buf, sizeof(buf), "%d", mpu->data.accel_x_mg);
+    Oled_DrawStr(buf);
+
+    // Limpiar y actualizar AY
+    Oled_ClearBox(axValueX, 42 - fh, valueWidth, fh);
+    ssd1306_SetCursor(axValueX, 42 - fh);
+    snprintf(buf, sizeof(buf), "%d", mpu->data.accel_y_mg);
+    Oled_DrawStr(buf);
+
+    // Limpiar y actualizar AZ
+    Oled_ClearBox(axValueX, 52 - fh, valueWidth, fh);
+    ssd1306_SetCursor(axValueX, 52 - fh);
+    snprintf(buf, sizeof(buf), "%d", mpu->data.accel_z_mg);
+    Oled_DrawStr(buf);
+
+    // Limpiar y actualizar GX
+    Oled_ClearBox(gxValueX, 33 - fh, valueWidth, fh);
+    ssd1306_SetCursor(gxValueX, 33 - fh);
+    snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_x_mdps);
+    Oled_DrawStr(buf);
+
+    // Limpiar y actualizar GY
+    Oled_ClearBox(gxValueX, 43 - fh, valueWidth, fh);
+    ssd1306_SetCursor(gxValueX, 43 - fh);
+    snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_y_mdps);
+    Oled_DrawStr(buf);
+
+    // Limpiar y actualizar GZ
+    Oled_ClearBox(gxValueX, 53 - fh, valueWidth, fh);
+    ssd1306_SetCursor(gxValueX, 53 - fh);
+    snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_z_mdps);
+    Oled_DrawStr(buf);
+}
+
+/**
+ * @brief Pantalla de configuración de tiempo de avisos
+ * @param seconds Tiempo en segundos a mostrar
+ */
+void OledUtils_RenderWarningTimeConfig(uint8_t seconds)
+{
+    ssd1306_SetColor(White);
+
+    // Fuente grande para el contenido
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh = Oled_FontHeight();
+
+    // Texto "Tiempo de"
+    ssd1306_SetCursor(21, 17 - fh);
+    Oled_DrawStr("Tiempo de");
+
+    // Texto "avisos"
+    ssd1306_SetCursor(36, 33 - fh);
+    Oled_DrawStr("avisos");
+
+    // Texto con el valor de segundos (ejemplo: "10 segs.")
+    char timeStr[12];
+    snprintf(timeStr, sizeof(timeStr), "%u segs.", seconds);
+    ssd1306_SetCursor(27, 53 - fh);
+    Oled_DrawStr(timeStr);
+
+    // Botón OK (13x13 píxeles)
+    Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
+}
+
+/**
+ * @brief Dibuja la escena completa de búsqueda WiFi con temporizador (una vez)
+ */
+void OledUtils_RenderWiFiSearchScene(void)
+{
+    ssd1306_SetColor(White);
+
+    // Texto "Buscando" con fuente grande
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(27, 14 - fh_grande);
+    Oled_DrawStr("Buscando");
+
+    // Texto "redes wifi"
+    ssd1306_SetCursor(27, 27 - fh_grande);
+    Oled_DrawStr("redes wifi");
+
+    // Texto "Cancelar" con fuente pequeña
+    Oled_SetFont(&Font_6x12_Min);
+    const uint8_t fh_pequena = Oled_FontHeight();
+    ssd1306_SetCursor(62, 58 - fh_pequena);
+    Oled_DrawStr("Cancelar");
+
+    // Botón OK/Encoder (13x13 píxeles)
+    Oled_DrawXBM(112, 48, 13, 13, image_Ok_btn_pressed_bits);
+
+    // Icono WiFi (19x16 píxeles)
+    Oled_DrawXBM(4, 8, 19, 16, image_wifi_full_bits);
+}
+
+/**
+ * @brief Actualiza solo el temporizador de búsqueda WiFi
+ * @param secondsRemaining Segundos restantes de búsqueda
+ */
+void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining)
+{
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh = Oled_FontHeight();
+    const uint8_t fw = Oled_FontWidth();
+
+    // Limpiar zona del temporizador (ancho suficiente para "99")
+    const uint8_t timerWidth = fw * 2;
+    Oled_ClearBox(55, 44 - fh, timerWidth, fh);
+
+    // Dibujar nuevo valor
+    char timeStr[4];
+    snprintf(timeStr, sizeof(timeStr), "%u", secondsRemaining);
+    ssd1306_SetCursor(55, 44 - fh);
+    Oled_DrawStr(timeStr);
+}
+

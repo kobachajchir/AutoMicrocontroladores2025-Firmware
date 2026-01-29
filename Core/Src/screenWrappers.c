@@ -15,7 +15,7 @@ void OledUtils_DrawItem_Wrapper(const MenuItem *item,
                                 int               y,
                                 bool              selected)
 {
-    // llamamos a la versión “completa” pasándole el handle
+    // llamamos a la versión "completa" pasándole el handle
     OledUtils_DrawItem(item, y, selected);
 }
 
@@ -26,10 +26,10 @@ void OledUtils_RenderDashboard_Wrapper(void)
 {
     __NOP(); // BREAKPOINT: wrapper dashboard
     // 1) Deshabilito el refresco periódico
-	OledUtils_DisableContinuousRender();
-	menuSystem.userEventManagerFn = dashboardEventManager;
-	__NOP();
-	inside_menu_flag = false;
+    OledUtils_DisableContinuousRender();
+    menuSystem.userEventManagerFn = dashboardEventManager;
+    __NOP();
+    inside_menu_flag = false;
 
     // 2) Marco que esta es la primera pasada para full-refresh
     oled_first_draw = true;
@@ -104,107 +104,130 @@ void MenuSys_RenderMenu_Wrapper(void) {
 }
 
 void MenuSys_GoBack_Wrapper(){
-	MenuSys_NavigateBack(&menuSystem);
+    MenuSys_NavigateBack(&menuSystem);
 }
 
 void OledUtils_RenderMotorTest_Wrapper(void) {
-	OledUtils_DisableContinuousRender();
-	menuSystem.userEventManagerFn = motorTestEventManager;
-	inside_menu_flag = false;
-	encoder.allowEncoderInput = true;
-	SET_FLAG(motorTask.motorData.flags, ENABLE_MOVEMENT);
-	if(!oled_first_draw){
-		OledUtils_Clear();
-		OledUtils_MotorTest_Complete();
-		oled_first_draw = true;
-	}else{
-		__NOP();
-		OledUtils_MotorTest_Changes();
-	}
+    OledUtils_DisableContinuousRender();
+    menuSystem.userEventManagerFn = motorTestEventManager;
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = true;
+    SET_FLAG(motorTask.motorData.flags, ENABLE_MOVEMENT);
+    if(!oled_first_draw){
+        OledUtils_Clear();
+        OledUtils_MotorTest_Complete();
+        oled_first_draw = true;
+    }else{
+        __NOP();
+        OledUtils_MotorTest_Changes();
+    }
 }
 
 void OledUtils_RenderRadar_Wrapper(void) {
-	OledUtils_EnableContinuousRender();
-	inside_menu_flag = false;
-	encoder.allowEncoderInput = false;
-	menuSystem.renderFlag = true;
-	if(!oled_first_draw){
-		OledUtils_Clear();
-		OledUtils_RenderRadarGraph(sensor_raw_data); // La primera vez renderizo todo
-		oled_first_draw = true;
-	}else{
-		__NOP();
-		OledUtils_RenderRadarGraph_Objs(sensor_raw_data); //La siguiente solo los objetos
-	}
+    OledUtils_EnableContinuousRender();
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = true;  // Cambiar a true
+    menuSystem.userEventManagerFn = ReadOnly_UserEventManager;  // AGREGADO
+    menuSystem.renderFlag = true;
+
+    if(!oled_first_draw){
+        OledUtils_Clear();
+        OledUtils_RenderRadarGraph(sensor_raw_data);
+        oled_first_draw = true;
+    }else{
+        OledUtils_RenderRadarGraph_Objs(sensor_raw_data);
+    }
 }
 
 void OledUtils_About_Wrapper(void)
 {
     // Estado base de esta pantalla
-    OledUtils_EnableContinuousRender();
+    OledUtils_DisableContinuousRender();
     inside_menu_flag = false;
     encoder.allowEncoderInput = true;
 
     // Seleccionar cuál pantalla real renderizar según flag
     if (IS_FLAG_SET(systemFlags2, SHOWSECONDSCREEN)) {
-        menuSystem.renderFn = OledUtils_RenderProyectInfoScreen;
+        OledUtils_Clear();
+        OledUtils_RenderProyectInfoScreen();
     } else {
-        menuSystem.renderFn = OledUtils_RenderProyectScreen;
+        OledUtils_Clear();
+        OledUtils_RenderProyectScreen();
     }
 
     // Activar el manager de eventos para esta pantalla
     menuSystem.userEventManagerFn = About_UserEventManager;
 
     // Forzar redraw
-    menuSystem.clearScreen();
     menuSystem.renderFlag = true;
-    oled_first_draw = true;
 }
 
 /**
  * @brief  Wrapper para la pantalla de Valores IR.
  */
 void OledUtils_RenderValoresIR_Wrapper(void) {
-    // cada vez que entrenamos aquí, nos aseguramos de tener auto_flush
     OledUtils_EnableContinuousRender();
     inside_menu_flag = false;
+    encoder.allowEncoderInput = true;  // Cambiar a true para poder salir
+    menuSystem.userEventManagerFn = ReadOnly_UserEventManager;  // AGREGADO
     menuSystem.renderFlag = true;
+
     if (!oled_first_draw) {
-        // primera pasada → gráfico completo
-    	OledUtils_Clear();
-        OledUtils_DrawIRGraph(sensor_raw_data);
-        // señalizamos que ya no estamos en la primera pasada
-        oled_first_draw = false;
+        OledUtils_Clear();
+        OledUtils_RenderIRGraphScene();
+        OledUtils_UpdateIRBars(sensor_raw_data);
+        oled_first_draw = true;
     } else {
-        // siguientes pasadas → sólo barras
-        OledUtils_DrawIRBars(sensor_raw_data);
+        OledUtils_UpdateIRBars(sensor_raw_data);
     }
 }
-
 
 /**
  * @brief  Wrapper para la pantalla de Valores MPU.
  */
 void OledUtils_RenderValoresMPU_Wrapper(void)
 {
-	OledUtils_EnableContinuousRender();
-    menuSystem.insideMenuFlag = false;
+    OledUtils_EnableContinuousRender();
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = true;  // Cambiar a true
+    menuSystem.userEventManagerFn = ReadOnly_UserEventManager;  // AGREGADO
     menuSystem.renderFlag = true;
-	encoder.allowEncoderInput = false;
-	if(!oled_first_draw){
-		oled_first_draw = true;
-		OledUtils_Clear();
-		OledUtils_RenderValoresMPUScreen(&mpuTask);
-	}else{
-		__NOP();
-		OledUtils_RenderValoresMPUScreen(&mpuTask); //Despues cambiar esta por la que imprime solo los valores
-	}
+
+    if(!oled_first_draw){
+        OledUtils_Clear();
+        OledUtils_RenderMPUScene();
+        OledUtils_UpdateMPUValues(&mpuTask);
+        oled_first_draw = true;
+    }else{
+        OledUtils_UpdateMPUValues(&mpuTask);
+    }
+}
+/**
+ * @brief Wrapper para la pantalla de búsqueda WiFi
+ */
+void OledUtils_RenderWiFiSearching_Wrapper(void)
+{
+    OledUtils_DisableContinuousRender();
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = true;
+    menuSystem.userEventManagerFn = WiFiSearch_UserEventManager;  // AGREGADO
+
+    if (!oled_first_draw) {
+        OledUtils_Clear();
+        OledUtils_RenderWiFiSearchScene();
+        OledUtils_UpdateWiFiSearchTimer(10);
+        oled_first_draw = true;
+    } else {
+        OledUtils_UpdateWiFiSearchTimer(10);  // TODO: usar valor real del timer
+    }
+
+    menuSystem.renderFlag = true;
 }
 
 void onRenderComplete(void) {
-	__NOP();
-	if(IS_FLAG_SET(systemFlags, OLED_READY)){
-		menuSystem.allowPeriodicRefresh = false;
-		__NOP();
-	}
+    __NOP();
+    if(IS_FLAG_SET(systemFlags, OLED_READY)){
+        menuSystem.allowPeriodicRefresh = false;
+        __NOP();
+    }
 }
