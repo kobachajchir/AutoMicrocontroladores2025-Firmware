@@ -251,6 +251,46 @@ void OledUtils_RenderWiFiSearchResults_Wrapper(void)
     }
 }
 
+static void OledUtils_ShowESPNotification(RenderFunction renderFn)
+{
+    OledUtils_DisableContinuousRender();
+    encoder.allowEncoderInput = false;
+    menuSystem.userEventManagerFn = menuEventManager;
+
+    if (!oled_first_draw) {
+        menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
+        oled_first_draw = true;
+        OledUtils_ShowNotificationMs(renderFn, 2000);
+    }
+}
+
+void OledUtils_RenderESPCheckConnection_Wrapper(void)
+{
+    OledUtils_ShowESPNotification(OledUtils_RenderESPCheckingConnectionNotification);
+}
+
+void OledUtils_RenderESPFirmwareRequest_Wrapper(void)
+{
+    RenderFunction notificationFn = OledUtils_RenderESPCheckConnectionRequiredNotification;
+
+    if (IS_FLAG_SET(systemFlags3, ESP_PRESENT)) {
+        notificationFn = OledUtils_RenderESPFirmwareRequestNotification;
+    }
+
+    OledUtils_ShowESPNotification(notificationFn);
+}
+
+void OledUtils_RenderESPResetSent_Wrapper(void)
+{
+    RenderFunction notificationFn = OledUtils_RenderESPCheckConnectionRequiredNotification;
+
+    if (IS_FLAG_SET(systemFlags3, ESP_PRESENT)) {
+        notificationFn = OledUtils_RenderESPResetSentNotification;
+    }
+
+    OledUtils_ShowESPNotification(notificationFn);
+}
+
 void onRenderComplete(void) {
     __NOP();
     if(IS_FLAG_SET(systemFlags, OLED_READY)){

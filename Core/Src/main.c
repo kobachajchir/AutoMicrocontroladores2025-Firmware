@@ -184,9 +184,9 @@ void setMode_TEST(void){
 
 // submenuESPItems
 MenuItem submenuESPItems[] = {
-    {"Chk Conexion", NULL, NULL, Icon_Link_bits, NULL, menuEventManager},
-    {"Firmware",    NULL, NULL, Icon_Info_bits,  NULL, menuEventManager},
-	{"Reset ESP",    NULL, NULL, Icon_Refrescar_bits,  NULL, menuEventManager},
+    {"Chk Conexion", NULL, NULL, Icon_Link_bits, OledUtils_RenderESPCheckConnection_Wrapper, menuEventManager},
+    {"Firmware",    NULL, NULL, Icon_Info_bits,  OledUtils_RenderESPFirmwareRequest_Wrapper, menuEventManager},
+	{"Reset ESP",    NULL, NULL, Icon_Refrescar_bits,  OledUtils_RenderESPResetSent_Wrapper, menuEventManager},
     {"Volver",       MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
 };
 

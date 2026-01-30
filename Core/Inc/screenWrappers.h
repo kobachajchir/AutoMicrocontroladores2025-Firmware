@@ -23,6 +23,9 @@ void OledUtils_RenderValoresMPU_Wrapper(void);
 void OledUtils_RenderWiFiSearching_Wrapper(void);
 void OledUtils_RenderWiFiSearchResults_Wrapper(void);
 void OledUtils_RenderWiFiConnectionStatus_Wrapper(void);
+void OledUtils_RenderESPCheckConnection_Wrapper(void);
+void OledUtils_RenderESPFirmwareRequest_Wrapper(void);
+void OledUtils_RenderESPResetSent_Wrapper(void);
 void onRenderComplete(void);
 
 #endif /* INC_SCREENWRAPPERS_H_ */
