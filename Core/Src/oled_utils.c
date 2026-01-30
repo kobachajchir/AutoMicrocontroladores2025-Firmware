@@ -129,8 +129,9 @@ static void OledUtils_RenderNotification_Wrapper(void)
 {
     OledNotificationState *notif = &oledHandle.notification;
 
-    if (notif->renderFn) {
+    if (notif->renderFn && notif->needsFullRender) {
         notif->renderFn();
+        notif->needsFullRender = false;
     }
 
     OledUtils_RenderNotificationProgress(notif);
@@ -148,6 +149,7 @@ static void OledUtils_NotificationRestore(void)
         notif->renderFn = notif->suspended.renderFn;
         notif->timeoutTicks = notif->suspended.remainingTicks;
         notif->totalTicks = notif->suspended.remainingTicks;
+        notif->needsFullRender = true;
         notif->suspended.valid = false;
 
         menuSystem.renderFn = OledUtils_RenderNotification_Wrapper;
@@ -160,6 +162,7 @@ static void OledUtils_NotificationRestore(void)
     notif->renderFn = NULL;
     notif->timeoutTicks = 0;
     notif->totalTicks = 0;
+    notif->needsFullRender = false;
 
     menuSystem.renderFn = notif->previousRenderFn;
     menuSystem.allowPeriodicRefresh = notif->previousAllowPeriodicRefresh;
@@ -197,6 +200,7 @@ void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeo
     notif->renderFn = renderFn;
     notif->timeoutTicks = timeout_ticks;
     notif->totalTicks = timeout_ticks;
+    notif->needsFullRender = true;
 
     menuSystem.renderFn = OledUtils_RenderNotification_Wrapper;
     menuSystem.allowPeriodicRefresh = false;
