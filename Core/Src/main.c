@@ -209,6 +209,8 @@ MenuSystem menuSystem = {
     .renderFlag       = false
 };
 
+OledHandle oledHandle = {0};
+
 // Ítems del menú principal
 MenuItem mainMenuItems[] = {
     // nombre     acción          submenú        icono             pantalla render
