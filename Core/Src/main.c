@@ -181,10 +181,10 @@ void setMode_TEST(void){
 
 // submenuESPItems
 MenuItem submenuESPItems[] = {
-    {"Chk Conexion", NULL, NULL, Icon_Link_bits, NULL},
-    {"Firmware",    NULL, NULL, Icon_Info_bits,  NULL},
-	{"Reset ESP",    NULL, NULL, Icon_Refrescar_bits,  NULL},
-    {"Volver",       MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper}
+    {"Chk Conexion", NULL, NULL, Icon_Link_bits, NULL, menuEventManager},
+    {"Firmware",    NULL, NULL, Icon_Info_bits,  NULL, menuEventManager},
+	{"Reset ESP",    NULL, NULL, Icon_Refrescar_bits,  NULL, menuEventManager},
+    {"Volver",       MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
 };
 
 
@@ -210,11 +210,11 @@ MenuSystem menuSystem = {
 // Ítems del menú principal
 MenuItem mainMenuItems[] = {
     // nombre     acción          submenú        icono             pantalla render
-    { "Wifi",      NULL,           &submenu1,     Icon_Wifi_bits,   MenuSys_RenderMenu_Wrapper },
-    { "Sensores",  NULL,           &submenu2,     Icon_Sensors_bits, MenuSys_RenderMenu_Wrapper },
-    { "Config.",   NULL,           &submenu3,     Icon_Config_bits, MenuSys_RenderMenu_Wrapper },
+    { "Wifi",      NULL,           &submenu1,     Icon_Wifi_bits,   MenuSys_RenderMenu_Wrapper, menuEventManager },
+    { "Sensores",  NULL,           &submenu2,     Icon_Sensors_bits, MenuSys_RenderMenu_Wrapper, menuEventManager },
+    { "Config.",   NULL,           &submenu3,     Icon_Config_bits, MenuSys_RenderMenu_Wrapper, menuEventManager },
 	// name       action    submenu       icon               screenRenderFn
-	{ "Volver",   MenuSys_GoBack_Wrapper,     NULL,         Icon_Volver_bits,  OledUtils_RenderDashboard_Wrapper },
+	{ "Volver",   MenuSys_GoBack_Wrapper,     NULL,         Icon_Volver_bits,  OledUtils_RenderDashboard_Wrapper, dashboardEventManager },
 };
 // Menú principal
 SubMenu mainMenu = {
@@ -229,10 +229,10 @@ SubMenu mainMenu = {
 
 // Ítems del submenu 1: MODO (sin pantalla asociada por ahora)
 MenuItem submenu1Items[] = {
-    {"Info AP",   NULL,       NULL, Icon_Info_bits, NULL},
-    {"Buscar APs", NULL,     NULL, Icon_Refrescar_bits, NULL},
-    {"Conexion ESP",   NULL,       &submenuESP, Icon_Link_bits, MenuSys_RenderMenu_Wrapper},
-    {"Volver", MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper}
+    {"Info AP",   NULL,       NULL, Icon_Info_bits, NULL, menuEventManager},
+    {"Buscar APs", NULL,     NULL, Icon_Refrescar_bits, NULL, menuEventManager},
+    {"Conexion ESP",   NULL,       &submenuESP, Icon_Link_bits, MenuSys_RenderMenu_Wrapper, menuEventManager},
+    {"Volver", MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
 };
 
 SubMenu submenu1 = {
@@ -247,10 +247,10 @@ SubMenu submenu1 = {
 
 // Ítems del submenu 2 (“Pantallas”)
 MenuItem submenu2Items[] = {
-    {"Valores IR",     NULL,               NULL, Icon_Tool_bits, OledUtils_RenderValoresIR_Wrapper},
-	{"Valores MPU",     NULL,               NULL, Icon_Tool_bits, OledUtils_RenderValoresMPU_Wrapper},
-	{"Test motores",     NULL,               NULL, Icon_Tool_bits, OledUtils_RenderMotorTest_Wrapper},
-    {"Volver",         MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper}
+    {"Valores IR",     NULL,               NULL, Icon_Tool_bits, OledUtils_RenderValoresIR_Wrapper, ReadOnly_UserEventManager},
+	{"Valores MPU",     NULL,               NULL, Icon_Tool_bits, OledUtils_RenderValoresMPU_Wrapper, ReadOnly_UserEventManager},
+	{"Test motores",     NULL,               NULL, Icon_Tool_bits, OledUtils_RenderMotorTest_Wrapper, motorTestEventManager},
+    {"Volver",         MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
 };
 
 SubMenu submenu2 = {
@@ -265,9 +265,9 @@ SubMenu submenu2 = {
 
 // submenu3Items
 MenuItem submenu3Items[] = {
-    {"Preferencias", NULL, NULL, Icon_Prefs_bits, NULL},
-    {"Acerca de",    NULL, NULL, Icon_Info_bits,  OledUtils_About_Wrapper},
-    {"Volver",       MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper}
+    {"Preferencias", NULL, NULL, Icon_Prefs_bits, NULL, menuEventManager},
+    {"Acerca de",    NULL, NULL, Icon_Info_bits,  OledUtils_About_Wrapper, About_UserEventManager},
+    {"Volver",       MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
 };
 
 
