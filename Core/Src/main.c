@@ -1403,10 +1403,12 @@ void OLED_MainTask(void) {
     // 3) Ejecutar la rutina de render si alguien la pidió
     bool did_render = false;
     if (menuSystem.renderFlag && menuSystem.renderFn) {
-        menuSystem.renderFlag = false;
-        __NOP(); // BREAKPOINT: render de OLED solicitado
-        menuSystem.renderFn();
-        did_render = true;
+        if (ssd1306_UpdateScreenCompleted()) {
+            menuSystem.renderFlag = false;
+            __NOP(); // BREAKPOINT: render de OLED solicitado
+            menuSystem.renderFn();
+            did_render = true;
+        }
     }
 
     // 4) Enviar el buffer al display (no bloqueante con DMA/I2C manager)
