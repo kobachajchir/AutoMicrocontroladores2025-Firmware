@@ -2,6 +2,7 @@
 ../Core/Src/oled_utils.c:49:13:Oled_ClearBox	24	static
 ../Core/Src/oled_utils.c:68:13:Oled_DrawXBM	24	static,ignoring_inline_asm
 ../Core/Src/oled_utils.c:42:13:Oled_DrawStr	8	static,ignoring_inline_asm
+../Core/Src/oled_utils.c:951:13:OledUtils_NotificationRestore	16	static
 ../Core/Src/oled_utils.c:85:6:OledUtils_PrintOverlayBuffer_Wrapper	0	static
 ../Core/Src/oled_utils.c:91:6:OledUtils_EnableContinuousRender	0	static
 ../Core/Src/oled_utils.c:96:6:OledUtils_DisableContinuousRender	0	static
@@ -30,7 +31,12 @@
 ../Core/Src/oled_utils.c:828:6:OledUtils_UpdateIRBars	40	static
 ../Core/Src/oled_utils.c:861:6:OledUtils_RenderMPUScene	8	static
 ../Core/Src/oled_utils.c:900:6:OledUtils_UpdateMPUValues	32	static
-../Core/Src/oled_utils.c:955:6:OledUtils_RenderWarningTimeConfig	40	static
-../Core/Src/oled_utils.c:984:6:OledUtils_RenderWiFiSearchScene	24	static
-../Core/Src/oled_utils.c:1015:6:OledUtils_UpdateWiFiSearchTimer	24	static
-../Core/Src/oled_utils.c:1032:6:OledUtils_ShowWifiResults	24	static
+../Core/Src/oled_utils.c:977:6:OledUtils_ShowNotificationTicks10ms	24	static
+../Core/Src/oled_utils.c:1010:6:OledUtils_ShowNotificationMs	0	static
+../Core/Src/oled_utils.c:1016:6:OledUtils_DismissNotification	0	static
+../Core/Src/oled_utils.c:1026:6:OledUtils_NotificationTick10ms	0	static
+../Core/Src/oled_utils.c:1047:6:OledUtils_RenderWarningTimeConfig	40	static
+../Core/Src/oled_utils.c:1076:6:OledUtils_RenderWiFiSearchScene	24	static
+../Core/Src/oled_utils.c:1107:6:OledUtils_UpdateWiFiSearchTimer	24	static
+../Core/Src/oled_utils.c:1128:6:OledUtils_RenderWiFiSearchCompleteNotification	32	static
+../Core/Src/oled_utils.c:1158:6:OledUtils_ShowWifiResults	24	static

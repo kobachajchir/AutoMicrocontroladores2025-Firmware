@@ -109,95 +109,6 @@ void OledUtils_RenderLockState(uint8_t lockState)
     }
 }
 
-static void OledUtils_NotificationRestore(void)
-{
-    OledNotificationState *notif = &oledHandle.notification;
-
-    if (notif->suspended.valid) {
-        notif->active = true;
-        notif->renderFn = notif->suspended.renderFn;
-        notif->timeoutTicks = notif->suspended.remainingTicks;
-        notif->suspended.valid = false;
-
-        menuSystem.renderFn = notif->renderFn;
-        menuSystem.allowPeriodicRefresh = false;
-        menuSystem.renderFlag = true;
-        return;
-    }
-
-    notif->active = false;
-    notif->renderFn = NULL;
-    notif->timeoutTicks = 0;
-
-    menuSystem.renderFn = notif->previousRenderFn;
-    menuSystem.allowPeriodicRefresh = notif->previousAllowPeriodicRefresh;
-    menuSystem.renderFlag = notif->previousRenderFlag;
-}
-
-void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks)
-{
-    OledNotificationState *notif = &oledHandle.notification;
-
-    if (!renderFn) {
-        return;
-    }
-
-    if (timeout_ticks == 0) {
-        timeout_ticks = 1;
-    }
-
-    if (notif->active) {
-        notif->suspended.valid = true;
-        notif->suspended.renderFn = notif->renderFn;
-        notif->suspended.remainingTicks = notif->timeoutTicks;
-    } else {
-        notif->previousRenderFn = menuSystem.renderFn;
-        notif->previousAllowPeriodicRefresh = menuSystem.allowPeriodicRefresh;
-        notif->previousRenderFlag = menuSystem.renderFlag;
-    }
-
-    notif->active = true;
-    notif->renderFn = renderFn;
-    notif->timeoutTicks = timeout_ticks;
-
-    menuSystem.renderFn = renderFn;
-    menuSystem.allowPeriodicRefresh = false;
-    menuSystem.renderFlag = true;
-}
-
-void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms)
-{
-    uint16_t ticks = (uint16_t)((timeout_ms + 9U) / 10U);
-    OledUtils_ShowNotificationTicks10ms(renderFn, ticks);
-}
-
-void OledUtils_DismissNotification(void)
-{
-    if (!oledHandle.notification.active && !oledHandle.notification.suspended.valid) {
-        return;
-    }
-
-    oledHandle.notification.timeoutTicks = 0;
-    OledUtils_NotificationRestore();
-}
-
-void OledUtils_NotificationTick10ms(void)
-{
-    OledNotificationState *notif = &oledHandle.notification;
-
-    if (!notif->active) {
-        return;
-    }
-
-    if (notif->timeoutTicks > 0) {
-        notif->timeoutTicks--;
-    }
-
-    if (notif->timeoutTicks == 0) {
-        OledUtils_NotificationRestore();
-    }
-}
-
 /**
  * @brief  Dibuja las barras del gráfico IR.
  *         Limpia la región de las barras y las redibuja.
@@ -1037,6 +948,98 @@ void OledUtils_UpdateMPUValues(MPU6050_Handle_t *mpu)
     Oled_DrawStr(buf);
 }
 
+static void OledUtils_NotificationRestore(void)
+{
+    OledNotificationState *notif = &oledHandle.notification;
+
+    if (notif->suspended.valid) {
+        notif->active = true;
+        notif->renderFn = notif->suspended.renderFn;
+        notif->timeoutTicks = notif->suspended.remainingTicks;
+        notif->suspended.valid = false;
+
+        menuSystem.renderFn = notif->renderFn;
+        menuSystem.allowPeriodicRefresh = false;
+        menuSystem.renderFlag = true;
+        return;
+    }
+
+    notif->active = false;
+    notif->renderFn = NULL;
+    notif->timeoutTicks = 0;
+
+    menuSystem.clearScreen();
+    menuSystem.renderFn = notif->previousRenderFn;
+    menuSystem.allowPeriodicRefresh = notif->previousAllowPeriodicRefresh;
+    menuSystem.renderFlag = notif->previousRenderFlag;
+}
+
+void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks)
+{
+    OledNotificationState *notif = &oledHandle.notification;
+
+    if (!renderFn) {
+        return;
+    }
+
+    if (timeout_ticks == 0) {
+        timeout_ticks = 1;
+    }
+
+    if (notif->active) {
+        notif->suspended.valid = true;
+        menuSystem.clearScreen();
+        notif->suspended.renderFn = notif->renderFn;
+        notif->suspended.remainingTicks = notif->timeoutTicks;
+    } else {
+        notif->previousRenderFn = menuSystem.renderFn;
+        menuSystem.clearScreen();
+        notif->previousAllowPeriodicRefresh = menuSystem.allowPeriodicRefresh;
+        notif->previousRenderFlag = menuSystem.renderFlag;
+    }
+
+    notif->active = true;
+    notif->renderFn = renderFn;
+    notif->timeoutTicks = timeout_ticks;
+
+    menuSystem.renderFn = renderFn;
+    menuSystem.allowPeriodicRefresh = false;
+    menuSystem.renderFlag = true;
+}
+
+void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms)
+{
+    uint16_t ticks = (uint16_t)((timeout_ms + 9U) / 10U);
+    OledUtils_ShowNotificationTicks10ms(renderFn, ticks);
+}
+
+void OledUtils_DismissNotification(void)
+{
+    if (!oledHandle.notification.active && !oledHandle.notification.suspended.valid) {
+        return;
+    }
+
+    oledHandle.notification.timeoutTicks = 0;
+    OledUtils_NotificationRestore();
+}
+
+void OledUtils_NotificationTick10ms(void)
+{
+    OledNotificationState *notif = &oledHandle.notification;
+
+    if (!notif->active) {
+        return;
+    }
+
+    if (notif->timeoutTicks > 0) {
+        notif->timeoutTicks--;
+    }
+
+    if (notif->timeoutTicks == 0) {
+        OledUtils_NotificationRestore();
+    }
+}
+
 /**
  * @brief Pantalla de configuración de tiempo de avisos
  * @param seconds Tiempo en segundos a mostrar
@@ -1077,24 +1080,24 @@ void OledUtils_RenderWiFiSearchScene(void)
     // Texto "Buscando" con fuente grande
     Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 14 - fh_grande);
+    ssd1306_SetCursor(27, 20 - fh_grande);
     Oled_DrawStr("Buscando");
 
     // Texto "redes wifi"
-    ssd1306_SetCursor(27, 27 - fh_grande);
+    ssd1306_SetCursor(2, 40 - fh_grande);
     Oled_DrawStr("redes wifi");
 
     // Texto "Cancelar" con fuente pequeña
     Oled_SetFont(&Font_7x10);
     const uint8_t fh_pequena = Oled_FontHeight();
-    ssd1306_SetCursor(62, 58 - fh_pequena);
+    ssd1306_SetCursor(50, 60 - fh_pequena);
     Oled_DrawStr("Cancelar");
 
     // Botón OK/Encoder (13x13 píxeles)
     Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
 
     // Icono WiFi (19x16 píxeles)
-    Oled_DrawXBM(4, 8, 19, 16, Icon_Wifi_100_bits);
+    Oled_DrawXBM(2, 2, 19, 16, Icon_Wifi_100_bits);
 }
 
 /**
@@ -1109,13 +1112,47 @@ void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining)
 
     // Limpiar zona del temporizador (ancho suficiente para "99")
     const uint8_t timerWidth = fw * 2;
-    Oled_ClearBox(55, 44 - fh, timerWidth, fh);
+    Oled_ClearBox(4, 62 - fh, timerWidth, fh);
 
     // Dibujar nuevo valor
     char timeStr[4];
     snprintf(timeStr, sizeof(timeStr), "%u", secondsRemaining);
-    ssd1306_SetCursor(55, 44 - fh);
+    ssd1306_SetCursor(4, 62 - fh);
     Oled_DrawStr(timeStr);
+}
+
+/**
+ * @brief Pantalla de búsqueda WiFi completada
+ * @param networksFound Número de redes encontradas
+ */
+void OledUtils_RenderWiFiSearchCompleteNotification(void)
+{
+    ssd1306_SetColor(White);
+
+    // Texto "Busqueda" con fuente grande
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(26, 15 - fh_grande);
+    Oled_DrawStr("Busqueda");
+
+    // Texto "completada"
+    ssd1306_SetCursor(26, 29 - fh_grande);
+    Oled_DrawStr("completada");
+
+    // Icono WiFi (19x16 píxeles)
+    Oled_DrawXBM(3, 10, 19, 16, Icon_Wifi_100_bits);
+
+    // Número de redes encontradas con fuente grande
+    char countStr[4];
+    snprintf(countStr, sizeof(countStr), "%u", networksFound);
+    ssd1306_SetCursor(61, 48 - fh_grande);
+    Oled_DrawStr(countStr);
+
+    // Texto "redes encontradas" con fuente pequeña
+    Oled_SetFont(&Font_7x10);
+    const uint8_t fh_pequena = Oled_FontHeight();
+    ssd1306_SetCursor(12, 57 - fh_pequena);
+    Oled_DrawStr("redes encontradas");
 }
 
 void OledUtils_ShowWifiResults()
@@ -1135,19 +1172,4 @@ void OledUtils_ShowWifiResults()
     Oled_DrawStr("OK: volver");
 
     Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
-}
-
-void OledUtils_RenderWiFiSearchCompleteNotification(void)
-{
-    OledUtils_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh = Oled_FontHeight();
-    ssd1306_SetCursor(12, 20 - fh);
-    Oled_DrawStr("Busqueda");
-    ssd1306_SetCursor(20, 38 - fh);
-    Oled_DrawStr("completa");
-
-    Oled_DrawXBM(4, 8, 19, 16, Icon_Wifi_100_bits);
 }
