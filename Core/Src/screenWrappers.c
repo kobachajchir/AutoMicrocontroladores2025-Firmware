@@ -159,9 +159,6 @@ void OledUtils_About_Wrapper(void)
     __NOP();
     // Activar el manager de eventos para esta pantalla
     menuSystem.userEventManagerFn = About_UserEventManager;
-
-    // Forzar redraw
-    menuSystem.renderFlag = true;
 }
 
 /**

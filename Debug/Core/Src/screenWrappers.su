@@ -5,8 +5,8 @@
 ../Core/Src/screenWrappers.c:106:6:MenuSys_GoBack_Wrapper	0	static
 ../Core/Src/screenWrappers.c:110:6:OledUtils_RenderMotorTest_Wrapper	16	static,ignoring_inline_asm
 ../Core/Src/screenWrappers.c:126:6:OledUtils_RenderRadar_Wrapper	16	static
-../Core/Src/screenWrappers.c:142:6:OledUtils_About_Wrapper	8	static,ignoring_inline_asm
-../Core/Src/screenWrappers.c:170:6:OledUtils_RenderValoresIR_Wrapper	16	static
-../Core/Src/screenWrappers.c:190:6:OledUtils_RenderValoresMPU_Wrapper	16	static
-../Core/Src/screenWrappers.c:210:6:OledUtils_RenderWiFiSearching_Wrapper	16	static
-../Core/Src/screenWrappers.c:229:6:onRenderComplete	0	static,ignoring_inline_asm
+../Core/Src/screenWrappers.c:142:6:OledUtils_About_Wrapper	8	static
+../Core/Src/screenWrappers.c:165:6:OledUtils_RenderValoresIR_Wrapper	16	static
+../Core/Src/screenWrappers.c:185:6:OledUtils_RenderValoresMPU_Wrapper	16	static
+../Core/Src/screenWrappers.c:205:6:OledUtils_RenderWiFiSearching_Wrapper	16	static
+../Core/Src/screenWrappers.c:224:6:onRenderComplete	0	static,ignoring_inline_asm
