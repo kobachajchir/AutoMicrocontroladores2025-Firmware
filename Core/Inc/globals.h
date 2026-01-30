@@ -91,6 +91,8 @@
 // Offset vertical para centrar el icono en la "línea" del item
 #define ICON_Y_OFFSET         -13
 
+#define WIFIDEFAULTSEARCHTIMEOUT 1000
+
 //Variables globales
 extern volatile bool  procesar_flag;
 extern volatile bool  lanzar_ADC_trigger_flag;
@@ -112,6 +114,8 @@ extern volatile uint8_t oled10msCounter;
 extern volatile uint8_t motorSelected; // 0: izquierdo, 1: derecho, 2: ambos
 extern volatile uint8_t motorSpeed;
 extern volatile uint8_t motorDir; // 0: adelante, 1: atrás
+
+extern uint16_t wifiSearchingTimeout;
 
 extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;

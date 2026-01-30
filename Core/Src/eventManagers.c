@@ -120,7 +120,7 @@ static void Menu_OnEncLongPress(void)
     MenuSys_NavigateBack(&menuSystem);
 }
 
-static void Menu_OnLongPress(void)
+static void Menu_OnUserButton(void)
 {
     if (menuSystem.dashboardRender) {
         menuSystem.renderFn = menuSystem.dashboardRender;
@@ -132,12 +132,17 @@ static void Menu_OnLongPress(void)
     oled_first_draw = true;
 }
 
+static void Menu_OnLongPress(void)
+{
+
+}
+
 static const EventCallbacks_t menuCallbacks = {
     .onRotateCW     = Menu_OnRotateCW,
     .onRotateCCW    = Menu_OnRotateCCW,
     .onShortPress   = Menu_OnShortPress,
     .onLongPress    = Menu_OnLongPress,
-    .onUserButton   = NULL,
+    .onUserButton   = Menu_OnUserButton,
     .onEncLongPress = Menu_OnEncLongPress
 };
 

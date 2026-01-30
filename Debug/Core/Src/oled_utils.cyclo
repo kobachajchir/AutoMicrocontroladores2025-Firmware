@@ -33,3 +33,4 @@
 ../Core/Src/oled_utils.c:955:6:OledUtils_RenderWarningTimeConfig	1
 ../Core/Src/oled_utils.c:984:6:OledUtils_RenderWiFiSearchScene	1
 ../Core/Src/oled_utils.c:1015:6:OledUtils_UpdateWiFiSearchTimer	1
+../Core/Src/oled_utils.c:1032:6:OledUtils_ShowWifiResults	1

@@ -6,6 +6,7 @@
  */
 #include "globals.h"
 #include "utils.h"
+#include "screenWrappers.h"
 #include "utils/macros_utils.h"
 #include "stm32f1xx_hal.h"  // para HAL_GPIO_ReadPin
 #include "i2c_manager.h"
@@ -94,6 +95,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             if (IS_FLAG_SET(systemFlags, OLED_READY)) {
 				OLED_Task_10ms();
 			}
+            if(IS_FLAG_SET(systemFlags3, WIFI_SEARCHING)){
+            	if(wifiSearchingTimeout > 0){
+            		wifiSearchingTimeout--;
+            	}else{
+            		menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
+            	}
+            	if(!menuSystem.renderFlag){
+            		menuSystem.renderFlag = true;
+            	}
+            }
         }
     }
 }

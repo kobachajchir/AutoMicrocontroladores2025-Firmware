@@ -210,17 +210,26 @@ void OledUtils_RenderWiFiSearching_Wrapper(void)
     inside_menu_flag = false;
     encoder.allowEncoderInput = true;
     menuSystem.userEventManagerFn = WiFiSearch_UserEventManager;  // AGREGADO
+    SET_FLAG(systemFlags3, WIFI_SEARCHING);
 
     if (!oled_first_draw) {
         OledUtils_Clear();
         OledUtils_RenderWiFiSearchScene();
-        OledUtils_UpdateWiFiSearchTimer(10);
+        OledUtils_UpdateWiFiSearchTimer(wifiSearchingTimeout);
         oled_first_draw = true;
     } else {
-        OledUtils_UpdateWiFiSearchTimer(10);  // TODO: usar valor real del timer
+        OledUtils_UpdateWiFiSearchTimer(wifiSearchingTimeout);  // TODO: usar valor real del timer
     }
+}
 
-    menuSystem.renderFlag = true;
+void OledUtils_RenderWiFiSearchResults_Wrapper(void)
+{
+    OledUtils_DisableContinuousRender();
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = true;
+    menuSystem.userEventManagerFn = WiFiSearch_UserEventManager;  // AGREGADO
+    CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+    menuSystem.renderFn = OledUtils_ShowWifiResults;
 }
 
 void onRenderComplete(void) {

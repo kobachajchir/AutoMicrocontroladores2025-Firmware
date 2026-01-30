@@ -1029,3 +1029,12 @@ void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining)
     Oled_DrawStr(timeStr);
 }
 
+void OledUtils_ShowWifiResults()
+{
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh = Oled_FontHeight();
+    const uint8_t fw = Oled_FontWidth();
+    ssd1306_SetCursor(0, 40 - fh);
+    Oled_DrawStr("Wifi results");
+}
+

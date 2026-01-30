@@ -101,6 +101,8 @@ volatile uint8_t motorSelected = 0; // 0: izquierdo, 1: derecho, 2: ambos
 volatile uint8_t motorSpeed    = 100;
 volatile uint8_t motorDir      = 0; // 0: adelante, 1: atrás
 
+uint16_t wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+
 // Bandera para I2C_Manager (bus ocupado)
 
 bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
@@ -229,7 +231,7 @@ SubMenu mainMenu = {
 
 // Ítems del submenu 1: MODO (sin pantalla asociada por ahora)
 MenuItem submenu1Items[] = {
-    {"Info AP",   NULL,       NULL, Icon_Info_bits, NULL, menuEventManager},
+    {"Info AP",   NULL,       NULL, Icon_Info_bits, OledUtils_RenderWiFiSearching_Wrapper, WiFiSearch_UserEventManager},
     {"Buscar APs", NULL,     NULL, Icon_Refrescar_bits, NULL, menuEventManager},
     {"Conexion ESP",   NULL,       &submenuESP, Icon_Link_bits, MenuSys_RenderMenu_Wrapper, menuEventManager},
     {"Volver", MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
