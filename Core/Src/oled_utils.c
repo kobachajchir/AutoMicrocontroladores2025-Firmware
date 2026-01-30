@@ -996,16 +996,16 @@ void OledUtils_RenderWiFiSearchScene(void)
     Oled_DrawStr("redes wifi");
 
     // Texto "Cancelar" con fuente pequeña
-    Oled_SetFont(&Font_6x12_Min);
+    Oled_SetFont(&Font_7x10);
     const uint8_t fh_pequena = Oled_FontHeight();
     ssd1306_SetCursor(62, 58 - fh_pequena);
     Oled_DrawStr("Cancelar");
 
     // Botón OK/Encoder (13x13 píxeles)
-    Oled_DrawXBM(112, 48, 13, 13, image_Ok_btn_pressed_bits);
+    Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
 
     // Icono WiFi (19x16 píxeles)
-    Oled_DrawXBM(4, 8, 19, 16, image_wifi_full_bits);
+    Oled_DrawXBM(4, 8, 19, 16, Icon_Wifi_100_bits);
 }
 
 /**

@@ -301,7 +301,7 @@ static void WiFiSearch_OnShortPress(void)
 {
     // Cancelar búsqueda
     // TODO: Implementar stopWiFiScan() cuando esté disponible
-    CLEAR_FLAG(systemFlags2, WIFI_SEARCHING);
+    CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
     MenuSys_NavigateToMain(&menuSystem);
     menuSystem.clearScreen();
     if (menuSystem.insideMenuFlag) {
@@ -315,7 +315,7 @@ static void WiFiSearch_OnLongPress(void)
 {
     // Cancelar y volver al dashboard
     // TODO: Implementar stopWiFiScan() cuando esté disponible
-    CLEAR_FLAG(systemFlags2, WIFI_SEARCHING);
+    CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
     if (menuSystem.dashboardRender) {
         menuSystem.renderFn = menuSystem.dashboardRender;
     }

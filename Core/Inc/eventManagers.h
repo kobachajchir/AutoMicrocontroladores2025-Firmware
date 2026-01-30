@@ -1,7 +1,7 @@
 #ifndef EVENTMANAGERS_H
 #define EVENTMANAGERS_H
 
-#include "user_event.h"
+#include "types/userEvent_type.h"
 
 // Tipo de función para callbacks de render
 typedef void (*RenderFn)(void);

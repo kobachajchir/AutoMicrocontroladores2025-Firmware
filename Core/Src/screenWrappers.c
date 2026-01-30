@@ -150,11 +150,13 @@ void OledUtils_About_Wrapper(void)
     if (IS_FLAG_SET(systemFlags2, SHOWSECONDSCREEN)) {
         OledUtils_Clear();
         OledUtils_RenderProyectInfoScreen();
+        __NOP();
     } else {
         OledUtils_Clear();
         OledUtils_RenderProyectScreen();
+        __NOP();
     }
-
+    __NOP();
     // Activar el manager de eventos para esta pantalla
     menuSystem.userEventManagerFn = About_UserEventManager;
 
