@@ -113,7 +113,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 						CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
 						menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
 						menuSystem.renderFlag = true;
-						oled_first_draw = true;
+						oled_first_draw = false;
 						OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCompleteNotification, 2000);
 					} else {
 						if (!menuSystem.renderFlag) {
