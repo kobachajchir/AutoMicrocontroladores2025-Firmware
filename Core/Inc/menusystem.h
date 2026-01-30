@@ -57,6 +57,7 @@ extern "C" {
 		struct SubMenu *submenu;   ///< Submenú asociado (si existe)
 		const uint8_t *icon;       ///< Icono asociado (opcional)
 		RenderScreenFunction screenRenderFn;             ///< Puntero a la pantalla asociada (si existe)
+		UserEventManagerFn eventManagerFn;               ///< Callback manager para la pantalla asociada (si existe)
 	} MenuItem;
 
 	typedef void (*DrawItemFunction)(const MenuItem *item, int y, bool selected);
