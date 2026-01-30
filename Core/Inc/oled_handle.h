@@ -16,6 +16,7 @@ typedef struct OledNotificationState {
 	bool active;
 	RenderFunction renderFn;
 	uint16_t timeoutTicks;
+	uint16_t totalTicks;
 	RenderFunction previousRenderFn;
 	bool previousAllowPeriodicRefresh;
 	bool previousRenderFlag;
