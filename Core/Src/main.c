@@ -102,6 +102,7 @@ volatile uint8_t motorSpeed    = 100;
 volatile uint8_t motorDir      = 0; // 0: adelante, 1: atrás
 
 uint16_t wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+uint8_t networksFound;
 
 // Bandera para I2C_Manager (bus ocupado)
 

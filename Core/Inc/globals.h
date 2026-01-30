@@ -117,6 +117,7 @@ extern volatile uint8_t motorSpeed;
 extern volatile uint8_t motorDir; // 0: adelante, 1: atrás
 
 extern uint16_t wifiSearchingTimeout;
+extern uint8_t networksFound;
 
 extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;

@@ -42,8 +42,8 @@ Core/Src/eventManagers.o: ../Core/Src/eventManagers.c \
  ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/FirmwareAutitoMicro2025/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
- ../Core/Inc/menusystem.h ../Core/Inc/mpu6050.h ../Core/Inc/oled_utils.h \
- ../Core/Inc/globals.h
+ ../Core/Inc/menusystem.h ../Core/Inc/oled_handle.h ../Core/Inc/mpu6050.h \
+ ../Core/Inc/oled_utils.h ../Core/Inc/globals.h
 ../Core/Inc/eventManagers.h:
 ../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/screenWrappers.h:
@@ -96,6 +96,7 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/Fi
 ../Core/Inc/motor_control.h:
 ../Core/Inc/i2c_manager.h:
 ../Core/Inc/menusystem.h:
+../Core/Inc/oled_handle.h:
 ../Core/Inc/mpu6050.h:
 ../Core/Inc/oled_utils.h:
 ../Core/Inc/globals.h:
