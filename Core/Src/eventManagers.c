@@ -312,6 +312,8 @@ static void WiFiSearch_OnShortPress(void)
     if (menuSystem.insideMenuFlag) {
         *menuSystem.insideMenuFlag = 1;
     }
+    wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+    menuSystem.renderFn = menuSystem.dashboardRender;
     menuSystem.renderFlag = true;
     oled_first_draw = true;
 }
@@ -328,6 +330,7 @@ static void WiFiSearch_OnLongPress(void)
         *menuSystem.insideMenuFlag = 0;
     }
     menuSystem.clearScreen();
+    wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
     menuSystem.renderFlag = true;
     oled_first_draw = true;
 }
