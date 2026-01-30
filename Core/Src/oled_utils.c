@@ -141,6 +141,9 @@ static void OledUtils_NotificationRestore(void)
     OledNotificationState *notif = &oledHandle.notification;
 
     if (notif->suspended.valid) {
+        if (menuSystem.clearScreen) {
+            menuSystem.clearScreen();
+        }
         notif->active = true;
         notif->renderFn = notif->suspended.renderFn;
         notif->timeoutTicks = notif->suspended.remainingTicks;
@@ -160,7 +163,10 @@ static void OledUtils_NotificationRestore(void)
 
     menuSystem.renderFn = notif->previousRenderFn;
     menuSystem.allowPeriodicRefresh = notif->previousAllowPeriodicRefresh;
-    menuSystem.renderFlag = notif->previousRenderFlag;
+    if (menuSystem.clearScreen) {
+        menuSystem.clearScreen();
+    }
+    menuSystem.renderFlag = true;
 }
 
 void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks)
@@ -1204,4 +1210,3 @@ void OledUtils_ShowWifiResults()
 
     Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
 }
-
