@@ -56,6 +56,7 @@ extern const uint8_t Icon_Wifi_25_bits[];
 extern const uint8_t Icon_Wifi_50_bits[];
 extern const uint8_t Icon_Wifi_75_bits[];
 extern const uint8_t Icon_Wifi_100_bits[];
+extern const uint8_t Icon_Wifi_NotConnected_bits[];
 extern const uint8_t Icon_Lock_bits[];
 
 #endif

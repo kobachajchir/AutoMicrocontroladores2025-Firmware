@@ -223,6 +223,18 @@ void OledUtils_RenderWiFiSearching_Wrapper(void)
     }
 }
 
+void OledUtils_RenderWiFiConnectionStatus_Wrapper(){
+	oled_first_draw = true;
+	encoder.allowEncoderInput = true;
+	menuSystem.userEventManagerFn = ReadOnly_UserEventManager;
+	if(!IS_FLAG_SET(systemFlags3, WIFI_ACTIVE)){
+		menuSystem.renderFn = OledUtils_RenderWiFiNotConnected;
+	}else{ //Aca deberia pedir datos de conexion al esp
+		menuSystem.renderFn = OledUtils_RenderWiFiStatus;
+	}
+	menuSystem.renderFlag = true;
+}
+
 void OledUtils_RenderWiFiSearchResults_Wrapper(void)
 {
     OledUtils_DisableContinuousRender();

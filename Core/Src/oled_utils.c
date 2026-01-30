@@ -185,9 +185,7 @@ void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeo
         notif->suspended.valid = true;
         notif->suspended.renderFn = notif->renderFn;
         notif->suspended.remainingTicks = notif->timeoutTicks;
-        menuSystem.clearScreen();
     } else {
-    	menuSystem.clearScreen();
         notif->previousRenderFn = menuSystem.renderFn;
         notif->previousAllowPeriodicRefresh = menuSystem.allowPeriodicRefresh;
         notif->previousRenderFlag = menuSystem.renderFlag;
@@ -1156,6 +1154,47 @@ void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining)
     snprintf(timeStr, sizeof(timeStr), "%u", secondsRemaining);
     ssd1306_SetCursor(4, 62 - fh);
     Oled_DrawStr(timeStr);
+}
+
+/**
+ * @brief Pantalla de WiFi no conectado
+ */
+void OledUtils_RenderWiFiStatus(void)
+{
+	//Aca podemos crear un switch para poder mostrar el icono
+	//que corresponda segun la respuesta de señal del ESP
+    ssd1306_SetColor(White);
+
+    // Texto "No hay red" con fuente grande
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh = Oled_FontHeight();
+    ssd1306_SetCursor(19, 38 - fh);
+    Oled_DrawStr("Red");
+
+    // Icono WiFi desconectado (19x16 píxeles)
+    Oled_DrawXBM(54, 8, 19, 16, Icon_Wifi_100_bits);
+
+}
+
+/**
+ * @brief Pantalla de WiFi no conectado
+ */
+void OledUtils_RenderWiFiNotConnected(void)
+{
+    ssd1306_SetColor(White);
+
+    // Texto "No hay red" con fuente grande
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh = Oled_FontHeight();
+    ssd1306_SetCursor(7, 40 - fh);
+    Oled_DrawStr("No hay red");
+
+    // Icono WiFi desconectado (19x16 píxeles)
+    Oled_DrawXBM(54, 3, 19, 16, Icon_Wifi_NotConnected_bits);
+
+    // Texto "conectada"
+    ssd1306_SetCursor(16, 55 - fh);
+    Oled_DrawStr("conectada");
 }
 
 /**

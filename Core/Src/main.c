@@ -234,7 +234,7 @@ SubMenu mainMenu = {
 
 // Ítems del submenu 1: MODO (sin pantalla asociada por ahora)
 MenuItem submenu1Items[] = {
-    {"Info AP",   NULL,       NULL, Icon_Info_bits, NULL, menuEventManager},
+    {"Info AP",   NULL,       NULL, Icon_Info_bits, OledUtils_RenderWiFiConnectionStatus_Wrapper, menuEventManager},
     {"Buscar APs", NULL,     NULL, Icon_Refrescar_bits, OledUtils_RenderWiFiSearching_Wrapper, WiFiSearch_UserEventManager},
     {"Conexion ESP",   NULL,       &submenuESP, Icon_Link_bits, MenuSys_RenderMenu_Wrapper, menuEventManager},
     {"Volver", MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}

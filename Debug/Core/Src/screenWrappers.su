@@ -9,5 +9,6 @@
 ../Core/Src/screenWrappers.c:167:6:OledUtils_RenderValoresIR_Wrapper	16	static
 ../Core/Src/screenWrappers.c:187:6:OledUtils_RenderValoresMPU_Wrapper	16	static
 ../Core/Src/screenWrappers.c:207:6:OledUtils_RenderWiFiSearching_Wrapper	16	static
-../Core/Src/screenWrappers.c:226:6:OledUtils_RenderWiFiSearchResults_Wrapper	16	static
-../Core/Src/screenWrappers.c:242:6:onRenderComplete	0	static,ignoring_inline_asm
+../Core/Src/screenWrappers.c:226:6:OledUtils_RenderWiFiConnectionStatus_Wrapper	0	static
+../Core/Src/screenWrappers.c:238:6:OledUtils_RenderWiFiSearchResults_Wrapper	16	static
+../Core/Src/screenWrappers.c:254:6:onRenderComplete	0	static,ignoring_inline_asm

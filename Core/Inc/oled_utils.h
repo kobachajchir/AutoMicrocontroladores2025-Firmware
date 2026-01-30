@@ -79,6 +79,8 @@ void OledUtils_RenderWiFiSearchScene(void);
 void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining);
 void OledUtils_ShowWifiResults();
 void OledUtils_RenderWiFiSearchCompleteNotification(void);
+void OledUtils_RenderWiFiNotConnected(void);
+void OledUtils_RenderWiFiStatus(void);
 
 void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms);
 void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks);
