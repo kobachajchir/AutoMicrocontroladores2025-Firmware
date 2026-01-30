@@ -78,5 +78,11 @@ void OledUtils_UpdateMPUValues(MPU6050_Handle_t *mpu);
 void OledUtils_RenderWiFiSearchScene(void);
 void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining);
 void OledUtils_ShowWifiResults();
+void OledUtils_RenderWiFiSearchCompleteNotification(void);
+
+void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms);
+void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks);
+void OledUtils_DismissNotification(void);
+void OledUtils_NotificationTick10ms(void);
 
 #endif /* INC_OLED_UTILS_H_ */

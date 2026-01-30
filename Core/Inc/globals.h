@@ -15,6 +15,7 @@
 #include "motor_control.h"
 #include "i2c_manager.h"
 #include "menusystem.h"
+#include "oled_handle.h"
 #include "mpu6050.h"
 
 // =============================================
@@ -135,6 +136,7 @@ extern volatile uint8_t usart1_feed_pending;
 extern volatile uint8_t usart1_tx_busy;
 
 extern MenuSystem    menuSystem;
+extern OledHandle    oledHandle;
 extern SubMenu       mainMenu, submenu1, submenu2, submenu3;
 extern MenuItem      mainMenuItems[], submenu1Items[], submenu2Items[], submenu3Items[];
 extern volatile uint8_t inside_menu_flag;

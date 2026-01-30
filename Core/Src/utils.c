@@ -6,6 +6,7 @@
  */
 #include "globals.h"
 #include "utils.h"
+#include "oled_utils.h"
 #include "screenWrappers.h"
 #include "utils/macros_utils.h"
 #include "stm32f1xx_hal.h"  // para HAL_GPIO_ReadPin
@@ -113,6 +114,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 						menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
 						menuSystem.renderFlag = true;
 						oled_first_draw = false;
+						OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCompleteNotification, 1500);
 					} else {
 						if (!menuSystem.renderFlag) {
 							menuSystem.renderFlag = true;
@@ -171,6 +173,8 @@ void OLED_Task_10ms(){
 	}else{
 		oled10msCounter++;
 	}
+
+    OledUtils_NotificationTick10ms();
 }
 
 
