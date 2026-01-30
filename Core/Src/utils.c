@@ -102,8 +102,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				if (wifi_search_tick_10ms >= 100) {
 					wifi_search_tick_10ms = 0;
 					if (wifiSearchingTimeout > 0) {
-						if (wifiSearchingTimeout >= 1000) {
-							wifiSearchingTimeout -= 1000;
+						if (wifiSearchingTimeout >= 100) {
+							wifiSearchingTimeout -= 100;
 						} else {
 							wifiSearchingTimeout = 0;
 						}

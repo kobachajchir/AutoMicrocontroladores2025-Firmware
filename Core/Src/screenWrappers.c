@@ -216,10 +216,10 @@ void OledUtils_RenderWiFiSearching_Wrapper(void)
         wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
         OledUtils_Clear();
         OledUtils_RenderWiFiSearchScene();
-        OledUtils_UpdateWiFiSearchTimer((uint8_t)(wifiSearchingTimeout / 1000U));
+        OledUtils_UpdateWiFiSearchTimer((uint8_t)(wifiSearchingTimeout / 100U));
         oled_first_draw = true;
     } else {
-        OledUtils_UpdateWiFiSearchTimer((uint8_t)(wifiSearchingTimeout / 1000U));
+        OledUtils_UpdateWiFiSearchTimer((uint8_t)(wifiSearchingTimeout / 100U));
     }
 }
 
