@@ -183,15 +183,16 @@ void MenuSys_HandleClick(MenuSystem *ms) {
     if (it->screenRenderFn) {
         // pantalla “terminal” asociada al ítem
         ms->renderFn = it->screenRenderFn;
-    } else {
-        // volvemos al renderizado del menú
-        ms->renderFn = MenuSys_RenderMenu;
     }
 
-    // 3) Limpiar y encender el flag para que OLED_MainTask lo pinte
+    // 3) Asignar callbacks del manager si aplica
+    if (it->eventManagerFn) {
+        ms->userEventManagerFn = it->eventManagerFn;
+    }
+
+    // 4) Limpiar y encender el flag para que OLED_MainTask lo pinte
     if (ms->clearScreen) ms->clearScreen();
     ms->renderFlag = true;
 }
-
 
 
