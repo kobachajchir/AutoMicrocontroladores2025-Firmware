@@ -179,7 +179,9 @@ void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeo
         notif->suspended.valid = true;
         notif->suspended.renderFn = notif->renderFn;
         notif->suspended.remainingTicks = notif->timeoutTicks;
+        menuSystem.clearScreen();
     } else {
+    	menuSystem.clearScreen();
         notif->previousRenderFn = menuSystem.renderFn;
         notif->previousAllowPeriodicRefresh = menuSystem.allowPeriodicRefresh;
         notif->previousRenderFlag = menuSystem.renderFlag;
@@ -1069,98 +1071,6 @@ void OledUtils_UpdateMPUValues(MPU6050_Handle_t *mpu)
     Oled_DrawStr(buf);
 }
 
-static void OledUtils_NotificationRestore(void)
-{
-    OledNotificationState *notif = &oledHandle.notification;
-
-    if (notif->suspended.valid) {
-        notif->active = true;
-        notif->renderFn = notif->suspended.renderFn;
-        notif->timeoutTicks = notif->suspended.remainingTicks;
-        notif->suspended.valid = false;
-
-        menuSystem.renderFn = notif->renderFn;
-        menuSystem.allowPeriodicRefresh = false;
-        menuSystem.renderFlag = true;
-        return;
-    }
-
-    notif->active = false;
-    notif->renderFn = NULL;
-    notif->timeoutTicks = 0;
-
-    menuSystem.clearScreen();
-    menuSystem.renderFn = notif->previousRenderFn;
-    menuSystem.allowPeriodicRefresh = notif->previousAllowPeriodicRefresh;
-    menuSystem.renderFlag = notif->previousRenderFlag;
-}
-
-void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks)
-{
-    OledNotificationState *notif = &oledHandle.notification;
-
-    if (!renderFn) {
-        return;
-    }
-
-    if (timeout_ticks == 0) {
-        timeout_ticks = 1;
-    }
-
-    if (notif->active) {
-        notif->suspended.valid = true;
-        menuSystem.clearScreen();
-        notif->suspended.renderFn = notif->renderFn;
-        notif->suspended.remainingTicks = notif->timeoutTicks;
-    } else {
-        notif->previousRenderFn = menuSystem.renderFn;
-        menuSystem.clearScreen();
-        notif->previousAllowPeriodicRefresh = menuSystem.allowPeriodicRefresh;
-        notif->previousRenderFlag = menuSystem.renderFlag;
-    }
-
-    notif->active = true;
-    notif->renderFn = renderFn;
-    notif->timeoutTicks = timeout_ticks;
-
-    menuSystem.renderFn = renderFn;
-    menuSystem.allowPeriodicRefresh = false;
-    menuSystem.renderFlag = true;
-}
-
-void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms)
-{
-    uint16_t ticks = (uint16_t)((timeout_ms + 9U) / 10U);
-    OledUtils_ShowNotificationTicks10ms(renderFn, ticks);
-}
-
-void OledUtils_DismissNotification(void)
-{
-    if (!oledHandle.notification.active && !oledHandle.notification.suspended.valid) {
-        return;
-    }
-
-    oledHandle.notification.timeoutTicks = 0;
-    OledUtils_NotificationRestore();
-}
-
-void OledUtils_NotificationTick10ms(void)
-{
-    OledNotificationState *notif = &oledHandle.notification;
-
-    if (!notif->active) {
-        return;
-    }
-
-    if (notif->timeoutTicks > 0) {
-        notif->timeoutTicks--;
-    }
-
-    if (notif->timeoutTicks == 0) {
-        OledUtils_NotificationRestore();
-    }
-}
-
 /**
  * @brief Pantalla de configuración de tiempo de avisos
  * @param seconds Tiempo en segundos a mostrar
@@ -1295,17 +1205,3 @@ void OledUtils_ShowWifiResults()
     Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
 }
 
-void OledUtils_RenderWiFiSearchCompleteNotification(void)
-{
-    OledUtils_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh = Oled_FontHeight();
-    ssd1306_SetCursor(12, 20 - fh);
-    Oled_DrawStr("Busqueda");
-    ssd1306_SetCursor(20, 38 - fh);
-    Oled_DrawStr("completa");
-
-    Oled_DrawXBM(4, 8, 19, 16, Icon_Wifi_100_bits);
-}
