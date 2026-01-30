@@ -63,6 +63,8 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
+	static uint16_t wifi_search_tick_10ms = 0;
+
     if (htim->Instance == TIM3)
     {
     	cnt_250us_MPU++;
@@ -96,14 +98,29 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				OLED_Task_10ms();
 			}
             if(IS_FLAG_SET(systemFlags3, WIFI_SEARCHING)){
-            	if(wifiSearchingTimeout > 0){
-            		wifiSearchingTimeout--;
-            	}else{
-            		menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
-            	}
-            	if(!menuSystem.renderFlag){
-            		menuSystem.renderFlag = true;
-            	}
+				wifi_search_tick_10ms++;
+				if (wifi_search_tick_10ms >= 100) {
+					wifi_search_tick_10ms = 0;
+					if (wifiSearchingTimeout > 0) {
+						if (wifiSearchingTimeout >= 1000) {
+							wifiSearchingTimeout -= 1000;
+						} else {
+							wifiSearchingTimeout = 0;
+						}
+					}
+					if (wifiSearchingTimeout == 0) {
+						CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+						menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
+						menuSystem.renderFlag = true;
+						oled_first_draw = false;
+					} else {
+						if (!menuSystem.renderFlag) {
+							menuSystem.renderFlag = true;
+						}
+					}
+				}
+			} else {
+				wifi_search_tick_10ms = 0;
             }
         }
     }

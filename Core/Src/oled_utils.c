@@ -1031,10 +1031,19 @@ void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining)
 
 void OledUtils_ShowWifiResults()
 {
+    ssd1306_SetColor(White);
+
     Oled_SetFont(&Font_11x18);
     const uint8_t fh = Oled_FontHeight();
-    const uint8_t fw = Oled_FontWidth();
-    ssd1306_SetCursor(0, 40 - fh);
-    Oled_DrawStr("Wifi results");
-}
+    ssd1306_SetCursor(14, 20 - fh);
+    Oled_DrawStr("Resultados");
+    ssd1306_SetCursor(36, 38 - fh);
+    Oled_DrawStr("WiFi");
 
+    Oled_SetFont(&Font_7x10);
+    const uint8_t fh_small = Oled_FontHeight();
+    ssd1306_SetCursor(4, 60 - fh_small);
+    Oled_DrawStr("OK: volver");
+
+    Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
+}

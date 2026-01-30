@@ -213,12 +213,13 @@ void OledUtils_RenderWiFiSearching_Wrapper(void)
     SET_FLAG(systemFlags3, WIFI_SEARCHING);
 
     if (!oled_first_draw) {
+        wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
         OledUtils_Clear();
         OledUtils_RenderWiFiSearchScene();
-        OledUtils_UpdateWiFiSearchTimer(wifiSearchingTimeout);
+        OledUtils_UpdateWiFiSearchTimer((uint8_t)(wifiSearchingTimeout / 1000U));
         oled_first_draw = true;
     } else {
-        OledUtils_UpdateWiFiSearchTimer(wifiSearchingTimeout);  // TODO: usar valor real del timer
+        OledUtils_UpdateWiFiSearchTimer((uint8_t)(wifiSearchingTimeout / 1000U));
     }
 }
 
@@ -229,7 +230,13 @@ void OledUtils_RenderWiFiSearchResults_Wrapper(void)
     encoder.allowEncoderInput = true;
     menuSystem.userEventManagerFn = WiFiSearch_UserEventManager;  // AGREGADO
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
-    menuSystem.renderFn = OledUtils_ShowWifiResults;
+    if (!oled_first_draw) {
+        OledUtils_Clear();
+        OledUtils_ShowWifiResults();
+        oled_first_draw = true;
+    } else {
+        OledUtils_ShowWifiResults();
+    }
 }
 
 void onRenderComplete(void) {
