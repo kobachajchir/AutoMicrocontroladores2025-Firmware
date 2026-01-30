@@ -1166,34 +1166,22 @@ void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining)
  * @brief Pantalla de búsqueda WiFi completada
  * @param networksFound Número de redes encontradas
  */
-void OledUtils_RenderWiFiSearchCompleteNotification(void)
+void OledUtils_RenderWiFiSearchCompleteNotification()
 {
+	ssd1306_Clear();
     ssd1306_SetColor(White);
-
     // Icono WiFi (19x16 píxeles) - misma posición que en búsqueda
-    Oled_DrawXBM(2, 2, 19, 16, Icon_Wifi_100_bits);
+    Oled_DrawXBM(2, 12, 19, 16, Icon_Wifi_100_bits);
 
     // Texto "Busqueda" con fuente grande
     Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 20 - fh_grande);
+    ssd1306_SetCursor(27, 30 - fh_grande);
     Oled_DrawStr("Busqueda");
 
     // Texto "completada"
-    ssd1306_SetCursor(2, 40 - fh_grande);
+    ssd1306_SetCursor(2, 50 - fh_grande);
     Oled_DrawStr("completada");
-
-    // Número de redes encontradas con fuente grande (centrado donde estaba el timer)
-    char countStr[4];
-    snprintf(countStr, sizeof(countStr), "%u", networksFound);
-    ssd1306_SetCursor(55, 40 - fh_grande);  // Ajustado para estar centrado
-    Oled_DrawStr(countStr);
-
-    // Texto "redes encontradas" con fuente pequeña
-    Oled_SetFont(&Font_7x10);
-    const uint8_t fh_pequena = Oled_FontHeight();
-    ssd1306_SetCursor(12, 60 - fh_pequena);
-    Oled_DrawStr("redes encontradas");
 }
 
 void OledUtils_ShowWifiResults()
