@@ -44,6 +44,17 @@ void OledUtils_RenderDashboard_Wrapper(void)
     // ¡no vuelvo a tocar menuSystem.renderFlag!
 }
 
+void OledUtils_RenderStartupNotification_Wrapper(void)
+{
+    OledUtils_DisableContinuousRender();
+    menuSystem.userEventManagerFn = ReadOnly_UserEventManager;
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = false;
+
+    menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+    OledUtils_ShowNotificationMs(OledUtils_RenderStartupNotification, 2000);
+}
+
 void OledUtils_RenderTestScreen_Wrapper(void)
 {
     __NOP(); // BREAKPOINT: wrapper pantalla de prueba
