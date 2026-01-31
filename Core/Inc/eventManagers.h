@@ -29,6 +29,9 @@ void About_UserEventManager(UserEvent_t ev);
 void motorTestEventManager(UserEvent_t ev);
 void WiFiSearch_UserEventManager(UserEvent_t ev);
 void ReadOnly_UserEventManager(UserEvent_t ev);
+void NotificationDismiss_OnShortPress(void);
+void NotificationDismiss_OnLongPress(void);
+void ClickCancelar_UserEventManager(UserEvent_t ev);
 
 // Legacy (por compatibilidad)
 void ItemEventManager(UserEvent_t ev, RenderWrapperFn wrapper);

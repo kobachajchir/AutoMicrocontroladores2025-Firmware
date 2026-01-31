@@ -92,4 +92,6 @@ void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeo
 void OledUtils_DismissNotification(void);
 void OledUtils_NotificationTick10ms(void);
 
+void OledUtils_NotificationRestore(void);
+
 #endif /* INC_OLED_UTILS_H_ */

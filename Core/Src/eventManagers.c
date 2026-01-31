@@ -359,7 +359,7 @@ static void ReadOnly_OnShortPress(void)
     oled_first_draw = true;
 }
 
-static void ReadOnly_OnLongPress(void)
+void ReadOnly_OnLongPress(void)
 {
     if (menuSystem.dashboardRender) {
         menuSystem.renderFn = menuSystem.dashboardRender;
@@ -372,11 +372,35 @@ static void ReadOnly_OnLongPress(void)
     oled_first_draw = true;
 }
 
-static const EventCallbacks_t readOnlyCallbacks = {
+const EventCallbacks_t readOnlyCallbacks = {
     .onRotateCW     = NULL,  // No hacer nada al rotar (solo lectura)
     .onRotateCCW    = NULL,
     .onShortPress   = ReadOnly_OnShortPress,
     .onLongPress    = ReadOnly_OnLongPress,
+    .onUserButton   = NULL,
+    .onEncLongPress = NULL
+};
+
+void NotificationDismiss_OnShortPress(void)
+{
+    /* Cerrar notificación y restaurar lo anterior */
+    OledUtils_NotificationRestore();
+    oled_first_draw = true;
+}
+
+void NotificationDismiss_OnLongPress(void)
+{
+    /* Misma lógica: long press también descarta */
+    OledUtils_NotificationRestore();
+    oled_first_draw = true;
+}
+
+/* Callbacks para cuando hay una notificación activa y queremos permitir “dismiss” */
+static const EventCallbacks_t notificationDismissCallbacks = {
+    .onRotateCW     = NULL,
+    .onRotateCCW    = NULL,
+    .onShortPress   = NotificationDismiss_OnShortPress,
+    .onLongPress    = NULL,
     .onUserButton   = NULL,
     .onEncLongPress = NULL
 };
@@ -466,6 +490,11 @@ void WiFiSearch_UserEventManager(UserEvent_t ev)
 void ReadOnly_UserEventManager(UserEvent_t ev)
 {
     GenericEventManager(ev, &readOnlyCallbacks);
+}
+
+void ClickCancelar_UserEventManager(UserEvent_t ev)
+{
+    GenericEventManager(ev, &notificationDismissCallbacks);
 }
 
 // ============================================================================

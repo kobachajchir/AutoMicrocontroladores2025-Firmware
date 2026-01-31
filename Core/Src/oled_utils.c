@@ -125,7 +125,7 @@ static void OledUtils_RenderNotificationProgress(const OledNotificationState *no
     ssd1306_DrawHorizontalLine(0, 0, (int16_t)width);
 }
 
-static void OledUtils_RenderNotification_Wrapper(void)
+void OledUtils_RenderNotification_Wrapper(void)
 {
     OledNotificationState *notif = &oledHandle.notification;
 
@@ -137,7 +137,7 @@ static void OledUtils_RenderNotification_Wrapper(void)
     OledUtils_RenderNotificationProgress(notif);
 }
 
-static void OledUtils_NotificationRestore(void)
+void OledUtils_NotificationRestore(void)
 {
     OledNotificationState *notif = &oledHandle.notification;
 
@@ -1258,14 +1258,28 @@ void OledUtils_RenderESPFirmwareRequestNotification(void)
     ssd1306_Clear();
     ssd1306_SetColor(White);
 
+    // Texto "Solicitando" con fuente grande
     Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
 
-    ssd1306_SetCursor(2, 30 - fh_grande);
-    Oled_DrawStr("Solicitando");
+    ssd1306_SetCursor(32, 24 - fh_grande);
+    Oled_DrawStr("Pedir");
 
-    ssd1306_SetCursor(8, 50 - fh_grande);
+    // Texto "firmware"
+    ssd1306_SetCursor(32, 44 - fh_grande);
     Oled_DrawStr("firmware");
+
+    // Texto "Cancelar" con fuente pequeña
+    Oled_SetFont(&Font_7x10);
+    const uint8_t fh_pequena = Oled_FontHeight();
+    ssd1306_SetCursor(50, 60 - fh_pequena);
+    Oled_DrawStr("Cancelar");
+
+    // Botón OK / Encoder (13x13 px)
+    Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
+
+    // Icono Info (esquina superior izquierda)
+    Oled_DrawXBM(8, 16, 16, 16, Icon_Info_bits);
 }
 
 void OledUtils_RenderESPResetSentNotification(void)
@@ -1273,15 +1287,30 @@ void OledUtils_RenderESPResetSentNotification(void)
     ssd1306_Clear();
     ssd1306_SetColor(White);
 
+    // Texto "Reset" con fuente grande
     Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
 
-    ssd1306_SetCursor(24, 30 - fh_grande);
-    Oled_DrawStr("Reset");
+    ssd1306_SetCursor(32, 24 - fh_grande);
+    Oled_DrawStr("Enviar");
 
-    ssd1306_SetCursor(8, 50 - fh_grande);
-    Oled_DrawStr("enviado");
+    // Texto "enviado"
+    ssd1306_SetCursor(32, 44 - fh_grande);
+    Oled_DrawStr("reset");
+
+    // Texto "Cancelar" con fuente pequeña
+    Oled_SetFont(&Font_7x10);
+    const uint8_t fh_pequena = Oled_FontHeight();
+    ssd1306_SetCursor(50, 60 - fh_pequena);
+    Oled_DrawStr("Cancelar");
+
+    // Botón OK / Encoder (13x13 px)
+    Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
+
+    // Icono Refrescar (esquina superior izquierda)
+    Oled_DrawXBM(8, 16, 16, 16, Icon_Refrescar_bits);
 }
+
 
 void OledUtils_RenderESPCheckConnectionRequiredNotification(void)
 {

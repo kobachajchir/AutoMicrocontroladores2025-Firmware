@@ -64,7 +64,8 @@ void OledUtils_RenderStartupNotification_Wrapper(void)
     encoder.allowEncoderInput = false;
 
     menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
-    OledUtils_ShowNotificationMs(OledUtils_RenderStartupNotification, 2000);
+    menuSystem.renderFlag = true; //Desactivar para activar la de abajo
+    //OledUtils_ShowNotificationMs(OledUtils_RenderStartupNotification, 3500); Activar para el final
 }
 
 void OledUtils_RenderTestScreen_Wrapper(void)
@@ -296,8 +297,9 @@ void OledUtils_RenderESPFirmwareRequest_Wrapper(void)
 {
     RenderFunction notificationFn = OledUtils_RenderESPCheckConnectionRequiredNotification;
 
-    if (IS_FLAG_SET(systemFlags3, ESP_PRESENT)) {
-        notificationFn = OledUtils_RenderESPFirmwareRequestNotification;
+    if (!IS_FLAG_SET(systemFlags3, ESP_PRESENT)) {
+        notificationFn = OledUtils_RenderESPFirmwareRequestNotification; //Invertir bandera borrando !
+        menuSystem.userEventManagerFn = ClickCancelar_UserEventManager;
     }
 
     OledUtils_ShowESPNotification(notificationFn);
@@ -307,8 +309,9 @@ void OledUtils_RenderESPResetSent_Wrapper(void)
 {
     RenderFunction notificationFn = OledUtils_RenderESPCheckConnectionRequiredNotification;
 
-    if (IS_FLAG_SET(systemFlags3, ESP_PRESENT)) {
-        notificationFn = OledUtils_RenderESPResetSentNotification;
+    if (!IS_FLAG_SET(systemFlags3, ESP_PRESENT)) {
+        notificationFn = OledUtils_RenderESPResetSentNotification; //Invertir bandera borrando !
+        menuSystem.userEventManagerFn = ClickCancelar_UserEventManager;
     }
 
     OledUtils_ShowESPNotification(notificationFn);
