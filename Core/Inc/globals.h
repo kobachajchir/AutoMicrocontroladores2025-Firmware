@@ -136,15 +136,14 @@ extern volatile uint16_t usart1_rx_prev_pos;
 extern volatile uint8_t usart1_feed_pending;
 extern volatile uint8_t usart1_tx_busy;
 
-extern MenuSystem    menuSystem;
 extern OledHandle    oledHandle;
-extern SubMenu       mainMenu, submenu1, submenu2, submenu3;
-extern MenuItem      mainMenuItems[], submenu1Items[], submenu2Items[], submenu3Items[];
 extern volatile uint8_t inside_menu_flag;
 extern const uint8_t* generic_icon;
 extern const RenderScreenFunction mainMenuScreen;
 extern const RenderScreenFunction subMenuScreen;
 extern const RenderScreenFunction valoresIRScreen;
 extern const RenderScreenFunction wifiDataScreen;
+
+#include "menu_config.h"
 
 #endif // GLOBALS_H
