@@ -1,0 +1,3 @@
+../Core/Src/menu_config.c:16:13:MenuItem_IsTestModeVisible	0	static
+../Core/Src/menu_config.c:21:6:OledUtils_Clear_Wrapper	0	static
+../Core/Src/menu_config.c:26:6:OLED_Is_Ready	0	static,ignoring_inline_asm

@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 ../Core/Src/main.c:181:13:MenuItem_IsTestModeVisible	1
 ../Core/Src/main.c:357:6:MPU_Data_Ready	1
 ../Core/Src/main.c:156:6:OledUtils_Clear_Wrapper	1
@@ -26,3 +27,24 @@
 ../Core/Src/main.c:1425:6:initMenuSystemTask	1
 ../Core/Src/main.c:378:5:main	33
 ../Core/Src/main.c:1444:6:Error_Handler	1
+=======
+../Core/Src/main.c:139:6:MPU_Data_Ready	1
+../Core/Src/main.c:143:6:USART1_DMA_CheckRx	2
+../Core/Src/main.c:278:6:SystemClock_Config	4
+../Core/Src/main.c:837:19:uart1_send_bytes	5
+../Core/Src/main.c:855:6:initUart1DmaRx	1
+../Core/Src/main.c:863:6:initCarMode	1
+../Core/Src/main.c:882:6:UserBtn_MainTask	3
+../Core/Src/main.c:897:6:Encoder_MainTask	9
+../Core/Src/main.c:940:6:initTCRTLib	2
+../Core/Src/main.c:976:6:TCRT_MainTask	4
+../Core/Src/main.c:1010:6:My_TimerCalcFunc	6
+../Core/Src/main.c:1032:6:InitMotorTask	2
+../Core/Src/main.c:1056:6:Motor_MainTask	8
+../Core/Src/main.c:1110:6:MPU_MainTask	6
+../Core/Src/main.c:1168:6:i2cManager_MainTask	1
+../Core/Src/main.c:1173:6:OLED_MainTask	8
+../Core/Src/main.c:1207:6:initMenuSystemTask	1
+../Core/Src/main.c:160:5:main	33
+../Core/Src/main.c:1226:6:Error_Handler	1
+>>>>>>> Stashed changes

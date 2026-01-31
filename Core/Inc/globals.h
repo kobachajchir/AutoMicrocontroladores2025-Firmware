@@ -129,6 +129,8 @@ extern UserButton_Handle_t btnUser;
 extern ENC_Handle_t encoder;
 extern CarMode_t auxCarMode;
 
+extern TCRT_LightConfig_t tcrtLight;
+
 // Este es el buffer real que usará el DMA
 extern uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
 // Posición previa usada para comparar nuevos datos

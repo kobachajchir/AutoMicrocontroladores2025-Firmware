@@ -2,12 +2,20 @@
 ../Core/Src/oled_utils.c:49:13:Oled_ClearBox	24	static
 ../Core/Src/oled_utils.c:68:13:Oled_DrawXBM	24	static,ignoring_inline_asm
 ../Core/Src/oled_utils.c:42:13:Oled_DrawStr	8	static,ignoring_inline_asm
+<<<<<<< Updated upstream
 ../Core/Src/oled_utils.c:128:6:OledUtils_RenderNotification_Wrapper	8	static
+=======
+../Core/Src/oled_utils.c:140:13:OledUtils_NotificationRestore	16	static
+../Core/Src/oled_utils.c:128:13:OledUtils_RenderNotification_Wrapper	8	static
+>>>>>>> Stashed changes
 ../Core/Src/oled_utils.c:85:6:OledUtils_PrintOverlayBuffer_Wrapper	0	static
 ../Core/Src/oled_utils.c:91:6:OledUtils_EnableContinuousRender	0	static
 ../Core/Src/oled_utils.c:96:6:OledUtils_DisableContinuousRender	0	static
 ../Core/Src/oled_utils.c:100:6:OledUtils_RenderLockState	0	static
+<<<<<<< Updated upstream
 ../Core/Src/oled_utils.c:140:6:OledUtils_NotificationRestore	16	static
+=======
+>>>>>>> Stashed changes
 ../Core/Src/oled_utils.c:175:6:OledUtils_ShowNotificationTicks10ms	8	static
 ../Core/Src/oled_utils.c:208:6:OledUtils_ShowNotificationMs	0	static
 ../Core/Src/oled_utils.c:214:6:OledUtils_DismissNotification	0	static
@@ -44,7 +52,14 @@
 ../Core/Src/oled_utils.c:1201:6:OledUtils_RenderWiFiNotConnected	16	static
 ../Core/Src/oled_utils.c:1223:6:OledUtils_RenderWiFiSearchCompleteNotification	16	static
 ../Core/Src/oled_utils.c:1241:6:OledUtils_RenderESPCheckingConnectionNotification	8	static
+<<<<<<< Updated upstream
 ../Core/Src/oled_utils.c:1256:6:OledUtils_RenderESPFirmwareRequestNotification	24	static
 ../Core/Src/oled_utils.c:1285:6:OledUtils_RenderESPResetSentNotification	24	static
 ../Core/Src/oled_utils.c:1315:6:OledUtils_RenderESPCheckConnectionRequiredNotification	8	static
 ../Core/Src/oled_utils.c:1330:6:OledUtils_ShowWifiResults	24	static
+=======
+../Core/Src/oled_utils.c:1256:6:OledUtils_RenderESPFirmwareRequestNotification	8	static
+../Core/Src/oled_utils.c:1271:6:OledUtils_RenderESPResetSentNotification	8	static
+../Core/Src/oled_utils.c:1286:6:OledUtils_RenderESPCheckConnectionRequiredNotification	8	static
+../Core/Src/oled_utils.c:1301:6:OledUtils_ShowWifiResults	24	static
+>>>>>>> Stashed changes
