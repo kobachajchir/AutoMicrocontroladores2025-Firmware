@@ -600,6 +600,21 @@ void OledUtils_RenderTestScreen(void)
 
 }
 
+void OledUtils_RenderStartupNotification(void)
+{
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+
+    ssd1306_SetCursor(24, 30 - fh_grande);
+    Oled_DrawStr("Hola");
+
+    ssd1306_SetCursor(16, 50 - fh_grande);
+    Oled_DrawStr("Mundo");
+}
+
 /**
  * @brief Pantalla principal de información del proyecto
  */
