@@ -1,3 +1,0 @@
-../Core/Src/menu_config.c:16:13:MenuItem_IsTestModeVisible	1
-../Core/Src/menu_config.c:21:6:OledUtils_Clear_Wrapper	1
-../Core/Src/menu_config.c:26:6:OLED_Is_Ready	2

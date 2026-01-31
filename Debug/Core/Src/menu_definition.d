@@ -1,9 +1,9 @@
-Core/Src/menu_config.o: ../Core/Src/menu_config.c \
- ../Core/Inc/menu_config.h ../Core/Inc/menusystem.h \
- ../Core/Inc/types/userEvent_type.h ../Core/Inc/eventManagers.h \
- ../Core/Src/fonts.h ../Core/Src/../Inc/fonts.h ../Core/Inc/globals.h \
- ../Core/Inc/user_button.h ../Core/Inc/types/button_state.h \
- ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
+Core/Src/menu_definition.o: ../Core/Src/menu_definition.c \
+ ../Core/Inc/menu_definitions.h ../Core/Inc/menusystem.h \
+ ../Core/Inc/types/userEvent_type.h ../Core/Inc/screenWrappers.h \
+ ../Core/Inc/globals.h ../Core/Inc/user_button.h \
+ ../Core/Inc/types/button_state.h ../Core/Inc/types/bitmap_type.h \
+ ../Core/Inc/utils/macros_utils.h \
  ../Core/Inc/utils/../types/bitmap_type.h \
  ../Core/Inc/utils/../types/carmode_type.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h \
@@ -44,14 +44,12 @@ Core/Src/menu_config.o: ../Core/Src/menu_config.c \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/FirmwareAutitoMicro2025/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
  ../Core/Inc/oled_handle.h ../Core/Inc/mpu6050.h \
- ../Core/Inc/menu_config.h ../Core/Inc/oled_utils.h \
- ../Core/Inc/screenWrappers.h ../Core/Inc/globals.h
-../Core/Inc/menu_config.h:
+ ../Core/Inc/eventManagers.h ../Core/Inc/oled_utils.h ../Core/Src/fonts.h \
+ ../Core/Src/../Inc/fonts.h ../Core/Inc/globals.h
+../Core/Inc/menu_definitions.h:
 ../Core/Inc/menusystem.h:
 ../Core/Inc/types/userEvent_type.h:
-../Core/Inc/eventManagers.h:
-../Core/Src/fonts.h:
-../Core/Src/../Inc/fonts.h:
+../Core/Inc/screenWrappers.h:
 ../Core/Inc/globals.h:
 ../Core/Inc/user_button.h:
 ../Core/Inc/types/button_state.h:
@@ -102,7 +100,8 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/Fi
 ../Core/Inc/i2c_manager.h:
 ../Core/Inc/oled_handle.h:
 ../Core/Inc/mpu6050.h:
-../Core/Inc/menu_config.h:
+../Core/Inc/eventManagers.h:
 ../Core/Inc/oled_utils.h:
-../Core/Inc/screenWrappers.h:
+../Core/Src/fonts.h:
+../Core/Src/../Inc/fonts.h:
 ../Core/Inc/globals.h:

@@ -1075,6 +1075,26 @@ void ssd1306_DrawBitmap(uint8_t X, uint8_t Y, uint8_t W, uint8_t H, const uint8_
     }
 }
 
+void ssd1306_DrawBitmap_MSB(uint8_t X, uint8_t Y, uint8_t W, uint8_t H, const uint8_t* pBMP)
+{
+	uint8_t bytesPerRow = (W + 7) / 8;
+
+	for (uint8_t y = 0; y < H; y++)
+	{
+		for (uint8_t x = 0; x < W; x++)
+		{
+			// CRÍTICO: Usar uint16_t para el índice (puede ser hasta 1023)
+			uint16_t byteIndex = (uint16_t)y * bytesPerRow + (x / 8);
+			uint8_t bitIndex = 7 - (x % 8);  // MSB primero
+
+			if (pBMP[byteIndex] & (1 << bitIndex))
+			{
+				ssd1306_DrawPixel(X + x, Y + y);
+			}
+		}
+	}
+}
+
 void ssd1306_DrawQR_Fixed(uint8_t startX, uint8_t startY, const uint8_t* qrData)
 {
     const uint8_t QR_SIZE = 64;

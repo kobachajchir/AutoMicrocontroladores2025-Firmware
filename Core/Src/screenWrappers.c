@@ -65,7 +65,7 @@ void OledUtils_RenderStartupNotification_Wrapper(void)
 
     menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
     menuSystem.renderFlag = true; //Desactivar para activar la de abajo
-    //OledUtils_ShowNotificationMs(OledUtils_RenderStartupNotification, 3500); Activar para el final
+    //OledUtils_ShowNotificationMs(OledUtils_RenderStartupNotification, 3500); //Activar para el final
 }
 
 void OledUtils_RenderTestScreen_Wrapper(void)

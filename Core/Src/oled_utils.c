@@ -72,6 +72,19 @@ static void Oled_DrawXBM(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const uint8
     ssd1306_DrawBitmap(x, y, w, h, bits);
 }
 
+static void Oled_DrawXBM_MSB(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const uint8_t *bits)
+{
+    __NOP(); // BREAKPOINT: impresión de bitmap en buffer
+    ssd1306_SetColor(White);
+    ssd1306_DrawBitmap_MSB(x, y, w, h, bits);
+}
+
+static void Oled_DrawXBM_Pages(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const uint8_t *bits)
+{
+    __NOP(); // BREAKPOINT: impresión de bitmap en formato páginas
+    ssd1306_SetColor(White);
+    ssd1306_DrawBitmap_Pages(x, y, w, h, bits);
+}
 
 // ============================================================================
 // Wrappers de render
@@ -608,11 +621,7 @@ void OledUtils_RenderStartupNotification(void)
     Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
 
-    ssd1306_SetCursor(24, 30 - fh_grande);
-    Oled_DrawStr("Hola");
-
-    ssd1306_SetCursor(16, 50 - fh_grande);
-    Oled_DrawStr("Mundo");
+    Oled_DrawXBM_MSB(0, 0, 128, 64, Icon_Auto_bits);
 }
 
 /**

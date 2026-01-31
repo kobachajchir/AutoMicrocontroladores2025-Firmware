@@ -48,27 +48,20 @@
 //SYS FLAG 3
 #define CHK_ESP_CONN BIT0_MASK
 #define WIFI_SEARCHING BIT1_MASK
-/*#define AP_ACTIVE BIT2_MASK
-#define USB_ACTIVE BIT3_MASK
-#define RF_ACTIVE BIT4_MASK
-#define MODIFYING_CARMODE BIT5_MASK
-#define ESP_PRESENT BIT6_MASK
-#define SHOWSECONDSCREEN BIT7_MASK*/
 
 //Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
 #define USART1_RX_DMA_BUF_LEN 64
 
 #define I2C_ADDR_OLED  0x3C
-#define I2C_ADDR_MPU  0x68  // 104 decimal
+#define I2C_ADDR_MPU   0x68  // 104 decimal
 
 #define INSIDE_MENU (inside_menu_flag)
 
 //Defines para el I2C_DeviceEntry
 #define I2C_REQ_PENDING BIT0_MASK
-#define I2C_REQ_IS_TX  BIT1_MASK
-#define I2C_REQ_IS_RX  BIT2_MASK
-/*#define UNUSED  BIT3_MASK*/
+#define I2C_REQ_IS_TX   BIT1_MASK
+#define I2C_REQ_IS_RX   BIT2_MASK
 
 #define OLED_ACTIVE_TIME 500
 
@@ -94,23 +87,49 @@
 
 #define WIFIDEFAULTSEARCHTIMEOUT 1000
 
-//Variables globales
+// =============================
+// Variables globales (extern)
+// =============================
 extern volatile bool  procesar_flag;
 extern volatile bool  lanzar_ADC_trigger_flag;
 extern volatile bool  mpu_trigger;
+
+/* Estas dos estaban declaradas pero no aparecen en tus defs actuales.
+ * Mantenidas como extern para no romper otros módulos.
+ * Asegurate de definirlas en algún .c si realmente se usan.
+ */
 extern volatile uint16_t tim3_overflow_count;
 extern volatile uint32_t contador;
+
 extern volatile LedStatus_t ledStatus;
+
+/* OJO: 'carMode' estaba declarado pero no lo definiste en app_globals.c.
+ * Si no lo usás, eliminá este extern. Si lo usás, definilo en app_globals.c.
+ */
 extern volatile CarMode_t carMode;
-extern volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
-extern TCRT_LightConfig_t myLight;
-extern bool pull_cfg[ TCRT5000_NUM_SENSORS ];
+
+/* Flags byte (estaban causando los "multiple definition") */
+extern volatile Byte_Flag_Struct systemFlags;
+extern volatile Byte_Flag_Struct systemFlags2;
+extern volatile Byte_Flag_Struct systemFlags3;
+extern volatile Byte_Flag_Struct carModeFlags;
+
+extern volatile uint16_t sensor_raw_data[TCRT5000_NUM_SENSORS];
+
+/* FIX: myLight -> tcrtLight (unificar nombre real) */
+extern TCRT_LightConfig_t tcrtLight;
+
+extern bool pull_cfg[TCRT5000_NUM_SENSORS];
+
 extern volatile uint8_t cnt_adc_trigger;
 extern volatile uint16_t cnt_250us_MPU;
 extern volatile uint16_t cnt_10ms;
 extern volatile uint32_t cnt_10us;
 extern volatile uint32_t tcrt_calib_cnt_phase;  // contador de 10 µs para la fase actual
 extern volatile uint8_t oled10msCounter;
+
+extern volatile uint8_t inside_menu_flag;
+extern volatile uint16_t encoderValue;
 
 extern volatile uint8_t motorSelected; // 0: izquierdo, 1: derecho, 2: ambos
 extern volatile uint8_t motorSpeed;
@@ -119,6 +138,7 @@ extern volatile uint8_t motorDir; // 0: adelante, 1: atrás
 extern uint16_t wifiSearchingTimeout;
 extern uint8_t networksFound;
 
+/* --- Handlers de librerias --- */
 extern USART_Buffer_t usart1Buf;
 extern TCRTHandlerTask tcrtTask;
 extern MotorControl_Handle motorTask;
@@ -129,24 +149,24 @@ extern UserButton_Handle_t btnUser;
 extern ENC_Handle_t encoder;
 extern CarMode_t auxCarMode;
 
-extern TCRT_LightConfig_t tcrtLight;
-
-// Este es el buffer real que usará el DMA
+/* DMA RX USART1 */
 extern uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
-// Posición previa usada para comparar nuevos datos
 extern volatile uint16_t usart1_rx_prev_pos;
 extern volatile uint8_t usart1_feed_pending;
 extern volatile uint8_t usart1_tx_busy;
 
+/* Menu system */
 extern MenuSystem    menuSystem;
-extern OledHandle    oledHandle;
 extern SubMenu       mainMenu, submenu1, submenu2, submenu3;
 extern MenuItem      mainMenuItems[], submenu1Items[], submenu2Items[], submenu3Items[];
-extern volatile uint8_t inside_menu_flag;
 extern const uint8_t* generic_icon;
 extern const RenderScreenFunction mainMenuScreen;
 extern const RenderScreenFunction subMenuScreen;
 extern const RenderScreenFunction valoresIRScreen;
 extern const RenderScreenFunction wifiDataScreen;
 
+/* OLED global handle */
+extern OledHandle    oledHandle;
+
 #endif // GLOBALS_H
+

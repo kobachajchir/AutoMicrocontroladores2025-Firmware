@@ -5,7 +5,7 @@
 "./Core/Src/fonts.o"
 "./Core/Src/i2c_manager.o"
 "./Core/Src/main.o"
-"./Core/Src/menu_config.o"
+"./Core/Src/menu_definition.o"
 "./Core/Src/menusystem.o"
 "./Core/Src/motor_control.o"
 "./Core/Src/mpu6050.o"
