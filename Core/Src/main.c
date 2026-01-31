@@ -177,6 +177,10 @@ void setMode_FOLLOW(void){
 void setMode_TEST(void){
 	SET_CAR_MODE(TEST_MODE);
 }
+
+static bool MenuItem_IsTestModeVisible(void) {
+    return GET_CAR_MODE() == TEST_MODE;
+}
 /* --- Variables globales --- */
 
 // Sistema de menú
@@ -216,7 +220,7 @@ OledHandle oledHandle = {0};
 MenuItem mainMenuItems[] = {
     // nombre     acción          submenú        icono             pantalla render
     { "Wifi",      NULL,           &submenu1,     Icon_Wifi_bits,   MenuSys_RenderMenu_Wrapper, menuEventManager },
-    { "Sensores",  NULL,           &submenu2,     Icon_Sensors_bits, MenuSys_RenderMenu_Wrapper, menuEventManager },
+    { "Sensores",  NULL,           &submenu2,     Icon_Sensors_bits, MenuSys_RenderMenu_Wrapper, menuEventManager, MenuItem_IsTestModeVisible },
     { "Config.",   NULL,           &submenu3,     Icon_Config_bits, MenuSys_RenderMenu_Wrapper, menuEventManager },
 	// name       action    submenu       icon               screenRenderFn
 	{ "Volver",   MenuSys_GoBack_Wrapper,     NULL,         Icon_Volver_bits,  OledUtils_RenderDashboard_Wrapper, dashboardEventManager },

@@ -11,6 +11,18 @@
 #include "encoder.h"
 #include "eventManagers.h"
 
+static uint8_t MenuSys_VisibleOffset(const SubMenu *menu, int8_t firstVisible, int8_t itemIndex) {
+    uint8_t offset = 0;
+    if (!menu) return 0;
+    if (itemIndex < firstVisible) return 0;
+    for (int8_t i = firstVisible; i < itemIndex; i++) {
+        if (MenuSys_IsItemVisible(&menu->items[i])) {
+            offset++;
+        }
+    }
+    return offset;
+}
+
 void OledUtils_DrawItem_Wrapper(const MenuItem *item,
                                 int               y,
                                 bool              selected)
@@ -87,8 +99,8 @@ void MenuSys_RenderMenu_Wrapper(void) {
         const uint8_t Y0 = MENU_ITEM_Y0;
         const uint8_t SP = MENU_ITEM_SPACING;
 
-        uint8_t oldVisIdx = m->lastSelectedItemIndex - m->firstVisibleItem;
-        uint8_t newVisIdx = m->currentItemIndex      - m->firstVisibleItem;
+        uint8_t oldVisIdx = MenuSys_VisibleOffset(m, m->firstVisibleItem, m->lastSelectedItemIndex);
+        uint8_t newVisIdx = MenuSys_VisibleOffset(m, m->firstVisibleItem, m->currentItemIndex);
         uint8_t oldY      = Y0 + oldVisIdx * SP;
         uint8_t newY      = Y0 + newVisIdx * SP;
 
