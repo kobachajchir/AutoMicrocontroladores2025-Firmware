@@ -1,0 +1,21 @@
+/*
+ * uner_app.h - UNER v2 application wiring
+ */
+#ifndef INC_UNER_APP_H_
+#define INC_UNER_APP_H_
+
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void UNER_App_Init(void);
+void UNER_App_Poll(void);
+void UNER_App_OnUart1TxComplete(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* INC_UNER_APP_H_ */

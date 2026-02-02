@@ -38,6 +38,7 @@
 #include "screenWrappers.h"
 #include "eventManagers.h"
 #include "menu_definitions.h"
+#include "uner_app.h"
 //#include "oled_screens.h"
 
 /* USER CODE END Includes */
@@ -216,6 +217,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	 HAL_StatusTypeDef result;
 	 initUart1DmaRx();
+	 UNER_App_Init();
 	 initTCRTLib();
 	 InitMotorTask();
 	 I2C_Manager_Init(&i2cManager, &hi2c1, 0);
@@ -276,6 +278,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
+		UNER_App_Poll();
 		TCRT_MainTask();
 		i2cManager_MainTask();
 		UserBtn_MainTask(&btnUser);
