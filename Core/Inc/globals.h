@@ -14,7 +14,8 @@
 #include "oled_ssd1306_dma.h"
 #include "menusystem.h"
 #include "mpu6050.h"
-#include "uner_protocol.h"
+#include "uner_handle.h"
+#include "uner_transport_uart1_dma.h"
 
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
@@ -109,12 +110,11 @@ extern OLED_HandleTypeDef oledTask;
 extern MPU6050_Handle_t mpuTask;
 extern ButtonState_t btnUser;
 extern ENC_Handle_t encoder;
-extern UNERProtocolParserState uner_parser;
+extern UNER_Handle uner_handle;
+extern UNER_TransportUart1 uner_uart1_ctx;
 
 // Este es el buffer real que usará el DMA
 extern uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
-// Posición previa usada para comparar nuevos datos
-extern volatile uint16_t usart1_rx_prev_pos;
 
 extern MenuSystem    menuSystem;
 extern SubMenu       mainMenu, submenu1, submenu2, submenu3;
