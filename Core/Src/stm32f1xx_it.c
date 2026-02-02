@@ -25,7 +25,6 @@
 #include "globals.h"
 #include "utils.h"
 #include "usart_dma_buffer.h"
-#include "uner_protocol.h"
 #include "i2c_manager.h"
 /* USER CODE END Includes */
 

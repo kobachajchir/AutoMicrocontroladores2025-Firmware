@@ -36,7 +36,12 @@
 #include "mpu6050.h"             // donde se define MPU6050_Handle_t
 #include "screenWrappers.h"
 #include "eventManagers.h"
-#include "uner_protocol.h"
+#include "uner_handle.h"
+#include "uner_router.h"
+#include "uner_transport_nrf24_spi2.h"
+#include "uner_transport_uart1_dma.h"
+#include "uner_transport_usbcdc.h"
+#include "usart_dma_buffer.h"
 //#include "oled_screens.h"
 
 /* USER CODE END Includes */
@@ -116,8 +121,6 @@ bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
 
 // Este es el buffer real que usará el DMA
 uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
-// Posición previa usada para comparar nuevos datos
-volatile uint16_t usart1_rx_prev_pos = 0;
 
 /* --- Handlers de librerias --- */
 USART_Buffer_t usart1Buf;
@@ -128,7 +131,12 @@ MPU6050_Handle_t mpuTask;
 ButtonState_t btnUser;
 ENC_Handle_t encoder;
 UserEvent_t ev;
-UNERProtocolParserState uner_parser;
+UNER_Handle uner_handle;
+UNER_Router uner_router;
+UNER_Transport uner_transports[3];
+UNER_TransportUart1 uner_uart1_ctx;
+UNER_TransportNrf24 uner_nrf_ctx;
+UNER_TransportUsbCdc uner_usb_ctx;
 
 void OledUtils_Clear_Wrapper(){
 	OledUtils_Clear(&oledTask, oledTask.overlay_active);
@@ -352,35 +360,10 @@ void MPU_Data_Ready(void) {
     SET_FLAG(systemFlags, MPU_GET_DATA); //Setea bandera de data para volver a pedir
 }
 
-void USART1_DMA_CheckRx(void)
+static void UNER_OnLocalPacket(const UNER_Packet *packet, void *user_ctx)
 {
-    uint16_t curr_pos = USART1_RX_DMA_BUF_LEN - __HAL_DMA_GET_COUNTER(&hdma_usart1_rx);
-
-    if (curr_pos != usart1_rx_prev_pos)
-    {
-        if (curr_pos > usart1_rx_prev_pos)
-        {
-            // Copia directa
-            for (uint16_t i = usart1_rx_prev_pos; i < curr_pos; ++i) {
-                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-            }
-        }
-        else
-        {
-            // Rollover
-            for (uint16_t i = usart1_rx_prev_pos; i < USART1_RX_DMA_BUF_LEN; ++i) {
-                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-            }
-            for (uint16_t i = 0; i < curr_pos; ++i) {
-                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-            }
-        }
-
-        usart1_rx_prev_pos = curr_pos;
-
-        // Luego parseamos todo lo nuevo
-        uner_parse(&uner_parser);
-    }
+    (void)packet;
+    (void)user_ctx;
 }
 
 
@@ -508,6 +491,8 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
+		UNER_Poll(&uner_handle);
+		UNER_Router_Process(&uner_router, &uner_handle);
 		USART1_Update();
 		TCRT_MainTask();
 		i2cManager_MainTask();
@@ -1060,17 +1045,43 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 
-UNERProtocolStatus uart1_send_bytes(const uint8_t *data, uint16_t len) {
-    if (!data || len == 0) return UNER_ERR_NULL_PTR;
-
-    return (HAL_UART_Transmit_DMA(&huart1, (uint8_t *)data, len) == HAL_OK)
-           ? UNER_OK : UNER_ERR_TX_FAIL;
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    USART1_DMA_TxCpltHandler(huart);
+    if (huart->Instance == USART1) {
+        UNER_TransportUart1_OnTxComplete(&uner_uart1_ctx);
+    }
 }
 
 void initUNERProtocol(void) {
-    uner_init(&uner_parser);
-    uner_parser.send_bytes = uart1_send_bytes;
-    // uner_parser.onPacketReady = my_on_packet_ready_handler;
+    uner_transports[0].id = 0U;
+    uner_transports[0].max_payload = 255U;
+    uner_transports[1].id = 1U;
+    uner_transports[1].max_payload = 22U;
+    uner_transports[2].id = 2U;
+    uner_transports[2].max_payload = 255U;
+
+    uner_uart1_ctx.huart = &huart1;
+    uner_uart1_ctx.hdma_rx = &hdma_usart1_rx;
+    uner_uart1_ctx.rx_buf = usart1_rx_dma_buf;
+    uner_uart1_ctx.rx_size = USART1_RX_DMA_BUF_LEN;
+    uner_uart1_ctx.last_pos = 0;
+    uner_uart1_ctx.tx_busy = false;
+    UNER_TransportUart1_Init(&uner_transports[0], &uner_uart1_ctx);
+
+    uner_nrf_ctx.rx_ready = NULL;
+    uner_nrf_ctx.read_payload = NULL;
+    uner_nrf_ctx.send_payload = NULL;
+    uner_nrf_ctx.user_ctx = NULL;
+    UNER_TransportNrf24_Init(&uner_transports[1], &uner_nrf_ctx);
+
+    UNER_TransportUsbCdc_Init(&uner_transports[2], &uner_usb_ctx);
+
+    UNER_Init(&uner_handle, uner_transports, 3U, UNER_NODE_MCU);
+    UNER_Router_Init(&uner_router, UNER_NODE_MCU, UNER_OnLocalPacket, NULL);
+    UNER_Router_SetRoute(&uner_router, UNER_NODE_WEB_APP, 0U);
+    UNER_Router_SetRoute(&uner_router, UNER_NODE_REMOTE_NRF, 1U);
+
     HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
 }
 
