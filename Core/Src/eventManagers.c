@@ -350,12 +350,10 @@ static const EventCallbacks_t wifiSearchCallbacks = {
 
 static void ReadOnly_OnShortPress(void)
 {
-    MenuSys_NavigateToMain(&menuSystem);
     menuSystem.clearScreen();
-    if (menuSystem.insideMenuFlag) {
-        *menuSystem.insideMenuFlag = 1;
-    }
+    *menuSystem.insideMenuFlag = 1;
     menuSystem.renderFlag = true;
+    menuSystem.renderFn = menuSystem.currentMenu->parent->items[menuSystem.currentMenu->currentItemIndex].screenRenderFn;
     oled_first_draw = true;
 }
 

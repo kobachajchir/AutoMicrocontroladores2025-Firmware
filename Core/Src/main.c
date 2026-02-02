@@ -1182,7 +1182,7 @@ void MPU_MainTask(void) {
         // ————————————————— Callback usuario ————————————
         if (mpuTask.on_data_ready_cb) {
             __NOP();          // BREAKPOINT #5
-            mpuTask.on_data_ready_cb();
+xx            mpuTask.on_data_ready_cb();
         }
     }
 }
