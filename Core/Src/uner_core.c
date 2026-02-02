@@ -28,6 +28,7 @@ static void uner_reset_parser(UNER_Core *core)
     core->ver = 0;
     core->transport_id = 0;
     core->max_payload_transport = core->cfg.default_max_payload;
+    core->drop_frame = 0;
 }
 
 UNER_Status UNER_Core_Init(
@@ -157,6 +158,10 @@ UNER_Status UNER_Core_PushByte(
             uner_reset_parser(core);
             return UNER_ERR_LEN;
         }
+        if (core->q_count >= core->slot_count) {
+            core->queue_overflow++;
+            core->drop_frame = 1u;
+        }
         core->payload_index = 0;
         core->state = UNER_S_TOKEN;
         break;
@@ -194,8 +199,12 @@ UNER_Status UNER_Core_PushByte(
         }
         break;
     case UNER_S_PAYLOAD: {
-        uint8_t *payload_base = &core->payload_pool[(uint16_t)core->q_head * core->payload_stride];
-        payload_base[core->payload_index++] = byte;
+        if (!core->drop_frame) {
+            uint8_t *payload_base = &core->payload_pool[(uint16_t)core->q_head * core->payload_stride];
+            payload_base[core->payload_index++] = byte;
+        } else {
+            core->payload_index++;
+        }
         core->chk_acc ^= byte;
         if (core->payload_index >= core->len_expected) {
             core->state = UNER_S_CHK;
@@ -212,7 +221,7 @@ UNER_Status UNER_Core_PushByte(
         uint8_t src = (uint8_t)(core->route >> 4);
         uint8_t dst = (uint8_t)(core->route & 0x0Fu);
 
-        if (uner_accepts_src(core, src) && uner_accepts_dst(core, dst)) {
+        if (!core->drop_frame && uner_accepts_src(core, src) && uner_accepts_dst(core, dst)) {
             if (uner_queue_commit(core, core->len_expected) == UNER_OK) {
                 core->ok_frames++;
             }
