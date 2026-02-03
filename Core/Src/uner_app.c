@@ -7,6 +7,7 @@
 #include "uner_handle.h"
 #include "uner_transport_uart1_dma.h"
 #include "uner_v2.h"
+#include "stm32f1xx_hal.h"
 
 extern UART_HandleTypeDef huart1;
 extern DMA_HandleTypeDef hdma_usart1_rx;
@@ -53,6 +54,9 @@ void UNER_App_Init(void)
         &usart1_tx_busy);
 
     (void)UNER_Handle_RegisterTransport(&uner_handle, &uner_uart1.base);
+    usart1_feed_pending = 0;
+    usart1_rx_prev_pos = 0;
+    (void)HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
 }
 
 void UNER_App_Poll(void)

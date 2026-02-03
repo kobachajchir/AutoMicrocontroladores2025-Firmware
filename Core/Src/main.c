@@ -144,7 +144,6 @@ void Motor_MainTask(void);
 void i2cManager_MainTask(void);
 void MPU_MainTask(void);
 void OLED_MainTask(void);
-void initUart1DmaRx(void);
 /**
  * @brief Tarea principal del encoder (main loop)
  *        Maneja eventos de botón corto/largo
@@ -217,7 +216,6 @@ int main(void)
   MX_USB_PCD_Init();
   /* USER CODE BEGIN 2 */
 	 HAL_StatusTypeDef result;
-	 initUart1DmaRx();
 	 UNER_App_Init();
 	 initTCRTLib();
 	 InitMotorTask();
@@ -877,14 +875,6 @@ HAL_StatusTypeDef uart1_send_bytes(const uint8_t *data, uint16_t len) {
 
     return HAL_OK;
 }
-
-void initUart1DmaRx(void)
-{
-    usart1_feed_pending = 0;
-    usart1_rx_prev_pos = 0;
-    HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
-}
-
 
 void initCarMode(){
 	SET_CAR_MODE(IDLE_MODE);
