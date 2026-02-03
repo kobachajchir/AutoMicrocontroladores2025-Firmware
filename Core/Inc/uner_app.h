@@ -13,6 +13,7 @@ extern "C" {
 void UNER_App_Init(void);
 void UNER_App_Poll(void);
 void UNER_App_OnUart1TxComplete(void);
+void UNER_App_NotifyUart1Rx(void);
 
 #ifdef __cplusplus
 }

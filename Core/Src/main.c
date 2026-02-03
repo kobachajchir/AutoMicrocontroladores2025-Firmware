@@ -170,6 +170,7 @@ void USART1_DMA_CheckRx(void)
     if (curr_pos != usart1_rx_prev_pos) {
         usart1_rx_prev_pos = curr_pos;
         usart1_feed_pending = 1;
+        UNER_App_NotifyUart1Rx();
     }
 }
 

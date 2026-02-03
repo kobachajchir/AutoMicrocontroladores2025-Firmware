@@ -17,6 +17,7 @@ static UNER_Handle uner_handle;
 static UNER_TransportUart1Dma uner_uart1;
 static UNER_Packet uner_slots[UNER_QUEUE_SLOTS];
 static uint8_t uner_payload_pool[UNER_QUEUE_SLOTS * 255u];
+static volatile uint8_t uner_uart1_rx_hint = 0;
 
 static void UNER_App_InitConfig(UNER_CoreConfig *cfg)
 {
@@ -56,10 +57,18 @@ void UNER_App_Init(void)
 
 void UNER_App_Poll(void)
 {
+    if (uner_uart1_rx_hint) {
+        uner_uart1_rx_hint = 0;
+    }
     UNER_Handle_Poll(&uner_handle);
 }
 
 void UNER_App_OnUart1TxComplete(void)
 {
     UNER_TransportUart1Dma_OnTxComplete(&uner_uart1);
+}
+
+void UNER_App_NotifyUart1Rx(void)
+{
+    uner_uart1_rx_hint = 1u;
 }
