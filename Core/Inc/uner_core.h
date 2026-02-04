@@ -45,7 +45,7 @@ typedef struct {
     void *cb_ctx;
 } UNER_CoreConfig;
 
-typedef enum {
+typedef enum __attribute__((packed)) {
     UNER_S_H0 = 0,
     UNER_S_H1,
     UNER_S_H2,
@@ -62,7 +62,7 @@ typedef enum {
 typedef struct {
     UNER_CoreConfig cfg;
 
-    uint8_t state;
+    UNER_ParserState state;
     uint8_t len_expected;
     uint8_t payload_index;
     uint8_t chk_acc;

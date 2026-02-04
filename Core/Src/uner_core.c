@@ -118,7 +118,11 @@ UNER_Status UNER_Core_PushByte(
     core->transport_id = transport_id;
     core->max_payload_transport = max_payload_for_transport;
 
-    switch ((UNER_ParserState)core->state) {
+    if (core->state > UNER_S_CHK) {
+        uner_reset_parser(core);
+    }
+
+    switch (core->state) {
     case UNER_S_H0:
         if (byte == (uint8_t)'U') {
             core->chk_acc = byte;
