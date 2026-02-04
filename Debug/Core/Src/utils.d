@@ -44,7 +44,7 @@ Core/Src/utils.o: ../Core/Src/utils.c ../Core/Inc/globals.h \
  ../Core/Inc/oled_handle.h ../Core/Inc/mpu6050.h ../Core/Inc/utils.h \
  ../Core/Inc/oled_utils.h ../Core/Inc/screenWrappers.h \
  ../Core/Inc/globals.h ../Core/Inc/i2c_manager.h \
- ../Core/Inc/user_button.h ../Core/Inc/main.h
+ ../Core/Inc/user_button.h ../Core/Inc/main.h ../Core/Inc/uner_app.h
 ../Core/Inc/globals.h:
 ../Core/Inc/user_button.h:
 ../Core/Inc/types/button_state.h:
@@ -104,3 +104,4 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/Fi
 ../Core/Inc/i2c_manager.h:
 ../Core/Inc/user_button.h:
 ../Core/Inc/main.h:
+../Core/Inc/uner_app.h:

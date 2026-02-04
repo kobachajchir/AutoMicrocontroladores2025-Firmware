@@ -75,4 +75,5 @@ void UNER_App_OnUart1TxComplete(void)
 void UNER_App_NotifyUart1Rx(void)
 {
     uner_uart1_rx_hint = 1u;
+    __NOP();
 }

@@ -1,6 +1,7 @@
 /*
  * uner_core.c - UNER v2 core parser/queue
  */
+#include "stm32f1xx_hal.h"
 #include "uner_core.h"
 #include <string.h>
 
@@ -19,6 +20,7 @@ static uint8_t uner_accepts_dst(const UNER_Core *core, uint8_t dst)
 
 static void uner_reset_parser(UNER_Core *core)
 {
+	__NOP();
     core->state = UNER_S_H0;
     core->len_expected = 0;
     core->payload_index = 0;
@@ -95,7 +97,7 @@ static UNER_Status uner_queue_commit(UNER_Core *core, uint8_t len)
     if (core->cfg.on_packet) {
         core->cfg.on_packet(core->cfg.cb_ctx, slot);
     }
-
+    __NOP();
     return UNER_OK;
 }
 
@@ -109,6 +111,10 @@ UNER_Status UNER_Core_PushByte(
         return UNER_ERR_LEN;
     }
 
+    __NOP();
+
+    volatile uint8_t byteDebug = byte;
+
     core->transport_id = transport_id;
     core->max_payload_transport = max_payload_for_transport;
 
@@ -118,6 +124,7 @@ UNER_Status UNER_Core_PushByte(
             core->chk_acc = byte;
             core->state = UNER_S_H1;
         }
+        __NOP();
         break;
     case UNER_S_H1:
         if (byte == (uint8_t)'N') {
@@ -148,6 +155,7 @@ UNER_Status UNER_Core_PushByte(
             core->state = (byte == (uint8_t)'U') ? UNER_S_H1 : UNER_S_H0;
             core->chk_acc = (byte == (uint8_t)'U') ? byte : 0u;
         }
+        __NOP();
         break;
     case UNER_S_LEN:
         core->len_expected = byte;
@@ -194,6 +202,7 @@ UNER_Status UNER_Core_PushByte(
         core->chk_acc ^= byte;
         if (core->len_expected == 0u) {
             core->state = UNER_S_CHK;
+            __NOP();
         } else {
             core->state = UNER_S_PAYLOAD;
         }
@@ -208,24 +217,28 @@ UNER_Status UNER_Core_PushByte(
         core->chk_acc ^= byte;
         if (core->payload_index >= core->len_expected) {
             core->state = UNER_S_CHK;
+            __NOP();
         }
         break;
     }
     case UNER_S_CHK: {
+    	__NOP();
         if (byte != core->chk_acc) {
             core->chk_fail++;
+            __NOP();
             uner_reset_parser(core);
             return UNER_ERR_CHK;
         }
 
         uint8_t src = (uint8_t)(core->route >> 4);
         uint8_t dst = (uint8_t)(core->route & 0x0Fu);
-
         if (!core->drop_frame && uner_accepts_src(core, src) && uner_accepts_dst(core, dst)) {
             if (uner_queue_commit(core, core->len_expected) == UNER_OK) {
+				__NOP();
                 core->ok_frames++;
             }
         }
+		__NOP();
 
         uner_reset_parser(core);
         break;
@@ -234,6 +247,8 @@ UNER_Status UNER_Core_PushByte(
         uner_reset_parser(core);
         break;
     }
+
+    __NOP();
 
     return UNER_OK;
 }

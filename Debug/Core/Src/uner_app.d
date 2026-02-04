@@ -1,8 +1,9 @@
-Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
- C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h \
- ../Core/Inc/stm32f1xx_hal_conf.h \
- C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h \
- C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.h \
+Core/Src/uner_app.o: ../Core/Src/uner_app.c ../Core/Inc/uner_app.h \
+ ../Core/Inc/globals.h ../Core/Inc/user_button.h \
+ ../Core/Inc/types/button_state.h ../Core/Inc/types/bitmap_type.h \
+ ../Core/Inc/utils/macros_utils.h \
+ ../Core/Inc/utils/../types/bitmap_type.h \
+ ../Core/Inc/utils/../types/carmode_type.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f103xb.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Include/core_cm3.h \
@@ -10,6 +11,10 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Include/cmsis_compiler.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Include/cmsis_gcc.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/system_stm32f1xx.h \
+ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h \
+ ../Core/Inc/stm32f1xx_hal_conf.h \
+ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h \
+ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc_ex.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_gpio.h \
@@ -31,31 +36,24 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_usb.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd_ex.h \
- ../Core/Inc/globals.h ../Core/Inc/user_button.h \
- ../Core/Inc/types/button_state.h ../Core/Inc/types/bitmap_type.h \
- ../Core/Inc/utils/macros_utils.h \
- ../Core/Inc/utils/../types/bitmap_type.h \
- ../Core/Inc/utils/../types/carmode_type.h ../Core/Inc/encoder.h \
- ../Core/Inc/types/led_status.h ../Core/Inc/types/carmode_type.h \
- ../Core/Inc/types/usart_buffer_type.h ../Core/Inc/types/bitmap_type.h \
- ../Core/Inc/utils/macros_utils.h \
+ ../Core/Inc/encoder.h ../Core/Inc/types/led_status.h \
+ ../Core/Inc/types/carmode_type.h ../Core/Inc/types/usart_buffer_type.h \
+ ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/FirmwareAutitoMicro2025/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
  ../Core/Inc/menusystem.h ../Core/Inc/types/userEvent_type.h \
- ../Core/Inc/oled_handle.h ../Core/Inc/mpu6050.h ../Core/Inc/utils.h \
- ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
- ../Core/Src/fonts.h ../Core/Src/../Inc/fonts.h ../Core/Inc/menusystem.h \
- ../Core/Inc/oled_utils.h ../Core/Inc/encoder.h ../Core/Inc/user_button.h \
- ../Core/Inc/ui_event_router.h ../Core/Src/ssd1306.h \
- ../Core/Src/ssd1306_defines.h ../Core/Inc/mpu6050.h \
- ../Core/Inc/screenWrappers.h ../Core/Inc/globals.h \
- ../Core/Inc/eventManagers.h ../Core/Inc/menu_definitions.h \
- ../Core/Inc/uner_app.h
-../Core/Inc/main.h:
-C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
-../Core/Inc/stm32f1xx_hal_conf.h:
-C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h:
-C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.h:
+ ../Core/Inc/oled_handle.h ../Core/Inc/mpu6050.h ../Core/Inc/uner_core.h \
+ ../Core/Inc/uner_v2.h ../Core/Inc/uner_handle.h \
+ ../Core/Inc/uner_transport.h ../Core/Inc/uner_core.h \
+ ../Core/Inc/uner_transport_uart1_dma.h ../Core/Inc/uner_v2.h
+../Core/Inc/uner_app.h:
+../Core/Inc/globals.h:
+../Core/Inc/user_button.h:
+../Core/Inc/types/button_state.h:
+../Core/Inc/types/bitmap_type.h:
+../Core/Inc/utils/macros_utils.h:
+../Core/Inc/utils/../types/bitmap_type.h:
+../Core/Inc/utils/../types/carmode_type.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f103xb.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Include/core_cm3.h:
@@ -63,6 +61,10 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Include
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Include/cmsis_compiler.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Include/cmsis_gcc.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/system_stm32f1xx.h:
+C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
+../Core/Inc/stm32f1xx_hal_conf.h:
+C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h:
+C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc_ex.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_gpio.h:
@@ -84,13 +86,6 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_usb.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd_ex.h:
-../Core/Inc/globals.h:
-../Core/Inc/user_button.h:
-../Core/Inc/types/button_state.h:
-../Core/Inc/types/bitmap_type.h:
-../Core/Inc/utils/macros_utils.h:
-../Core/Inc/utils/../types/bitmap_type.h:
-../Core/Inc/utils/../types/carmode_type.h:
 ../Core/Inc/encoder.h:
 ../Core/Inc/types/led_status.h:
 ../Core/Inc/types/carmode_type.h:
@@ -104,21 +99,10 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/Fi
 ../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/oled_handle.h:
 ../Core/Inc/mpu6050.h:
-../Core/Inc/utils.h:
-../Core/Inc/motor_control.h:
-../Core/Inc/i2c_manager.h:
-../Core/Src/fonts.h:
-../Core/Src/../Inc/fonts.h:
-../Core/Inc/menusystem.h:
-../Core/Inc/oled_utils.h:
-../Core/Inc/encoder.h:
-../Core/Inc/user_button.h:
-../Core/Inc/ui_event_router.h:
-../Core/Src/ssd1306.h:
-../Core/Src/ssd1306_defines.h:
-../Core/Inc/mpu6050.h:
-../Core/Inc/screenWrappers.h:
-../Core/Inc/globals.h:
-../Core/Inc/eventManagers.h:
-../Core/Inc/menu_definitions.h:
-../Core/Inc/uner_app.h:
+../Core/Inc/uner_core.h:
+../Core/Inc/uner_v2.h:
+../Core/Inc/uner_handle.h:
+../Core/Inc/uner_transport.h:
+../Core/Inc/uner_core.h:
+../Core/Inc/uner_transport_uart1_dma.h:
+../Core/Inc/uner_v2.h:
