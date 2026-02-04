@@ -1,0 +1,3 @@
+../Core/Src/uner_transport_usbcdc.c:6:20:UNER_TransportUsbCdc_PollRx	1
+../Core/Src/uner_transport_usbcdc.c:13:20:UNER_TransportUsbCdc_TrySend	1
+../Core/Src/uner_transport_usbcdc.c:21:13:UNER_TransportUsbCdc_Init	2

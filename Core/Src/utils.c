@@ -13,6 +13,7 @@
 #include "i2c_manager.h"
 #include "user_button.h"
 #include "main.h"
+#include "uner_app.h"
 
 void USART1_DMA_CheckRx(void);
 
@@ -20,7 +21,7 @@ void USART1_DMA_CheckRx(void);
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART1) {
-        usart1_tx_busy = 0;
+        UNER_App_OnUart1TxComplete();
     }
 }
 

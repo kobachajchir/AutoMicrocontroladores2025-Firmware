@@ -71,6 +71,7 @@ typedef struct {
     uint8_t ver;
     uint8_t transport_id;
     uint8_t max_payload_transport;
+    uint8_t drop_frame;
 
     UNER_Packet *pkt_slots;
     uint8_t *payload_pool;
