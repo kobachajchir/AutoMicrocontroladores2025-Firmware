@@ -234,11 +234,9 @@ UNER_Status UNER_Core_PushByte(
         uint8_t dst = (uint8_t)(core->route & 0x0Fu);
         if (!core->drop_frame && uner_accepts_src(core, src) && uner_accepts_dst(core, dst)) {
             if (uner_queue_commit(core, core->len_expected) == UNER_OK) {
-				__NOP();
                 core->ok_frames++;
             }
         }
-		__NOP();
 
         uner_reset_parser(core);
         break;
