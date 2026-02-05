@@ -20,6 +20,30 @@ static UNER_Packet uner_slots[UNER_QUEUE_SLOTS];
 static uint8_t uner_payload_pool[UNER_QUEUE_SLOTS * 255u];
 static volatile uint8_t uner_uart1_rx_hint = 0;
 
+typedef enum {
+    UNER_CMD_ECHO = 0x42u,
+} UNER_AppCommand;
+
+static const UNER_CommandSpec uner_commands[] = {
+    { UNER_CMD_ECHO, 4u, 4u },
+};
+
+static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
+{
+    (void)ctx;
+    if (!packet) {
+        return;
+    }
+
+    switch (packet->cmd) {
+    case UNER_CMD_ECHO:
+        __NOP();
+        break;
+    default:
+        break;
+    }
+}
+
 static void UNER_App_InitConfig(UNER_CoreConfig *cfg)
 {
     cfg->this_node = UNER_NODE_MCU;
@@ -54,6 +78,12 @@ void UNER_App_Init(void)
         &usart1_tx_busy);
 
     (void)UNER_Handle_RegisterTransport(&uner_handle, &uner_uart1.base);
+    (void)UNER_Handle_RegisterCommands(
+        &uner_handle,
+        uner_commands,
+        (uint8_t)(sizeof(uner_commands) / sizeof(uner_commands[0])),
+        UNER_App_ExecuteCommand,
+        NULL);
     usart1_feed_pending = 0;
     usart1_rx_prev_pos = 0;
     (void)HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
@@ -65,6 +95,7 @@ void UNER_App_Poll(void)
         uner_uart1_rx_hint = 0;
     }
     UNER_Handle_Poll(&uner_handle);
+    UNER_Handle_ProcessPending(&uner_handle);
 }
 
 void UNER_App_OnUart1TxComplete(void)

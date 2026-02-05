@@ -4,6 +4,36 @@
 #include "uner_handle.h"
 #include <string.h>
 
+static void UNER_Handle_OnPacketQueued(void *ctx, const UNER_Packet *p)
+{
+    UNER_Handle *handle = (UNER_Handle *)ctx;
+    (void)p;
+    if (!handle) {
+        return;
+    }
+    handle->packet_pending = 1u;
+    __NOP();
+}
+
+static uint8_t UNER_Handle_FindCommandSpec(
+    const UNER_CommandSpec *table,
+    uint8_t count,
+    uint8_t cmd,
+    UNER_CommandSpec *out)
+{
+    if (!table || !out) {
+        return 0u;
+    }
+
+    for (uint8_t i = 0u; i < count; ++i) {
+        if (table[i].cmd == cmd) {
+            *out = table[i];
+            return 1u;
+        }
+    }
+    return 0u;
+}
+
 UNER_Status UNER_Handle_Init(
     UNER_Handle *handle,
     const UNER_CoreConfig *cfg,
@@ -12,16 +42,28 @@ UNER_Status UNER_Handle_Init(
     uint8_t *payload_pool_bytes,
     uint16_t payload_pool_size)
 {
-    if (!handle) {
+    if (!handle || !cfg) {
         return UNER_ERR_LEN;
     }
 
     handle->transport_count = 0;
     memset(handle->transports, 0, sizeof(handle->transports));
 
+    handle->packet_pending = 0u;
+    handle->command_table = NULL;
+    handle->command_count = 0u;
+    handle->execute_command = NULL;
+    handle->execute_ctx = NULL;
+    handle->app_on_packet = cfg->on_packet;
+    handle->app_on_packet_ctx = cfg->cb_ctx;
+
+    UNER_CoreConfig cfg_local = *cfg;
+    cfg_local.on_packet = UNER_Handle_OnPacketQueued;
+    cfg_local.cb_ctx = handle;
+
     return UNER_Core_Init(
         &handle->core,
-        cfg,
+        &cfg_local,
         slots,
         slot_count,
         payload_pool_bytes,
@@ -42,6 +84,24 @@ UNER_Status UNER_Handle_RegisterTransport(UNER_Handle *handle, UNER_Transport *t
     return UNER_OK;
 }
 
+UNER_Status UNER_Handle_RegisterCommands(
+    UNER_Handle *handle,
+    const UNER_CommandSpec *table,
+    uint8_t count,
+    UNER_ExecuteCommandFn execute_command,
+    void *execute_ctx)
+{
+    if (!handle || !table || count == 0u || !execute_command) {
+        return UNER_ERR_LEN;
+    }
+
+    handle->command_table = table;
+    handle->command_count = count;
+    handle->execute_command = execute_command;
+    handle->execute_ctx = execute_ctx;
+    return UNER_OK;
+}
+
 void UNER_Handle_Poll(UNER_Handle *handle)
 {
     if (!handle) {
@@ -54,6 +114,38 @@ void UNER_Handle_Poll(UNER_Handle *handle)
             transport->poll_rx(transport, &handle->core);
         }
     }
+}
+
+void UNER_Handle_ProcessPending(UNER_Handle *handle)
+{
+    if (!handle || !handle->packet_pending) {
+        return;
+    }
+
+    UNER_Packet packet;
+    while (UNER_Core_Dequeue(&handle->core, &packet)) {
+        uint8_t valid_cmd = 0u;
+        UNER_CommandSpec spec = {0u, 0u, 0u};
+
+        if (UNER_Handle_FindCommandSpec(handle->command_table, handle->command_count, packet.cmd, &spec)) {
+            if (packet.len >= spec.min_args && packet.len <= spec.max_args) {
+                valid_cmd = 1u;
+            }
+        }
+
+        if (valid_cmd && handle->execute_command) {
+            handle->execute_command(handle->execute_ctx, &packet);
+        }
+
+        if (valid_cmd && handle->app_on_packet) {
+            handle->app_on_packet(handle->app_on_packet_ctx, &packet);
+        }
+
+        UNER_Core_ReleasePacket(&handle->core, &packet);
+    }
+
+    handle->packet_pending = 0u;
+    __NOP();
 }
 
 UNER_Status UNER_Send(

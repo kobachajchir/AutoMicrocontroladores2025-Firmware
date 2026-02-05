@@ -14,9 +14,24 @@ extern "C" {
 #define UNER_MAX_TRANSPORTS 4u
 
 typedef struct {
+    uint8_t cmd;
+    uint8_t min_args;
+    uint8_t max_args;
+} UNER_CommandSpec;
+
+typedef void (*UNER_ExecuteCommandFn)(void *ctx, const UNER_Packet *packet);
+
+typedef struct {
     UNER_Core core;
     UNER_Transport *transports[UNER_MAX_TRANSPORTS];
     uint8_t transport_count;
+    volatile uint8_t packet_pending;
+    const UNER_CommandSpec *command_table;
+    uint8_t command_count;
+    UNER_ExecuteCommandFn execute_command;
+    void *execute_ctx;
+    UNER_OnPacketCb app_on_packet;
+    void *app_on_packet_ctx;
     uint8_t tx_buf[UNER_OVERHEAD + 255u];
 } UNER_Handle;
 
@@ -29,7 +44,14 @@ UNER_Status UNER_Handle_Init(
     uint16_t payload_pool_size);
 
 UNER_Status UNER_Handle_RegisterTransport(UNER_Handle *handle, UNER_Transport *transport);
+UNER_Status UNER_Handle_RegisterCommands(
+    UNER_Handle *handle,
+    const UNER_CommandSpec *table,
+    uint8_t count,
+    UNER_ExecuteCommandFn execute_command,
+    void *execute_ctx);
 void UNER_Handle_Poll(UNER_Handle *handle);
+void UNER_Handle_ProcessPending(UNER_Handle *handle);
 
 UNER_Status UNER_Send(
     UNER_Handle *handle,
