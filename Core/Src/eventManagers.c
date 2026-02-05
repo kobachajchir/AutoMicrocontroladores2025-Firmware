@@ -306,16 +306,19 @@ static const EventCallbacks_t motorTestCallbacks = {
 
 static void WiFiSearch_OnShortPress(void)
 {
-    // Cancelar búsqueda
-    // TODO: Implementar stopWiFiScan() cuando esté disponible
+    (void)UNER_App_SendCommand(UNER_CMD_ID_STOP_SCAN, NULL, 0u);
+
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
-    MenuSys_NavigateToMain(&menuSystem);
-    menuSystem.clearScreen();
-    if (menuSystem.insideMenuFlag) {
-        *menuSystem.insideMenuFlag = 1;
-    }
     wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
-    menuSystem.renderFn = menuSystem.dashboardRender;
+
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 0;
+    }
+
+    menuSystem.renderFn = menuSystem.dashboardRender ? menuSystem.dashboardRender
+                                                      : OledUtils_RenderDashboard_Wrapper;
+    OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCanceledNotification, 2000u);
+
     menuSystem.renderFlag = true;
     oled_first_draw = true;
 }

@@ -1247,6 +1247,23 @@ void OledUtils_RenderWiFiSearchCompleteNotification()
     Oled_DrawStr("completada");
 }
 
+
+void OledUtils_RenderWiFiSearchCanceledNotification()
+{
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(2, 12, 19, 16, Icon_Wifi_NotConnected_bits);
+
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(27, 30 - fh_grande);
+    Oled_DrawStr("Busqueda");
+
+    ssd1306_SetCursor(10, 50 - fh_grande);
+    Oled_DrawStr("cancelada");
+}
+
 void OledUtils_RenderCommandReceivedNotification(void)
 {
     ssd1306_Clear();
