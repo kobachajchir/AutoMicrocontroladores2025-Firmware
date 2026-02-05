@@ -146,9 +146,37 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
 }
 
 static void evt_boot_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_sta_connected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_sta_disconnected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
+static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    if (!p || p->len == 0u || !p->payload) {
+        return;
+    }
+
+    const uint8_t mode = p->payload[0];
+    if (mode == UNER_CMD_SET_MODE_AP) {
+        SET_FLAG(systemFlags2, AP_ACTIVE);
+        CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
+    } else if (mode == UNER_CMD_SET_MODE_STA) {
+        CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+    }
+}
+
+static void evt_sta_connected_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    SET_FLAG(systemFlags2, WIFI_ACTIVE);
+    CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+}
+
+static void evt_sta_disconnected_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
+}
+
 static void evt_ap_client_join_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
 static void evt_ap_client_leave_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
 static void evt_webserver_up_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
@@ -159,10 +187,36 @@ static void evt_app_mpu_readings_handler(void *ctx, const UNER_Packet *p) { (voi
 static void evt_app_tcrt_readings_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
 static void evt_app_user_connected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
 static void evt_app_user_disconnected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_controller_connected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_controller_disconnected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_usb_connected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
+static void evt_controller_connected_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    SET_FLAG(systemFlags2, RF_ACTIVE);
+    OledUtils_ShowNotificationMs(OledUtils_RenderControllerConnected, 2000u);
+}
+
+static void evt_controller_disconnected_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    CLEAR_FLAG(systemFlags2, RF_ACTIVE);
+    OledUtils_ShowNotificationMs(OledUtils_RenderControllerDisconnected, 2000u);
+}
+
+static void evt_usb_connected_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    SET_FLAG(systemFlags2, USB_ACTIVE);
+}
+
+static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    CLEAR_FLAG(systemFlags2, USB_ACTIVE);
+}
+
 
 
 static const UNER_CommandSpec *UNER_App_FindSpecById(uint8_t cmd)

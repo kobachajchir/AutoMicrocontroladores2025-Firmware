@@ -890,9 +890,9 @@ void initCarMode(){
 	ENC_Init(&encoder, &htim4, 1, 4, EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
 	SET_FLAG(systemFlags2, OLED_ACTIVE);
-	SET_FLAG(systemFlags2, AP_ACTIVE);
-	SET_FLAG(systemFlags2, USB_ACTIVE);
-	SET_FLAG(systemFlags2, RF_ACTIVE);
+	// SET_FLAG(systemFlags2, AP_ACTIVE);
+	// SET_FLAG(systemFlags2, USB_ACTIVE);
+	// SET_FLAG(systemFlags2, RF_ACTIVE);
 }
 
 void UserBtn_MainTask(UserButton_Handle_t *btnUser) {
