@@ -18,6 +18,7 @@ uint8_t UNER_App_IsWaitingValidation(void);
 uint8_t UNER_App_GetWaitingCommandId(void);
 
 #define UNER_CMD_ID_START_SCAN         0x14u
+#define UNER_CMD_ID_STOP_SCAN          0x18u
 #define UNER_CMD_ID_REBOOT_ESP         0x16u
 #define UNER_CMD_ID_GET_STATUS         0x30u
 #define UNER_CMD_ID_PING               0x31u

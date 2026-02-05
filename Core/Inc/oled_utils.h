@@ -79,6 +79,7 @@ void OledUtils_RenderWiFiSearchScene(void);
 void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining);
 void OledUtils_ShowWifiResults();
 void OledUtils_RenderWiFiSearchCompleteNotification(void);
+void OledUtils_RenderWiFiSearchCanceledNotification(void);
 void OledUtils_RenderWiFiNotConnected(void);
 void OledUtils_RenderWiFiStatus(void);
 void OledUtils_RenderESPCheckingConnectionNotification(void);

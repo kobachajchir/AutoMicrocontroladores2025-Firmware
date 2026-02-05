@@ -92,6 +92,7 @@ void MenuSys_RenderMenu_Wrapper(void) {
     __NOP(); // BREAKPOINT: wrapper menú
     OledUtils_DisableContinuousRender();
     menuSystem.userEventManagerFn = menuEventManager;
+    inside_menu_flag = true;
 
     SubMenu *m = menuSystem.currentMenu;
     if (!m) return;
