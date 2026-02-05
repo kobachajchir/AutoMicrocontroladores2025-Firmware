@@ -14,6 +14,15 @@ extern "C" {
 void UNER_App_Init(void);
 void UNER_App_Poll(void);
 UNER_Status UNER_App_SendCommand(uint8_t cmd, const uint8_t *payload, uint8_t len);
+uint8_t UNER_App_IsWaitingValidation(void);
+uint8_t UNER_App_GetWaitingCommandId(void);
+
+#define UNER_CMD_ID_START_SCAN         0x14u
+#define UNER_CMD_ID_REBOOT_ESP         0x16u
+#define UNER_CMD_ID_GET_STATUS         0x30u
+#define UNER_CMD_ID_PING               0x31u
+#define UNER_CMD_ID_REQUEST_FIRMWARE   0x41u
+
 void UNER_App_OnUart1TxComplete(void);
 void UNER_App_NotifyUart1Rx(void);
 

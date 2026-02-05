@@ -21,6 +21,8 @@ static UNER_Packet uner_slots[UNER_QUEUE_SLOTS];
 static uint8_t uner_payload_pool[UNER_QUEUE_SLOTS * 255u];
 static volatile uint8_t uner_uart1_rx_hint = 0;
 static volatile uint8_t uner_tx_marked = 0;
+static volatile uint8_t uner_waiting_validation = 0;
+static volatile uint8_t uner_wait_cmd_id = 0;
 
 typedef enum {
     UNER_CMD_SET_MODE_AP = 0x10u,
@@ -34,6 +36,7 @@ typedef enum {
     UNER_CMD_GET_STATUS = 0x30u,
     UNER_CMD_PING = 0x31u,
     UNER_CMD_GET_PREFERENCES = 0x40u,
+    UNER_CMD_REQUEST_FIRMWARE = 0x41u,
     UNER_CMD_ECHO = 0x42u,
     UNER_CMD_ACK = 0xE0u,
     UNER_CMD_NACK = 0xE1u,
@@ -88,6 +91,7 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_GET_STATUS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_PING, 0u, 0u, UNER_SPEC_F_RESP, 50u, NULL },
     { UNER_CMD_GET_PREFERENCES, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_REQUEST_FIRMWARE, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
     { UNER_CMD_ACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_CMD_NACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_EVT_BOOT, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_boot_handler },
@@ -116,6 +120,21 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
     (void)ctx;
     if (!packet) {
         return;
+    }
+
+    if (packet->cmd == UNER_CMD_ACK || packet->cmd == UNER_CMD_NACK) {
+        if (packet->len >= 1u && packet->payload && packet->payload[0] == uner_wait_cmd_id) {
+            uner_waiting_validation = 0u;
+            uner_wait_cmd_id = 0u;
+            __NOP();
+        }
+        return;
+    }
+
+    if (uner_waiting_validation && packet->cmd == uner_wait_cmd_id) {
+        uner_waiting_validation = 0u;
+        uner_wait_cmd_id = 0u;
+        __NOP();
     }
 
     if (packet->cmd == UNER_CMD_ECHO) {
@@ -174,10 +193,28 @@ UNER_Status UNER_App_SendCommand(uint8_t cmd, const uint8_t *payload, uint8_t le
 
     __NOP();
     uner_tx_marked = 1u;
+    if (spec->flags & (UNER_SPEC_F_ACK | UNER_SPEC_F_RESP)) {
+        uner_waiting_validation = 1u;
+        uner_wait_cmd_id = cmd;
+    } else {
+        uner_waiting_validation = 0u;
+        uner_wait_cmd_id = 0u;
+    }
     __NOP();
     __NOP();
 
     return UNER_Send(&uner_handle, UNER_TR_UART1_ESP, UNER_NODE_MCU, dst, cmd, payload, len);
+}
+
+
+uint8_t UNER_App_IsWaitingValidation(void)
+{
+    return uner_waiting_validation;
+}
+
+uint8_t UNER_App_GetWaitingCommandId(void)
+{
+    return uner_wait_cmd_id;
 }
 
 static void UNER_App_InitConfig(UNER_CoreConfig *cfg)

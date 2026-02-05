@@ -101,8 +101,12 @@ void MenuSys_RenderMenu_Wrapper(void) {
 
     bool firstDraw  = oled_first_draw;
     bool pageChanged = (m->firstVisibleItem != m->lastVisibleItem);
+    bool invalidSelection = (m->lastSelectedItemIndex < 0 || m->lastSelectedItemIndex >= m->itemCount ||
+                             m->currentItemIndex < 0 || m->currentItemIndex >= m->itemCount ||
+                             !MenuSys_IsItemVisible(&m->items[m->currentItemIndex]) ||
+                             !MenuSys_IsItemVisible(&m->items[m->lastSelectedItemIndex]));
 
-    if (firstDraw || pageChanged) {
+    if (firstDraw || pageChanged || invalidSelection) {
         // 👉 full render: limpia + dibuja TODOS los ítems visibles
         MenuSys_RenderMenu(&menuSystem);
         oled_first_draw = false;
@@ -239,6 +243,8 @@ void OledUtils_RenderWiFiSearching_Wrapper(void)
 
     if (!oled_first_draw) {
         wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+        __NOP();
+        (void)UNER_App_SendCommand(UNER_CMD_ID_START_SCAN, NULL, 0u);
         OledUtils_Clear();
         OledUtils_RenderWiFiSearchScene();
         OledUtils_UpdateWiFiSearchTimer((uint8_t)(wifiSearchingTimeout / 100U));
@@ -255,6 +261,8 @@ void OledUtils_RenderWiFiConnectionStatus_Wrapper(){
 	if(!IS_FLAG_SET(systemFlags3, WIFI_ACTIVE)){
 		menuSystem.renderFn = OledUtils_RenderWiFiNotConnected;
 	}else{ //Aca deberia pedir datos de conexion al esp
+		__NOP();
+		(void)UNER_App_SendCommand(UNER_CMD_ID_GET_STATUS, NULL, 0u);
 		menuSystem.renderFn = OledUtils_RenderWiFiStatus;
 	}
 	menuSystem.renderFlag = true;
@@ -292,13 +300,16 @@ static void OledUtils_ShowESPNotification(RenderFunction renderFn)
 void OledUtils_RenderESPCheckConnection_Wrapper(void)
 {
     __NOP();
-    (void)UNER_App_SendCommand(0x31u, NULL, 0u);
+    (void)UNER_App_SendCommand(UNER_CMD_ID_PING, NULL, 0u);
     OledUtils_ShowESPNotification(OledUtils_RenderESPCheckingConnectionNotification);
 }
 
 void OledUtils_RenderESPFirmwareRequest_Wrapper(void)
 {
     RenderFunction notificationFn = OledUtils_RenderESPCheckConnectionRequiredNotification;
+
+    __NOP();
+    (void)UNER_App_SendCommand(UNER_CMD_ID_REQUEST_FIRMWARE, NULL, 0u);
 
     if (!IS_FLAG_SET(systemFlags3, ESP_PRESENT)) {
         notificationFn = OledUtils_RenderESPFirmwareRequestNotification; //Invertir bandera borrando !
@@ -311,6 +322,9 @@ void OledUtils_RenderESPFirmwareRequest_Wrapper(void)
 void OledUtils_RenderESPResetSent_Wrapper(void)
 {
     RenderFunction notificationFn = OledUtils_RenderESPCheckConnectionRequiredNotification;
+
+    __NOP();
+    (void)UNER_App_SendCommand(UNER_CMD_ID_REBOOT_ESP, NULL, 0u);
 
     if (!IS_FLAG_SET(systemFlags3, ESP_PRESENT)) {
         notificationFn = OledUtils_RenderESPResetSentNotification; //Invertir bandera borrando !
