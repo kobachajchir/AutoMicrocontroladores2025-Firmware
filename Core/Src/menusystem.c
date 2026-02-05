@@ -157,8 +157,8 @@ void MenuSys_MoveCursorDown(MenuSystem *ms) {
  */
 void MenuSys_OpenSubMenu(MenuSystem *ms, SubMenu *submenu) {
     if (!ms || !submenu) return;
-    // Si abrimos el menú principal, marcamos insideFlag...
-    if (submenu == &mainMenu && ms->insideMenuFlag) {
+    // Al abrir cualquier menú, activamos el contexto de navegación de menú.
+    if (ms->insideMenuFlag) {
         *(ms->insideMenuFlag) = true;
     }
     ms->currentMenu            = submenu;
