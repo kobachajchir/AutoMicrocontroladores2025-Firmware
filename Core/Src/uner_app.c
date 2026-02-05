@@ -7,6 +7,7 @@
 #include "uner_handle.h"
 #include "uner_transport_uart1_dma.h"
 #include "uner_v2.h"
+#include "oled_utils.h"
 #include "stm32f1xx_hal.h"
 
 extern UART_HandleTypeDef huart1;
@@ -37,6 +38,7 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
 
     switch (packet->cmd) {
     case UNER_CMD_ECHO:
+        OledUtils_ShowNotificationMs(OledUtils_RenderCommandReceivedNotification, 2000u);
         __NOP();
         break;
     default:
