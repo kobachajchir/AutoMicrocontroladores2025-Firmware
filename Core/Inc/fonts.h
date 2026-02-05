@@ -28,22 +28,37 @@ typedef struct {
 #define LOCK_ICON_H    16
 
 extern const uint8_t FontMap[128];
-extern const FontDef Font_5x10_Min;
-extern const FontDef Font_6x12_Min;
-extern const FontDef Font_14x17_Min;
-extern const FontDef Font_16x29_Min;
+extern const FontDef Font_7x10;
+extern const FontDef Font_11x18;
 extern const uint8_t Icon_UserBtn_bits[];
 extern const uint8_t Icon_Wifi_bits[];
 extern const uint8_t Icon_Sensors_bits[];
 extern const uint8_t Icon_Cursor_bits[];
 extern const uint8_t Icon_Config_bits[];
+extern const uint8_t Icon_Prefs_bits[];
 extern const uint8_t Icon_Encoder_bits[];
-extern const uint8_t Icon_Lock_bits[];
 extern const uint8_t Icon_Volver_bits[];
 extern const uint8_t Icon_APWifi_bits[];
 extern const uint8_t Icon_USB_bits[];
 extern const uint8_t Icon_RF_bits[];
 extern const uint8_t Icon_Car_bits[];
+extern const uint8_t Arrow_Right_bits[];
+extern const uint8_t Arrow_Left_bits[];
+extern const uint8_t QRCode_Github_bits[];
+extern const uint8_t QrCodeAutoWEBGithub[];
+extern const uint8_t Icon_Info_bits[];
+extern const uint8_t Icon_Link_bits[];
+extern const uint8_t Icon_Refrescar_bits[];
+extern const uint8_t Icon_Tool_bits[];
+extern const uint8_t Icon_Crossed_bits[];
+extern const uint8_t Icon_Checked_bits[];
+extern const uint8_t Icon_Wifi_25_bits[];
+extern const uint8_t Icon_Wifi_50_bits[];
+extern const uint8_t Icon_Wifi_75_bits[];
+extern const uint8_t Icon_Wifi_100_bits[];
+extern const uint8_t Icon_Wifi_NotConnected_bits[];
+extern const uint8_t Icon_Lock_bits[];
+extern const uint8_t Icon_Auto_bits[];
 
 #endif
 

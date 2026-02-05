@@ -1,2 +1,4 @@
-Core/Src/fonts.o: ../Core/Src/fonts.c ../Core/Inc/fonts.h
-../Core/Inc/fonts.h:
+Core/Src/fonts.o: ../Core/Src/fonts.c ../Core/Src/fonts.h \
+ ../Core/Src/../Inc/fonts.h
+../Core/Src/fonts.h:
+../Core/Src/../Inc/fonts.h:

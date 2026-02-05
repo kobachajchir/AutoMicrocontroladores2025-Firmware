@@ -6,27 +6,67 @@
  */
 #include "globals.h"
 #include "utils.h"
+#include "oled_utils.h"
+#include "screenWrappers.h"
 #include "utils/macros_utils.h"
 #include "stm32f1xx_hal.h"  // para HAL_GPIO_ReadPin
 #include "i2c_manager.h"
-#include "uner_protocol.h"
+#include "user_button.h"
+#include "main.h"
+#include "uner_app.h"
 
+void USART1_DMA_CheckRx(void);
+
+/* Libera busy al completar */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1) {
+        UNER_App_OnUart1TxComplete();
+    }
+}
+
+
+void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1) {
+        USART1_DMA_CheckRx();
+    }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1) {
+        USART1_DMA_CheckRx();
+    }
+}
 
 void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-	I2C_Manager_OnDMAComplete(1); //Es tx
+	I2C_Manager_OnTxCplt(&i2cManager, hi2c);
 }
 
 void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c) {
-	I2C_Manager_OnDMAComplete(1); //Es tx
+	I2C_Manager_OnTxCplt(&i2cManager, hi2c);
 }
 
 void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c) {
-	I2C_Manager_OnDMAComplete(0); //Es rx
+	I2C_Manager_OnRxCplt(&i2cManager, hi2c);
+}
+
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+    I2C_Manager_OnRxCplt(&i2cManager, hi2c);
+}
+
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
+{
+    I2C_Manager_OnError(&i2cManager, hi2c);
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
+	static uint16_t wifi_search_tick_10ms = 0;
+
     if (htim->Instance == TIM3)
     {
     	cnt_250us_MPU++;
@@ -53,12 +93,38 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             // Llamar a las rutinas de 10 ms
             StateLED_Task_10ms(&ledStatus);
             if (IS_FLAG_SET(systemFlags, INIT_CAR)) {
-				Button_Task_10ms(&btnUser);
+				UserButton_Task10ms(&btnUser);
 				ENC_Task_N10ms(&encoder);
 			}
             if (IS_FLAG_SET(systemFlags, OLED_READY)) {
 				OLED_Task_10ms();
 			}
+            if(IS_FLAG_SET(systemFlags3, WIFI_SEARCHING)){
+				wifi_search_tick_10ms++;
+				if (wifi_search_tick_10ms >= 100) {
+					wifi_search_tick_10ms = 0;
+					if (wifiSearchingTimeout > 0) {
+						if (wifiSearchingTimeout >= 100) {
+							wifiSearchingTimeout -= 100;
+						} else {
+							wifiSearchingTimeout = 0;
+						}
+					}
+					if (wifiSearchingTimeout == 0) {
+						CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+						menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
+						menuSystem.renderFlag = true;
+						oled_first_draw = false;
+						OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCompleteNotification, 2000);
+					} else {
+						if (!menuSystem.renderFlag) {
+							menuSystem.renderFlag = true;
+						}
+					}
+				}
+			} else {
+				wifi_search_tick_10ms = 0;
+            }
         }
     }
 }
@@ -108,6 +174,8 @@ void OLED_Task_10ms(){
 	}else{
 		oled10msCounter++;
 	}
+
+    OledUtils_NotificationTick10ms();
 }
 
 
@@ -158,62 +226,13 @@ void StateLED_Task_10ms(volatile LedStatus_t *led)
     }
 }
 
-/**
- * @brief Se invoca cada 10 ms desde el callback de TIM3.
- *        Lee PB1 y actualiza flags, counter y overflow count (nibble alto).
- * @param btn Puntero a la estructura ButtonState_t
- */
-void Button_Task_10ms(volatile ButtonState_t *btn)
-{
-    uint8_t raw = (uint8_t)HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1);
 
-    if (raw == 1 && !IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
-        // Flanco de subida
-        btn->counter = 1;
-        SET_FLAG(btn->flags, BTN_USER_PREVSTATE);
-        CLEAR_FLAG(btn->flags, BTN_USER_SHORT_PRESS);
-        CLEAR_FLAG(btn->flags, BTN_USER_LONG_PRESS);
-        NIBBLEH_SET_STATE(btn->flags, 0);
-    }
-    else if (raw == 1 && IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
-        // Mantenido
-        if (btn->counter < 255)
-            btn->counter++;
-
-        if (btn->counter > 100) {
-            btn->counter = 0;
-            uint8_t ovf = NIBBLEH_GET_STATE(btn->flags);
-            ovf++;
-            if (ovf > 9) {
-                btn->flags.byte = 0;
-                btn->counter = 0;
-                return;
-            }
-            NIBBLEH_SET_STATE(btn->flags, ovf);
-        }
-    }
-    else if (raw == 0 && IS_FLAG_SET(btn->flags, BTN_USER_PREVSTATE)) {
-        // Flanco de bajada
-        if (NIBBLEH_GET_STATE(btn->flags) == 0) {
-            if (btn->counter >= 10 && btn->counter < 30) {
-                SET_FLAG(btn->flags, BTN_USER_SHORT_PRESS);
-            }
-            else if (btn->counter >= 30 && btn->counter <= 100) {
-                SET_FLAG(btn->flags, BTN_USER_LONG_PRESS);
-            }
-        }
-
-        CLEAR_FLAG(btn->flags, BTN_USER_PREVSTATE);
-        btn->counter = 0;
-    }
-}
 
 
 void Handle_ModeChange_ByButton(volatile ButtonState_t *btn, volatile LedStatus_t *led)
 {
 	ADVANCE_CAR_MODE();  // Cambio cíclico
-	carMode = GET_CAR_MODE();
-	switch (carMode) {
+	switch (GET_CAR_MODE()) {
 	case IDLE_MODE:
 		led->onTime = LED_IDLE_ONTIME;
 		led->offTime = LED_IDLE_OFFTIME;

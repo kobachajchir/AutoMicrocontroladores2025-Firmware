@@ -1,18 +1,39 @@
-/*
- * eventManagers.h
- *
- *  Created on: Jul 23, 2025
- *      Author: kobac
- */
-
-#ifndef INC_EVENTMANAGERS_H_
-#define INC_EVENTMANAGERS_H_
+#ifndef EVENTMANAGERS_H
+#define EVENTMANAGERS_H
 
 #include "types/userEvent_type.h"
-#include "globals.h"
 
-void menuEventManager(UserEvent_t ev);
+// Tipo de función para callbacks de render
+typedef void (*RenderFn)(void);
+typedef void (*RenderWrapperFn)(void);
+
+/**
+ * @brief Estructura de callbacks para manejar eventos de usuario
+ */
+typedef struct {
+    RenderFn onRotateCW;      // Callback al rotar sentido horario
+    RenderFn onRotateCCW;     // Callback al rotar sentido antihorario
+    RenderFn onShortPress;    // Callback al presionar encoder corto
+    RenderFn onLongPress;     // Callback al presionar botón usuario largo
+    RenderFn onUserButton;    // Callback al presionar botón usuario corto
+    RenderFn onEncLongPress;  // Callback al presionar encoder largo
+} EventCallbacks_t;
+
+// Manager genérico
+void GenericEventManager(UserEvent_t ev, const EventCallbacks_t *callbacks);
+
+// Event managers públicos
 void dashboardEventManager(UserEvent_t ev);
+void menuEventManager(UserEvent_t ev);
+void About_UserEventManager(UserEvent_t ev);
 void motorTestEventManager(UserEvent_t ev);
+void WiFiSearch_UserEventManager(UserEvent_t ev);
+void ReadOnly_UserEventManager(UserEvent_t ev);
+void NotificationDismiss_OnShortPress(void);
+void NotificationDismiss_OnLongPress(void);
+void ClickCancelar_UserEventManager(UserEvent_t ev);
 
-#endif /* INC_EVENTMANAGERS_H_ */
+// Legacy (por compatibilidad)
+void ItemEventManager(UserEvent_t ev, RenderWrapperFn wrapper);
+
+#endif /* EVENTMANAGERS_H */

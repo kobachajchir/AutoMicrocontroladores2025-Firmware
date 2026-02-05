@@ -42,9 +42,13 @@ extern "C" {
 	 */
 	typedef void (*RenderFunction)();
 
+	typedef void (*RenderWrapperFn)(void);
+
 	typedef void (*RenderScreenFunction)();
 
 	typedef void (*UserEventManagerFn)(UserEvent_t ev);
+
+	typedef bool (*MenuVisibilityFn)(void);
 
 	typedef struct SubMenu SubMenu;
 
@@ -55,6 +59,8 @@ extern "C" {
 		struct SubMenu *submenu;   ///< Submenú asociado (si existe)
 		const uint8_t *icon;       ///< Icono asociado (opcional)
 		RenderScreenFunction screenRenderFn;             ///< Puntero a la pantalla asociada (si existe)
+		UserEventManagerFn eventManagerFn;               ///< Callback manager para la pantalla asociada (si existe)
+		MenuVisibilityFn visibilityFn;                   ///< Condición para mostrar/seleccionar el ítem (si existe)
 	} MenuItem;
 
 	typedef void (*DrawItemFunction)(const MenuItem *item, int y, bool selected);
@@ -80,7 +86,7 @@ extern "C" {
 		RenderFunction dashboardRender;
 		UserEventManagerFn   userEventManagerFn;
 		volatile uint8_t *insideMenuFlag;   ///< Puntero a una bandera externa que indica si estamos dentro del menú
-		bool renderFlag;
+		volatile bool renderFlag;
 		bool allowPeriodicRefresh;
 	} MenuSystem;
 
@@ -114,6 +120,8 @@ extern "C" {
 	void MenuSys_NavigateBack(MenuSystem *ms);
 	void MenuSys_NavigateToMain(MenuSystem *ms);
 	void MenuSys_ResetMenu(MenuSystem *ms);
+
+	bool MenuSys_IsItemVisible(const MenuItem *item);
 
 
 

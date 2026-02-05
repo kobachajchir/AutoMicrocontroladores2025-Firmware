@@ -14,6 +14,6 @@ typedef enum{
     TEST_MODE = 2
 } CarMode_t;
 
-#define CAR_MODE_MAX 4
+#define CAR_MODE_MAX 3
 
 #endif /* INC_TYPES_CARMODE_TYPE_H_ */

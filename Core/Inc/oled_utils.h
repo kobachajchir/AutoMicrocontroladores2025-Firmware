@@ -8,18 +8,10 @@
 #ifndef INC_OLED_UTILS_H_
 #define INC_OLED_UTILS_H_
 
-// oled_menu.h
-#ifndef OLED_MENU_H
-#define OLED_MENU_H
-
 #include "menusystem.h"
-#include "oled_ssd1306_dma.h"
-#include "oled_utils.h"      // para OLED_DrawIRGraph, etc.
-#include "globals.h"
-#include <stdint.h>
+#include "mpu6050.h"
 #include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
+#include <stdint.h>
 
 /**
  * @brief  Wrapper para la pantalla de Valores MPU.
@@ -28,39 +20,80 @@ void renderValoresMPU_Wrapper(void);
 
 /** Renderiza la pantalla principal (dashboard: "HOLA MUNDO" centrado) */
 void renderDashboard_Wrapper(void);
+void renderTestScreen_Wrapper(void);
 
 // ─── Funciones de despliegue ─────────────────────────────────────────────────
 
 /**
- * @brief  Dibuja el menú en pantalla superpuesta (estilo u8g2) usando oledTask.
+ * @brief  Dibuja el menú en pantalla (estilo u8g2).
  * @param  system  Puntero al MenuSystem activo
  */
 void displayMenuCustom(MenuSystem *system);
 
-void OledUtils_RenderVerticalMenu(OLED_HandleTypeDef *oled, MenuSystem *ms);
+void OledUtils_RenderVerticalMenu(MenuSystem *ms);
 
-void OledUtils_RenderDashboard(OLED_HandleTypeDef *oled);
+void OledUtils_RenderDashboard(void);
+void OledUtils_RenderTestScreen(void);
 
-void OledUtils_Clear(OLED_HandleTypeDef *oled, bool is_overlay);
+void OledUtils_RenderProyectScreen(void);
+void OledUtils_RenderProyectInfoScreen(void);
 
-void OledUtils_DrawItem(OLED_HandleTypeDef *oled, const MenuItem *item, uint8_t y, bool selected);
+void OledUtils_RenderModeChange_Full(void);
+void OledUtils_RenderModeChange_ModeOnly(void);
 
-void OledUtils_RenderValoresMPUScreen(OLED_HandleTypeDef *oled, MPU6050_Handle_t *mpu);
+void OledUtils_Clear(void);
 
-void OledUtils_DrawIRGraph(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
+void OledUtils_DrawItem(const MenuItem *item, uint8_t y, bool selected);
 
-void OledUtils_DrawIRBars(OLED_HandleTypeDef *oled, volatile uint16_t *irValues);
+void OledUtils_RenderValoresMPUScreen(MPU6050_Handle_t *mpu);
 
-void OledUtils_MotorTest_Complete(OLED_HandleTypeDef *oled);
+void OledUtils_DrawIRGraph(volatile uint16_t *irValues);
 
-void OledUtils_MotorTest_Changes(OLED_HandleTypeDef *oled);
+void OledUtils_DrawIRBars(volatile uint16_t *irValues);
 
-void OledUtils_EnableContinuousRender(OLED_HandleTypeDef *oled);
-void OledUtils_DisableContinuousRender(OLED_HandleTypeDef *oled, On_OLED_RenderPagesComplete cb);
+void OledUtils_RenderRadarGraph(volatile uint16_t *irValues);
+void OledUtils_RenderRadarGraph_Objs(volatile uint16_t *irValues);
 
-void OledUtils_RenderLockScreen(OLED_HandleTypeDef *oled);
+void OledUtils_MotorTest_Complete(void);
 
-#endif // OLED_MENU_H
+void OledUtils_MotorTest_Changes(void);
 
+void OledUtils_EnableContinuousRender(void);
+void OledUtils_DisableContinuousRender(void);
+
+void OledUtils_RenderLockScreen(void);
+void OledUtils_RenderLockState(uint8_t lockState);
+
+void OledUtils_ESPConnFailed(void);
+void OledUtils_ESPConnSucceeded(void);
+
+// --- Sensores IR ---
+void OledUtils_RenderIRGraphScene(void);
+void OledUtils_UpdateIRBars(volatile uint16_t *sensorData);
+
+// --- Sensor MPU ---
+void OledUtils_RenderMPUScene(void);
+void OledUtils_UpdateMPUValues(MPU6050_Handle_t *mpu);
+
+void OledUtils_RenderWiFiSearchScene(void);
+void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining);
+void OledUtils_ShowWifiResults();
+void OledUtils_RenderWiFiSearchCompleteNotification(void);
+void OledUtils_RenderWiFiSearchCanceledNotification(void);
+void OledUtils_RenderWiFiNotConnected(void);
+void OledUtils_RenderWiFiStatus(void);
+void OledUtils_RenderESPCheckingConnectionNotification(void);
+void OledUtils_RenderESPFirmwareRequestNotification(void);
+void OledUtils_RenderESPResetSentNotification(void);
+void OledUtils_RenderESPCheckConnectionRequiredNotification(void);
+void OledUtils_RenderCommandReceivedNotification(void);
+void OledUtils_RenderStartupNotification(void);
+
+void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms);
+void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks);
+void OledUtils_DismissNotification(void);
+void OledUtils_NotificationTick10ms(void);
+
+void OledUtils_NotificationRestore(void);
 
 #endif /* INC_OLED_UTILS_H_ */

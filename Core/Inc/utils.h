@@ -21,13 +21,6 @@ void TCRTCalibCounter_Task(void);
 
 /**
  * @brief Tarea periódica cada 10 ms.
- *        Gestiona flancos y duración de la pulsación del botón conectado a PB1.
- * @param btn Puntero a la estructura del botón.
- */
-void Button_Task_10ms(volatile ButtonState_t *btn);
-
-/**
- * @brief Tarea periódica cada 10 ms.
  *        Alterna el estado ON/OFF del LED según el modo actual.
  * @param led Puntero a la estructura del LED.
  */

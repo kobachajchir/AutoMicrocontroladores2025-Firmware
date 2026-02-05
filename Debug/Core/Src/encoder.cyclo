@@ -1,7 +1,11 @@
 ../Core/Src/encoder.c:12:6:ENC_Init	1
-../Core/Src/encoder.c:30:6:ENC_Start	1
-../Core/Src/encoder.c:43:6:ENC_Button_Task_10ms	10
-../Core/Src/encoder.c:88:6:ENC_Task_N10ms	7
-../Core/Src/encoder.c:131:17:ENC_GetDirection	1
-../Core/Src/encoder.c:136:10:ENC_GetVelocity	1
-../Core/Src/encoder.c:141:10:ENC_GetAcceleration	1
+../Core/Src/encoder.c:33:6:ENC_Start	1
+../Core/Src/encoder.c:46:6:ENC_Button_Task_10ms	10
+../Core/Src/encoder.c:91:6:ENC_Task_N10ms	7
+../Core/Src/encoder.c:139:17:ENC_GetDirection	1
+../Core/Src/encoder.c:144:10:ENC_GetVelocity	1
+../Core/Src/encoder.c:149:10:ENC_GetAcceleration	1
+../Core/Src/encoder.c:154:9:ENC_GetStepDelta	1
+../Core/Src/encoder.c:159:9:ENC_GetSignedVelocity	1
+../Core/Src/encoder.c:164:9:ENC_GetSignedAcceleration	1
+../Core/Src/encoder.c:169:9:ENC_GetScaledSteps	4

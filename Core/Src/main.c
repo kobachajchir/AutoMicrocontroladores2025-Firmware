@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -32,11 +31,14 @@
 #include "menusystem.h"
 #include "oled_utils.h"
 #include "encoder.h"             // donde se define ENC_Handle_t
-#include "oled_ssd1306_dma.h"    // donde se define OLED_HandleTypeDef
+#include "user_button.h"
+#include "ui_event_router.h"
+#include "ssd1306.h"
 #include "mpu6050.h"             // donde se define MPU6050_Handle_t
 #include "screenWrappers.h"
 #include "eventManagers.h"
-#include "uner_protocol.h"
+#include "menu_definitions.h"
+#include "uner_app.h"
 //#include "oled_screens.h"
 
 /* USER CODE END Includes */
@@ -74,168 +76,45 @@ UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart1_rx;
 
+PCD_HandleTypeDef hpcd_USB_FS;
+
 /* USER CODE BEGIN PV */
 
-volatile bool procesar_flag = false;
-volatile bool lanzar_ADC_trigger_flag = false;
-volatile bool mpu_trigger = false;
-volatile LedStatus_t ledStatus;
-volatile Byte_Flag_Struct systemFlags;
-volatile Byte_Flag_Struct systemFlags2;
-volatile CarMode_t carMode;
-volatile uint16_t sensor_raw_data[ TCRT5000_NUM_SENSORS ];
-TCRT_LightConfig_t tcrtLight;
-volatile uint8_t cnt_adc_trigger = 0;
-volatile uint16_t cnt_250us_MPU = 0;
-volatile uint16_t cnt_10ms = 0;
-volatile uint32_t cnt_10us = 0;
-volatile uint32_t tcrt_calib_cnt_phase = 0;
-//Modificcar para hacer una sola struct de velocidades modo y direcciones
-volatile uint8_t inside_menu_flag;
-volatile uint16_t encoderValue;
-volatile uint8_t oled10msCounter = 0;
-volatile uint8_t motorSelected = 0; // 0: izquierdo, 1: derecho, 2: ambos
-volatile uint8_t motorSpeed    = 100;
-volatile uint8_t motorDir      = 0; // 0: adelante, 1: atrás
+static bool Oled_WaitReady(I2C_ManagerHandle *manager, uint16_t addr_7bit, uint32_t retries, uint32_t delay_ms)
+{
+    if (!manager) {
+        return false;
+    }
 
-// Bandera para I2C_Manager (bus ocupado)
-volatile uint8_t i2c_busy_flag = 0;
-uint16_t oledTime;
+    for (uint32_t attempt = 0; attempt < retries; attempt++) {
+        if (I2C_Manager_IsAddressReady(manager, addr_7bit) == HAL_OK) {
+            __NOP(); // BREAKPOINT: OLED respondió en I2C
+            return true;
+        }
+        HAL_Delay(delay_ms);
+    }
 
-bool pull_cfg[ TCRT5000_NUM_SENSORS ] = {
-    TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
-    TCRT_PULL_UP,    // canal 1: línea lateral izq
-    TCRT_PULL_UP,    // canal 2: línea lateral der
-    TCRT_PULL_DOWN,  // canal 3: obstáculo diag izq (invertir)
-    TCRT_PULL_DOWN,  // canal 4: obstáculo frente izq
-    TCRT_PULL_DOWN,  // canal 5: obstáculo centro
-    TCRT_PULL_DOWN,  // canal 6: obstáculo frente der
-    TCRT_PULL_DOWN   // canal 7: obstáculo diag der
-};
-
-
-// Este es el buffer real que usará el DMA
-uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
-// Posición previa usada para comparar nuevos datos
-volatile uint16_t usart1_rx_prev_pos = 0;
-
-/* --- Handlers de librerias --- */
-USART_Buffer_t usart1Buf;
-TCRTHandlerTask tcrtTask;
-MotorControl_Handle motorTask;
-OLED_HandleTypeDef oledTask;
-MPU6050_Handle_t mpuTask;
-ButtonState_t btnUser;
-ENC_Handle_t encoder;
-UserEvent_t ev;
-UNERProtocolParserState uner_parser;
+    return false;
+}
 
 void OledUtils_Clear_Wrapper(){
-	OledUtils_Clear(&oledTask, oledTask.overlay_active);
+	OledUtils_Clear();
 }
 
 void OLED_Is_Ready(void) {
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
-        menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+        menuSystem.renderFn = OledUtils_RenderStartupNotification_Wrapper;
+        //menuSystem.renderFn = OledUtils_RenderTestScreen_Wrapper;
         menuSystem.renderFlag = true;
+        oled_first_draw = true;
         SET_FLAG(systemFlags, OLED_READY);
         __NOP();
     }
 }
 
-void setMode_IDLE(void){
-	carMode = IDLE_MODE;
-}
-void setMode_FOLLOW(void){
-	carMode = FOLLOW_MODE;
-}
-void setMode_TEST(void){
-	carMode = TEST_MODE;
-}
 /* --- Variables globales --- */
 
-// Sistema de menú
-MenuSystem menuSystem = {
-    .currentMenu      = &mainMenu,
-    .clearScreen      = OledUtils_Clear_Wrapper,
-    .drawItem         = OledUtils_DrawItem_Wrapper,
-    .renderFn         = OledUtils_RenderDashboard_Wrapper,
-    .insideMenuFlag   = &inside_menu_flag,
-    .renderFlag       = false
-};
 
-// Ítems del menú principal
-MenuItem mainMenuItems[] = {
-    // nombre     acción          submenú        icono             pantalla render
-    { "Wifi",      NULL,           &submenu1,     Icon_Wifi_bits,   MenuSys_RenderMenu_Wrapper },
-    { "Sensores",  NULL,           &submenu2,     Icon_Sensors_bits, MenuSys_RenderMenu_Wrapper },
-    { "Config.",   NULL,           &submenu3,     Icon_Config_bits, MenuSys_RenderMenu_Wrapper },
-	// name       action    submenu       icon               screenRenderFn
-	{ "Volver",   NULL,     NULL,         Icon_Volver_bits,  OledUtils_RenderDashboard_Wrapper },
-};
-// Menú principal
-SubMenu mainMenu = {
-    .name                = "Principal",
-    .items               = mainMenuItems,
-    .itemCount           = sizeof(mainMenuItems)/sizeof(mainMenuItems[0]),
-    .currentItemIndex    = 0,
-    .firstVisibleItem    = 0,
-    .parent              = NULL,
-    .icon                = NULL
-};
-
-// Ítems del submenu 1: MODO (sin pantalla asociada por ahora)
-MenuItem submenu1Items[] = {
-    {"IDLE",   setMode_IDLE,       NULL, NULL, NULL},
-    {"FOLLOW", setMode_FOLLOW,     NULL, NULL, NULL},
-    {"TEST",   setMode_TEST,       NULL, NULL, NULL},
-    {"VOLVER", MenuSys_GoBack_Wrapper, &mainMenu, NULL, MenuSys_RenderMenu_Wrapper}
-};
-
-SubMenu submenu1 = {
-    .name                = "Wifi",
-    .items               = submenu1Items,
-    .itemCount           = sizeof(submenu1Items)/sizeof(submenu1Items[0]),
-    .currentItemIndex    = 0,
-    .firstVisibleItem    = 0,
-    .parent              = &mainMenu,
-    .icon                = NULL
-};
-
-// Ítems del submenu 2 (“Pantallas”)
-MenuItem submenu2Items[] = {
-    {"Valores IR",     NULL,               NULL, NULL, OledUtils_RenderValoresIR_Wrapper},
-	{"Valores MPU",     NULL,               NULL, NULL, OledUtils_RenderValoresMPU_Wrapper},
-	{"Test motores",     NULL,               NULL, NULL, OledUtils_RenderMotorTest_Wrapper},
-    {"VOLVER",         MenuSys_GoBack_Wrapper, &mainMenu, NULL, MenuSys_RenderMenu_Wrapper}
-};
-
-SubMenu submenu2 = {
-    .name                = "Sensores",
-    .items               = submenu2Items,
-    .itemCount           = sizeof(submenu2Items)/sizeof(submenu2Items[0]),
-    .currentItemIndex    = 0,
-    .firstVisibleItem    = 0,
-    .parent              = &mainMenu,
-    .icon                = NULL
-};
-
-// Ítems del submenu 3: Mockup sin pantallas por ahora
-MenuItem submenu3Items[] = {
-    {"Option 1", NULL,               NULL, NULL, NULL},
-    {"Option 2", NULL,               NULL, NULL, NULL},
-    {"VOLVER",   MenuSys_GoBack_Wrapper, &mainMenu, NULL, MenuSys_RenderMenu_Wrapper}
-};
-
-SubMenu submenu3 = {
-    .name                = "Config.",
-    .items               = submenu3Items,
-    .itemCount           = sizeof(submenu3Items)/sizeof(submenu3Items[0]),
-    .currentItemIndex    = 0,
-    .firstVisibleItem    = 0,
-    .parent              = &mainMenu,
-    .icon                = NULL
-};
 
 /* USER CODE END PV */
 
@@ -250,9 +129,10 @@ static void MX_I2C1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_USB_PCD_Init(void);
 /* USER CODE BEGIN PFP */
 void initCarMode();
-void UserBtn_MainTask(ButtonState_t *h);
+void UserBtn_MainTask(UserButton_Handle_t *h);
 void initTCRTLib();
 void TCRT_MainTask();
 void InitMotorTask(void);
@@ -264,9 +144,6 @@ void Motor_MainTask(void);
 void i2cManager_MainTask(void);
 void MPU_MainTask(void);
 void OLED_MainTask(void);
-void OLED_DMA_Complete_I2CManager(uint8_t is_tx);
-void OLED_GrantAccess_I2CManager(void);
-void initUNERProtocol(void);
 /**
  * @brief Tarea principal del encoder (main loop)
  *        Maneja eventos de botón corto/largo
@@ -281,73 +158,6 @@ void drawItemWrapper(const char *name, int y, bool selected);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-void clearScreenWrapper(void) {
-    // Simula limpieza de pantalla
-
-}
-
-void drawItemWrapper(const char *name, int y, bool selected) {
-    // Simula el renderizado de un ítem
-    if (selected){
-
-    }else{
-
-    }
-}
-
-void renderFnWrapper(void) {
-    // Simula el envío al display
-
-}
-
-// Wrapper para I2C_Manager cuando termina el DMA
-void OLED_DMA_Complete_I2CManager(uint8_t is_tx) {
-    // aquí puedes poner un breakpoint o togglear un LED para debug
-    OLED_DMA_CompleteCallback(&oledTask, is_tx);
-}
-
-// Wrapper para I2C_Manager cuando concede acceso al bus
-void OLED_GrantAccess_I2CManager(void) {
-    // breakpoint / LED toggle aquí si quieres
-	__NOP();
-    OLED_GrantAccessCallback(&oledTask);
-}
-
-void OLED_RequestBusUse_I2CManager(uint8_t is_tx) {
-    // Pide acceso inmediato al manager
-	__NOP();
-    I2C_Manager_RequestAccess(DEVICE_ID_OLED, I2C_REQ_TYPE_TX); //Es TX
-}
-
-void OLED_ReleaseBusUse_I2CManager(void) {
-    // Pide acceso inmediato al manager
-	I2C_Manager_ReleaseBus(DEVICE_ID_OLED);
-}
-// Wrapper para I2C_Manager al completar TX (canal 6)
-void MPU_DMA_Complete_I2CManager(uint8_t is_tx) {
-    // Aquí puedes poner un breakpoint o togglear un LED para depuración TX
-	MPU_DMA_CompleteCallback(&mpuTask, is_tx);
-}
-// Wrapper para I2C_Manager cuando concede acceso TX
-void MPU_GrantAccessCallback_I2CManager(void) {
-    // Aquí breakpoint/LED para depuración TX grant
-	__NOP();
-	MPU_GrantAccessCallback(&mpuTask);
-}
-
-void MPU_RequestBusUse_I2CManager(uint8_t is_tx) {
-    // Pide acceso inmediato al manager
-	__NOP();
-    I2C_Manager_RequestAccess(DEVICE_ID_MPU, I2C_REQ_TYPE_TX_RX);
-}
-
-void MPU_ReleaseBusUse_I2CManager(void) {
-    // Pide acceso inmediato al manager
-	I2C_Manager_ReleaseBus(DEVICE_ID_MPU);
-	__NOP();
-}
-
 void MPU_Data_Ready(void) {
     SET_FLAG(systemFlags, MPU_GET_DATA); //Setea bandera de data para volver a pedir
 }
@@ -356,30 +166,10 @@ void USART1_DMA_CheckRx(void)
 {
     uint16_t curr_pos = USART1_RX_DMA_BUF_LEN - __HAL_DMA_GET_COUNTER(&hdma_usart1_rx);
 
-    if (curr_pos != usart1_rx_prev_pos)
-    {
-        if (curr_pos > usart1_rx_prev_pos)
-        {
-            // Copia directa
-            for (uint16_t i = usart1_rx_prev_pos; i < curr_pos; ++i) {
-                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-            }
-        }
-        else
-        {
-            // Rollover
-            for (uint16_t i = usart1_rx_prev_pos; i < USART1_RX_DMA_BUF_LEN; ++i) {
-                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-            }
-            for (uint16_t i = 0; i < curr_pos; ++i) {
-                uner_push_byte(&uner_parser, usart1_rx_dma_buf[i]);
-            }
-        }
-
+    if (curr_pos != usart1_rx_prev_pos) {
         usart1_rx_prev_pos = curr_pos;
-
-        // Luego parseamos todo lo nuevo
-        uner_parse(&uner_parser);
+        usart1_feed_pending = 1;
+        UNER_App_NotifyUart1Rx();
     }
 }
 
@@ -418,89 +208,68 @@ int main(void)
   MX_DMA_Init();
   MX_TIM3_Init();
   MX_ADC1_Init();
-  MX_USB_DEVICE_Init();
   MX_USART1_UART_Init();
   MX_I2C1_Init();
   MX_TIM2_Init();
   MX_SPI2_Init();
   MX_TIM4_Init();
+  MX_USB_PCD_Init();
   /* USER CODE BEGIN 2 */
 	 HAL_StatusTypeDef result;
-	 initUNERProtocol();
+	 UNER_App_Init();
 	 initTCRTLib();
 	 InitMotorTask();
-	 I2C_Manager_Init(&hi2c1, &i2c_busy_flag);
+	 I2C_Manager_Init(&i2cManager, &hi2c1, 0);
+	 __NOP(); // BREAKPOINT: I2C Manager inicializado
 	 /*I2C_Manager_ScanBus();*/
-	 if (I2C_Manager_IsAddressReady(I2C_ADDR_MPU) == HAL_OK) {
-	     HAL_StatusTypeDef res = I2C_Manager_RegisterDevice(
-	         DEVICE_ID_MPU,
-	         I2C_ADDR_MPU,
-	         MPU_DMA_Complete_I2CManager,
-	         MPU_GrantAccessCallback_I2CManager,
-	         1
-	     );
-	     if (res == HAL_OK) {
-	         MPU6050_Init(
+	 if (I2C_Manager_IsAddressReady(&i2cManager, I2C_ADDR_MPU) == HAL_OK) {
+	     if (MPU6050_Init(
 	             &mpuTask,
-	             DEVICE_ID_MPU,
 	             I2C_ADDR_MPU,
 	             &hi2c1,
-	             &i2c_busy_flag,
 	             MPU_Data_Ready,                  // callback usuario
-	             MPU_RequestBusUse_I2CManager,
-	             MPU_ReleaseBusUse_I2CManager,
 	             &mpu_trigger
+	         ) == HAL_OK) {
+	         HAL_StatusTypeDef res = MPU6050_BindI2CManager(
+	             &mpuTask,
+	             &i2cManager,
+	             DEVICE_ID_MPU,
+	             1
 	         );
-	         MPU6050_Configure(&mpuTask);
-	         MPU6050_CalibrateGyro(&mpuTask, 250);
-	         SET_FLAG(systemFlags, MPU_GET_DATA);
-		 } else {
-			  // Falló al registrar (posiblemente sin espacio en la tabla)
-
-		 }
-	 }else {
-		  // El OLED no respondió en el bus
-
-	 }
-	 if (I2C_Manager_IsAddressReady(I2C_ADDR_OLED) == HAL_OK) {
-		  result = I2C_Manager_RegisterDevice(
-			  DEVICE_ID_OLED,
-			  I2C_ADDR_OLED,
-			  OLED_DMA_Complete_I2CManager,
-			  OLED_GrantAccess_I2CManager,
-			  1
-		  );
-		  if (result == HAL_OK) {
-			  // Éxito: El OLED está presente y fue registrado
-			  OLED_Init(&oledTask,
-					   &hi2c1,
-					   I2C_ADDR_OLED,
-					   &i2c_busy_flag,    // ← pasa la bandera DMA
-					   OLED_RequestBusUse_I2CManager,
-					   OLED_ReleaseBusUse_I2CManager,
-					   OLED_Is_Ready,
-					   NULL);
-				if (oledTask.requestBusCb) {
-					oledTask.requestBusCb(I2C_REQ_IS_TX);
-					__NOP();
-				}
-			  oledTime = OLED_ACTIVE_TIME;
-		  } else {
-			  // Falló al registrar (posiblemente sin espacio en la tabla)
-
-		  }
+	         if (res == HAL_OK) {
+	             MPU6050_Configure(&mpuTask);
+	             MPU6050_CalibrateGyro(&mpuTask, 250);
+	             SET_FLAG(systemFlags, MPU_GET_DATA);
+	         } else {
+	             // Falló al registrar (posiblemente sin espacio en la tabla)
+	         }
+	     }
 	 } else {
-		  // El OLED no respondió en el bus
+	     // El MPU no respondió en el bus
+	 }
+	 if (I2C_Manager_IsAddressReady(&i2cManager, I2C_ADDR_OLED) == HAL_OK) {
+	     __NOP(); // BREAKPOINT: I2C detectó el OLED
+	     result = ssd1306_BindI2CManager(&i2cManager, DEVICE_ID_OLED);
 
-		  __NOP();
+	     if (result == HAL_OK) {
+	         __NOP(); // BREAKPOINT: OLED registrado en I2C Manager
+	         if (ssd1306_Init()) {
+	             __NOP(); // BREAKPOINT: OLED inicializado
+	             OLED_Is_Ready();
+	             __NOP(); // BREAKPOINT: OLED marcado como listo
+	         }
+	     } else {
+	         // Falló al registrar
+	     }
+	 } else {
+	     // El OLED no respondió
 	 }
 	 HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
 	 HAL_TIM_Base_Start_IT(&htim3);
-	 //Solo llamo initCarMode() una vez, antes del while
-	 if (!IS_FLAG_SET(systemFlags, INIT_CAR)) {
-		  initCarMode();
-		  initMenuSystemTask();
-	 }
+	 initCarMode();
+	 initMenuSystemTask();
+	 //Aca debemos poner la inicializacion de la ESP
+	 SET_FLAG(systemFlags2, ESP_PRESENT);
 
   //Solo llamo initCarMode() una vez, antes del while
   /* USER CODE END 2 */
@@ -508,18 +277,16 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
-		USART1_Update();
+		UNER_App_Poll();
 		TCRT_MainTask();
 		i2cManager_MainTask();
-		if(IS_FLAG_SET(systemFlags, INIT_CAR)){ //Inicializado completamente
-			UserBtn_MainTask(&btnUser);
-			Encoder_MainTask(&encoder);
-		}
+		UserBtn_MainTask(&btnUser);
+		Encoder_MainTask(&encoder);
 		OLED_MainTask();
 		MPU_MainTask();
 		Motor_MainTask();
 		// Si quieres saber cuántos sobrepasos de 1 s hubo (0..9):
-		//uint8_t num_overflows = NIBBLEH_GET_STATE(btnUser.flags);
+		//uint8_t num_overflows = NIBBLEH_GET_STATE(btnUser.state.flags);
 
     /* USER CODE END WHILE */
 
@@ -955,6 +722,37 @@ static void MX_USART1_UART_Init(void)
 }
 
 /**
+  * @brief USB Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USB_PCD_Init(void)
+{
+
+  /* USER CODE BEGIN USB_Init 0 */
+
+  /* USER CODE END USB_Init 0 */
+
+  /* USER CODE BEGIN USB_Init 1 */
+
+  /* USER CODE END USB_Init 1 */
+  hpcd_USB_FS.Instance = USB;
+  hpcd_USB_FS.Init.dev_endpoints = 8;
+  hpcd_USB_FS.Init.speed = PCD_SPEED_FULL;
+  hpcd_USB_FS.Init.low_power_enable = DISABLE;
+  hpcd_USB_FS.Init.lpm_enable = DISABLE;
+  hpcd_USB_FS.Init.battery_charging_enable = DISABLE;
+  if (HAL_PCD_Init(&hpcd_USB_FS) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USB_Init 2 */
+
+  /* USER CODE END USB_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -1060,23 +858,26 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 
-UNERProtocolStatus uart1_send_bytes(const uint8_t *data, uint16_t len) {
-    if (!data || len == 0) return UNER_ERR_NULL_PTR;
+HAL_StatusTypeDef uart1_send_bytes(const uint8_t *data, uint16_t len) {
+    if (!data || len == 0) {
+        return HAL_ERROR;
+    }
 
-    return (HAL_UART_Transmit_DMA(&huart1, (uint8_t *)data, len) == HAL_OK)
-           ? UNER_OK : UNER_ERR_TX_FAIL;
-}
+    if (usart1_tx_busy) {
+        return HAL_BUSY;
+    }
 
-void initUNERProtocol(void) {
-    uner_init(&uner_parser);
-    uner_parser.send_bytes = uart1_send_bytes;
-    // uner_parser.onPacketReady = my_on_packet_ready_handler;
-    HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
+    usart1_tx_busy = 1;
+    if (HAL_UART_Transmit_DMA(&huart1, (uint8_t *)data, len) != HAL_OK) {
+        usart1_tx_busy = 0;
+        return HAL_ERROR;
+    }
+
+    return HAL_OK;
 }
 
 void initCarMode(){
-	NIBBLEH_SET_STATE(systemFlags, IDLE_MODE);
-	carMode = GET_CAR_MODE();
+	SET_CAR_MODE(IDLE_MODE);
 	ledStatus.gpio_port = LED_GPIO_Port;
 	ledStatus.gpio_pin = LED_Pin;
 	ledStatus.flags.byte = 0;
@@ -1085,10 +886,7 @@ void initCarMode(){
 	ledStatus.offTime = LED_IDLE_OFFTIME;
 	SET_FLAG(ledStatus.flags, LED_FLAG_ACTIVE_LOW);  // Si el LED es activo en bajo
 	SET_FLAG(systemFlags, INIT_CAR);
-	btnUser.flags.byte = 0;
-	btnUser.counter = 0;
-	btnUser.port = User_BTN_GPIO_Port;
-	btnUser.pin = User_BTN_Pin;
+	UserButton_Init(&btnUser, User_BTN_GPIO_Port, User_BTN_Pin, USER_BUTTON_ACTIVE_HIGH);
 	ENC_Init(&encoder, &htim4, 1, 4, EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
 	SET_FLAG(systemFlags2, OLED_ACTIVE);
@@ -1097,43 +895,61 @@ void initCarMode(){
 	SET_FLAG(systemFlags2, RF_ACTIVE);
 }
 
-void UserBtn_MainTask(ButtonState_t *btnUser) {
-    if (IS_FLAG_SET(btnUser->flags, BTN_USER_SHORT_PRESS)) {
-        CLEAR_FLAG(btnUser->flags, BTN_USER_SHORT_PRESS);
-        ev = UE_SHORT_PRESS;
+void UserBtn_MainTask(UserButton_Handle_t *btnUser) {
+    UserEvent_t local_ev = UE_NONE;
+
+    if (IS_FLAG_SET(btnUser->state.flags, BTN_USER_SHORT_PRESS)) {
+        CLEAR_FLAG(btnUser->state.flags, BTN_USER_SHORT_PRESS);
+        local_ev = UE_SHORT_PRESS;
     }
-    else if (IS_FLAG_SET(btnUser->flags, BTN_USER_LONG_PRESS)) {
-        CLEAR_FLAG(btnUser->flags, BTN_USER_LONG_PRESS);
-        ev = UE_LONG_PRESS;
+    else if (IS_FLAG_SET(btnUser->state.flags, BTN_USER_LONG_PRESS)) {
+        CLEAR_FLAG(btnUser->state.flags, BTN_USER_LONG_PRESS);
+        local_ev = UE_LONG_PRESS;
     }
 
-    if (ev != UE_NONE && menuSystem.userEventManagerFn) {
-        menuSystem.userEventManagerFn(ev);
-        ev = UE_NONE;
-    }
+    UiEventRouter_HandleEvent(local_ev);
 }
 
 void Encoder_MainTask(ENC_Handle_t *encoder) {
+    UserEvent_t local_ev = UE_NONE;
+    int16_t scaled_steps = 0;
+
     // rotación
     if (IS_FLAG_SET(encoder->flags, ENC_FLAG_UPDATED)) {
         CLEAR_FLAG(encoder->flags, ENC_FLAG_UPDATED);
-        ev = (encoder->dir == ENC_DIR_CW ? UE_ROTATE_CW : UE_ROTATE_CCW);
+        local_ev = (encoder->dir == ENC_DIR_CW ? UE_ROTATE_CW : UE_ROTATE_CCW);
+        scaled_steps = ENC_GetScaledSteps(encoder);
     }
     // click encoder
     else if (IS_FLAG_SET(encoder->btnState.flags, ENC_BTN_SHORT_PRESS)) {
         CLEAR_FLAG(encoder->btnState.flags, ENC_BTN_SHORT_PRESS);
-        ev = UE_ENC_SHORT_PRESS;
+        local_ev = UE_ENC_SHORT_PRESS;
     }
     else if (IS_FLAG_SET(encoder->btnState.flags, ENC_BTN_LONG_PRESS)) {
         CLEAR_FLAG(encoder->btnState.flags, ENC_BTN_LONG_PRESS);
-        ev = UE_ENC_LONG_PRESS;
+        local_ev = UE_ENC_LONG_PRESS;
     }
 
-    if (ev != UE_NONE && menuSystem.userEventManagerFn && encoder->allowEncoderInput) {
-        menuSystem.userEventManagerFn(ev);
-        ev = UE_NONE;
-    }else{
-    	ev = UE_NONE;
+    if (local_ev != UE_NONE && encoder->allowEncoderInput) {
+        if (local_ev == UE_ROTATE_CW || local_ev == UE_ROTATE_CCW) {
+            int16_t repeats = 1;
+
+            if (!inside_menu_flag) {
+                repeats = scaled_steps;
+                if (repeats < 0) {
+                    repeats = (int16_t)(-repeats);
+                }
+                if (repeats < 1) {
+                    repeats = 1;
+                }
+            }
+
+            for (int16_t i = 0; i < repeats; i++) {
+                UiEventRouter_HandleEvent(local_ev);
+            }
+        } else {
+            UiEventRouter_HandleEvent(local_ev);
+        }
     }
 }
 
@@ -1366,53 +1182,16 @@ void MPU_MainTask(void) {
 }
 
 void i2cManager_MainTask(){
-	I2C_Manager_Update();
+	I2C_Manager_Tick(&i2cManager);
 }
 
 
 void OLED_MainTask(void) {
     // 0) Esperamos a que el SSD esté listo
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
+    	__NOP();
         return;
     }
-
-    // 1) Cada 10 ms procesamos temporizadores
-    /*
-    if (IS_FLAG_SET(systemFlags, OLED_TENMS_PASSED)) {
-        CLEAR_FLAG(systemFlags, OLED_TENMS_PASSED);
-
-        // 1.a) Overlay con timeout
-        if (oledTask.overlay_active && oledTask.overlay_timeout_active) {
-            if (oledTask.overlay_timer_ms > 10) {
-                oledTask.overlay_timer_ms -= 10;
-            } else {
-                // en lugar de ocultar directo, señalamos hide-now
-                oledTask.overlay_timeout_active = false;
-                oledTask.overlay_hide_now       = true;
-            }
-        }
-
-        // 1.b) Procesar hide-now tan pronto no queden páginas de overlay en vuelo
-        if (oledTask.overlay_active && oledTask.overlay_hide_now && oledTask.ovl_count == 0) {
-            oledTask.overlay_hide_now      = false;
-            // Aquí pasas tu región concreta de overlay a limpiar:
-            OLED_HideOverlayNow(&oledTask);
-        }
-        // si ya no quedaban páginas de overlay, deshabilitamos transfer
-        else if (oledTask.overlay_active && oledTask.ovl_count == 0) {
-            oledTask.allow_overlay_transfer = false;
-        }
-
-        // 1.c) Temporizador de inactividad (lock)
-        if (IS_FLAG_SET(systemFlags2, OLED_ACTIVE)) {
-            if (oledTime > 10) {
-                oledTime -= 10;
-            } else {
-                CLEAR_FLAG(systemFlags2, OLED_ACTIVE);
-                OledUtils_RenderLockState(&oledTask, 1);
-            }
-        }
-    }*/
 
     // 2) Refresco periódico si está permitido
     if (IS_FLAG_SET(systemFlags, OLED_REFRESH) && menuSystem.allowPeriodicRefresh) {
@@ -1424,23 +1203,34 @@ void OLED_MainTask(void) {
     }
 
     // 3) Ejecutar la rutina de render si alguien la pidió
+    bool did_render = false;
     if (menuSystem.renderFlag && menuSystem.renderFn) {
-        menuSystem.renderFlag = false;
-        menuSystem.renderFn();
+        if (ssd1306_UpdateScreenCompleted()) {
+            menuSystem.renderFlag = false;
+            __NOP(); // BREAKPOINT: render de OLED solicitado
+            menuSystem.renderFn();
+            did_render = true;
+        }
     }
 
-    // 4) Avanzar la state-machine no bloqueante de páginas
-    OLED_Update(&oledTask);
+    // 4) Enviar el buffer al display (no bloqueante con DMA/I2C manager)
+    if (did_render) {
+        __NOP(); // BREAKPOINT: inicio de ssd1306_UpdateScreen
+        ssd1306_UpdateScreen();
+    }
 }
 
 void initMenuSystemTask(void) {
+    RenderFunction initialRender = menuSystem.renderFn ? menuSystem.renderFn
+                                                      : OledUtils_RenderDashboard_Wrapper;
     MenuSys_Init(&menuSystem);
     MenuSys_SetCallbacks(&menuSystem,
         OledUtils_Clear_Wrapper,
         OledUtils_DrawItem_Wrapper,
-        NULL,
+        initialRender,
         &inside_menu_flag,
 		OledUtils_RenderDashboard_Wrapper);
+    menuSystem.renderFlag = true;
 }
 
 /* USER CODE END 4 */
@@ -1458,8 +1248,7 @@ void Error_Handler(void)
 	}
   /* USER CODE END Error_Handler_Debug */
 }
-
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
