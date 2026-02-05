@@ -13,10 +13,19 @@ extern "C" {
 
 #define UNER_MAX_TRANSPORTS 4u
 
+typedef void (*UNER_CommandHandler)(void *ctx, const UNER_Packet *packet);
+
+#define UNER_SPEC_F_ACK   (1u << 0)
+#define UNER_SPEC_F_RESP  (1u << 1)
+#define UNER_SPEC_F_EVT   (1u << 2)
+
 typedef struct {
-    uint8_t cmd;
+    uint8_t id;
     uint8_t min_args;
     uint8_t max_args;
+    uint8_t flags;
+    uint16_t timeout_ms;
+    UNER_CommandHandler handler;
 } UNER_CommandSpec;
 
 typedef void (*UNER_ExecuteCommandFn)(void *ctx, const UNER_Packet *packet);

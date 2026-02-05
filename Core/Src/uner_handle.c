@@ -26,7 +26,7 @@ static uint8_t UNER_Handle_FindCommandSpec(
     }
 
     for (uint8_t i = 0u; i < count; ++i) {
-        if (table[i].cmd == cmd) {
+        if (table[i].id == cmd) {
             *out = table[i];
             return 1u;
         }
@@ -91,7 +91,7 @@ UNER_Status UNER_Handle_RegisterCommands(
     UNER_ExecuteCommandFn execute_command,
     void *execute_ctx)
 {
-    if (!handle || !table || count == 0u || !execute_command) {
+    if (!handle || !table || count == 0u) {
         return UNER_ERR_LEN;
     }
 
@@ -125,7 +125,7 @@ void UNER_Handle_ProcessPending(UNER_Handle *handle)
     UNER_Packet packet;
     while (UNER_Core_Dequeue(&handle->core, &packet)) {
         uint8_t valid_cmd = 0u;
-        UNER_CommandSpec spec = {0u, 0u, 0u};
+        UNER_CommandSpec spec = {0u, 0u, 0u, 0u, 0u, NULL};
 
         if (UNER_Handle_FindCommandSpec(handle->command_table, handle->command_count, packet.cmd, &spec)) {
             if (packet.len >= spec.min_args && packet.len <= spec.max_args) {
@@ -133,12 +133,16 @@ void UNER_Handle_ProcessPending(UNER_Handle *handle)
             }
         }
 
-        if (valid_cmd && handle->execute_command) {
-            handle->execute_command(handle->execute_ctx, &packet);
-        }
+        if (valid_cmd) {
+            if (spec.handler) {
+                spec.handler(handle->execute_ctx, &packet);
+            } else if (handle->execute_command) {
+                handle->execute_command(handle->execute_ctx, &packet);
+            }
 
-        if (valid_cmd && handle->app_on_packet) {
-            handle->app_on_packet(handle->app_on_packet_ctx, &packet);
+            if (handle->app_on_packet) {
+                handle->app_on_packet(handle->app_on_packet_ctx, &packet);
+            }
         }
 
         UNER_Core_ReleasePacket(&handle->core, &packet);
