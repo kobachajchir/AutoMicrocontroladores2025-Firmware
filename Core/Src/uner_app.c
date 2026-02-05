@@ -20,6 +20,7 @@ static UNER_TransportUart1Dma uner_uart1;
 static UNER_Packet uner_slots[UNER_QUEUE_SLOTS];
 static uint8_t uner_payload_pool[UNER_QUEUE_SLOTS * 255u];
 static volatile uint8_t uner_uart1_rx_hint = 0;
+static volatile uint8_t uner_tx_marked = 0;
 
 typedef enum {
     UNER_CMD_SET_MODE_AP = 0x10u,
@@ -142,6 +143,43 @@ static void evt_controller_disconnected_handler(void *ctx, const UNER_Packet *p)
 static void evt_usb_connected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
 static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
 
+
+static const UNER_CommandSpec *UNER_App_FindSpecById(uint8_t cmd)
+{
+    for (uint8_t i = 0u; i < (uint8_t)(sizeof(uner_commands) / sizeof(uner_commands[0])); ++i) {
+        if (uner_commands[i].id == cmd) {
+            return &uner_commands[i];
+        }
+    }
+    return NULL;
+}
+
+UNER_Status UNER_App_SendCommand(uint8_t cmd, const uint8_t *payload, uint8_t len)
+{
+    const UNER_CommandSpec *spec = UNER_App_FindSpecById(cmd);
+    if (!spec) {
+        return UNER_ERR_LEN;
+    }
+
+    if (len < spec->min_args || len > spec->max_args) {
+        return UNER_ERR_LEN;
+    }
+
+    __NOP();
+
+    uint8_t dst = UNER_NODE_PC_QT;
+    if (spec->flags & UNER_SPEC_F_EVT) {
+        dst = UNER_NODE_BROADCAST;
+    }
+
+    __NOP();
+    uner_tx_marked = 1u;
+    __NOP();
+    __NOP();
+
+    return UNER_Send(&uner_handle, UNER_TR_UART1_ESP, UNER_NODE_MCU, dst, cmd, payload, len);
+}
+
 static void UNER_App_InitConfig(UNER_CoreConfig *cfg)
 {
     cfg->this_node = UNER_NODE_MCU;
@@ -198,6 +236,8 @@ void UNER_App_Poll(void)
 
 void UNER_App_OnUart1TxComplete(void)
 {
+    __NOP();
+    uner_tx_marked = 0u;
     UNER_TransportUart1Dma_OnTxComplete(&uner_uart1);
 }
 

@@ -6,6 +6,7 @@
  */
 
 #include "screenWrappers.h"
+#include "uner_app.h"
 #include "menusystem.h"
 #include "oled_utils.h"
 #include "encoder.h"
@@ -290,6 +291,8 @@ static void OledUtils_ShowESPNotification(RenderFunction renderFn)
 
 void OledUtils_RenderESPCheckConnection_Wrapper(void)
 {
+    __NOP();
+    (void)UNER_App_SendCommand(0x31u, NULL, 0u);
     OledUtils_ShowESPNotification(OledUtils_RenderESPCheckingConnectionNotification);
 }
 
