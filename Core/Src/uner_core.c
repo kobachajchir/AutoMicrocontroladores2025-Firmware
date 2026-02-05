@@ -226,13 +226,14 @@ UNER_Status UNER_Core_PushByte(
         break;
     }
     case UNER_S_CHK: {
-    	__NOP();
+        __NOP();
         if (byte != core->chk_acc) {
             core->chk_fail++;
             __NOP();
             uner_reset_parser(core);
             return UNER_ERR_CHK;
         }
+        __NOP();
 
         uint8_t src = (uint8_t)(core->route >> 4);
         uint8_t dst = (uint8_t)(core->route & 0x0Fu);
@@ -241,6 +242,7 @@ UNER_Status UNER_Core_PushByte(
                 core->ok_frames++;
             }
         }
+        __NOP();
 
         uner_reset_parser(core);
         break;
