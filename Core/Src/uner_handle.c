@@ -1,6 +1,7 @@
 /*
  * uner_handle.c - UNER v2 manager
  */
+#include "stm32f1xx_hal.h"
 #include "uner_handle.h"
 #include <string.h>
 

@@ -7,9 +7,9 @@
 ../Core/Src/menusystem.c:88:6:MenuSys_SetCallbacks	2
 ../Core/Src/menusystem.c:109:6:MenuSys_MoveCursorUp	7
 ../Core/Src/menusystem.c:131:6:MenuSys_MoveCursorDown	8
-../Core/Src/menusystem.c:158:6:MenuSys_OpenSubMenu	6
+../Core/Src/menusystem.c:158:6:MenuSys_OpenSubMenu	5
 ../Core/Src/menusystem.c:174:6:MenuSys_ResetMenu	3
 ../Core/Src/menusystem.c:209:6:MenuSys_NavigateToMain	1
 ../Core/Src/menusystem.c:216:6:MenuSys_RenderMenu	12
 ../Core/Src/menusystem.c:188:6:MenuSys_NavigateBack	5
-../Core/Src/menusystem.c:260:6:MenuSys_HandleClick	9
+../Core/Src/menusystem.c:260:6:MenuSys_HandleClick	12

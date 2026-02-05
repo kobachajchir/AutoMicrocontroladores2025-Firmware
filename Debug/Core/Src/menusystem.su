@@ -12,4 +12,4 @@
 ../Core/Src/menusystem.c:209:6:MenuSys_NavigateToMain	0	static
 ../Core/Src/menusystem.c:216:6:MenuSys_RenderMenu	24	static
 ../Core/Src/menusystem.c:188:6:MenuSys_NavigateBack	16	static
-../Core/Src/menusystem.c:260:6:MenuSys_HandleClick	16	static
+../Core/Src/menusystem.c:260:6:MenuSys_HandleClick	24	static

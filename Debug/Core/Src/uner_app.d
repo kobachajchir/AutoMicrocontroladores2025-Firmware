@@ -1,7 +1,7 @@
 Core/Src/uner_app.o: ../Core/Src/uner_app.c ../Core/Inc/uner_app.h \
- ../Core/Inc/globals.h ../Core/Inc/user_button.h \
- ../Core/Inc/types/button_state.h ../Core/Inc/types/bitmap_type.h \
- ../Core/Inc/utils/macros_utils.h \
+ ../Core/Inc/uner_core.h ../Core/Inc/uner_v2.h ../Core/Inc/globals.h \
+ ../Core/Inc/user_button.h ../Core/Inc/types/button_state.h \
+ ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
  ../Core/Inc/utils/../types/bitmap_type.h \
  ../Core/Inc/utils/../types/carmode_type.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.6/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h \
@@ -43,10 +43,12 @@ Core/Src/uner_app.o: ../Core/Src/uner_app.c ../Core/Inc/uner_app.h \
  ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
  ../Core/Inc/menusystem.h ../Core/Inc/types/userEvent_type.h \
  ../Core/Inc/oled_handle.h ../Core/Inc/mpu6050.h ../Core/Inc/uner_core.h \
- ../Core/Inc/uner_v2.h ../Core/Inc/uner_handle.h \
- ../Core/Inc/uner_transport.h ../Core/Inc/uner_core.h \
- ../Core/Inc/uner_transport_uart1_dma.h ../Core/Inc/uner_v2.h
+ ../Core/Inc/uner_handle.h ../Core/Inc/uner_transport.h \
+ ../Core/Inc/uner_transport_uart1_dma.h ../Core/Inc/uner_v2.h \
+ ../Core/Inc/oled_utils.h
 ../Core/Inc/uner_app.h:
+../Core/Inc/uner_core.h:
+../Core/Inc/uner_v2.h:
 ../Core/Inc/globals.h:
 ../Core/Inc/user_button.h:
 ../Core/Inc/types/button_state.h:
@@ -100,9 +102,8 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/Fi
 ../Core/Inc/oled_handle.h:
 ../Core/Inc/mpu6050.h:
 ../Core/Inc/uner_core.h:
-../Core/Inc/uner_v2.h:
 ../Core/Inc/uner_handle.h:
 ../Core/Inc/uner_transport.h:
-../Core/Inc/uner_core.h:
 ../Core/Inc/uner_transport_uart1_dma.h:
 ../Core/Inc/uner_v2.h:
+../Core/Inc/oled_utils.h:

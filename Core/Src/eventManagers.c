@@ -4,7 +4,7 @@
  *  Created on: Jul 23, 2025
  *      Author: kobac
  */
-
+#include "uner_app.h"
 #include "eventManagers.h"
 #include "screenWrappers.h"
 #include "oled_utils.h"

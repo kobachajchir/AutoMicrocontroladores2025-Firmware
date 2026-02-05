@@ -1,4 +1,5 @@
 Core/Src/eventManagers.o: ../Core/Src/eventManagers.c \
+ ../Core/Inc/uner_app.h ../Core/Inc/uner_core.h ../Core/Inc/uner_v2.h \
  ../Core/Inc/eventManagers.h ../Core/Inc/types/userEvent_type.h \
  ../Core/Inc/screenWrappers.h ../Core/Inc/globals.h \
  ../Core/Inc/user_button.h ../Core/Inc/types/button_state.h \
@@ -44,6 +45,9 @@ Core/Src/eventManagers.o: ../Core/Src/eventManagers.c \
  ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
  ../Core/Inc/menusystem.h ../Core/Inc/oled_handle.h ../Core/Inc/mpu6050.h \
  ../Core/Inc/oled_utils.h ../Core/Inc/globals.h
+../Core/Inc/uner_app.h:
+../Core/Inc/uner_core.h:
+../Core/Inc/uner_v2.h:
 ../Core/Inc/eventManagers.h:
 ../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/screenWrappers.h:
