@@ -261,8 +261,20 @@ void MenuSys_HandleClick(MenuSystem *ms) {
     if (!ms || !ms->currentMenu) return;
 
     SubMenu  *m   = ms->currentMenu;
-    uint8_t    idx = m->currentItemIndex;
+    int8_t    idx = m->currentItemIndex;
     if (idx >= m->itemCount) return;
+
+    if (!MenuSys_IsItemVisible(&m->items[idx])) {
+        int8_t nextVisible = MenuSys_FindFirstVisibleIndexFrom(m, idx);
+        if (nextVisible < 0) {
+            nextVisible = MenuSys_FindLastVisibleIndexBefore(m, idx);
+        }
+        if (nextVisible < 0) {
+            return;
+        }
+        m->currentItemIndex = nextVisible;
+        idx = nextVisible;
+    }
 
     MenuItem *it = &m->items[idx];
 
@@ -278,6 +290,8 @@ void MenuSys_HandleClick(MenuSystem *ms) {
     if (it->screenRenderFn) {
         // pantalla “terminal” asociada al ítem
         ms->renderFn = it->screenRenderFn;
+        m->lastSelectedItemIndex = -1;
+        m->lastVisibleItem = -1;
     }
 
     // 3) Asignar callbacks del manager si aplica
@@ -289,4 +303,3 @@ void MenuSys_HandleClick(MenuSystem *ms) {
     if (ms->clearScreen) ms->clearScreen();
     ms->renderFlag = true;
 }
-

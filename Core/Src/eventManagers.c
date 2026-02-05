@@ -54,7 +54,7 @@ static void Dashboard_OnShortPress(void)
         // Confirmar el modo
         SET_CAR_MODE(auxCarMode);
         CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
-        menuSystem.renderFn = OledUtils_RenderDashboard;
+        menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
         menuSystem.clearScreen();
         menuSystem.renderFlag = true;
     }
@@ -63,6 +63,7 @@ static void Dashboard_OnShortPress(void)
 
 static void Dashboard_OnUserButton(void)
 {
+    CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
     MenuSys_NavigateToMain(&menuSystem);
     menuSystem.clearScreen();
     menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
@@ -75,6 +76,7 @@ static void Dashboard_OnUserButton(void)
 
 static void Dashboard_OnLongPress(void)
 {
+    CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
     if (menuSystem.dashboardRender) {
         menuSystem.renderFn = menuSystem.dashboardRender;
     }
@@ -350,10 +352,13 @@ static const EventCallbacks_t wifiSearchCallbacks = {
 
 static void ReadOnly_OnShortPress(void)
 {
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 1;
+    }
+    MenuSys_NavigateBack(&menuSystem);
     menuSystem.clearScreen();
-    *menuSystem.insideMenuFlag = 1;
+    menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
     menuSystem.renderFlag = true;
-    menuSystem.renderFn = menuSystem.currentMenu->parent->items[menuSystem.currentMenu->currentItemIndex].screenRenderFn;
     oled_first_draw = true;
 }
 
