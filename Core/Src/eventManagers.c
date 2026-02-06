@@ -127,6 +127,13 @@ static void Menu_OnShortPress(void)
 static void Menu_OnEncLongPress(void)
 {
     MenuSys_NavigateBack(&menuSystem);
+
+    if (menuSystem.insideMenuFlag && *menuSystem.insideMenuFlag) {
+        menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
+        menuSystem.clearScreen();
+        menuSystem.renderFlag = true;
+        oled_first_draw = true;
+    }
 }
 
 static void Menu_OnUserButton(void)
