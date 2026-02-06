@@ -10,6 +10,7 @@
 
 #include "menusystem.h"
 #include "mpu6050.h"
+#include "oled_handle.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -87,10 +88,14 @@ void OledUtils_RenderESPFirmwareRequestNotification(void);
 void OledUtils_RenderESPResetSentNotification(void);
 void OledUtils_RenderESPCheckConnectionRequiredNotification(void);
 void OledUtils_RenderCommandReceivedNotification(void);
+void OledUtils_RenderControllerConnected(void);
+void OledUtils_RenderControllerDisconnected(void);
 void OledUtils_RenderStartupNotification(void);
 
 void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms);
 void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks);
+void OledUtils_ShowNotificationTicks10msEx(RenderFunction renderFn, uint16_t timeout_ticks, OledNotificationHook onShow, OledNotificationHook onHide);
+void OledUtils_ShowNotificationMsEx(RenderFunction renderFn, uint16_t timeout_ms, OledNotificationHook onShow, OledNotificationHook onHide);
 void OledUtils_DismissNotification(void);
 void OledUtils_NotificationTick10ms(void);
 

@@ -12,6 +12,16 @@
 #include "encoder.h"
 #include "eventManagers.h"
 
+static void OledUtils_OnHide_SendFirmwareRequest(void)
+{
+    (void)UNER_App_SendCommand(UNER_CMD_ID_REQUEST_FIRMWARE, NULL, 0u);
+}
+
+static void OledUtils_OnHide_SendESPReset(void)
+{
+    (void)UNER_App_SendCommand(UNER_CMD_ID_REBOOT_ESP, NULL, 0u);
+}
+
 static uint8_t MenuSys_VisibleOffset(const SubMenu *menu, int8_t firstVisible, int8_t itemIndex) {
     uint8_t offset = 0;
     if (!menu) return 0;
@@ -41,6 +51,7 @@ void OledUtils_RenderDashboard_Wrapper(void)
     // 1) Deshabilito el refresco periódico
     OledUtils_DisableContinuousRender();
     menuSystem.userEventManagerFn = dashboardEventManager;
+    Dashboard_ResetModeConfirmState();
     __NOP();
     inside_menu_flag = false;
 
@@ -285,7 +296,9 @@ void OledUtils_RenderWiFiSearchResults_Wrapper(void)
     }
 }
 
-static void OledUtils_ShowESPNotification(RenderFunction renderFn)
+static void OledUtils_ShowESPNotification(RenderFunction renderFn,
+                                          OledNotificationHook onShow,
+                                          OledNotificationHook onHide)
 {
     OledUtils_DisableContinuousRender();
     encoder.allowEncoderInput = false;
@@ -294,7 +307,7 @@ static void OledUtils_ShowESPNotification(RenderFunction renderFn)
     if (!oled_first_draw) {
         menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
         oled_first_draw = true;
-        OledUtils_ShowNotificationMs(renderFn, 2000);
+        OledUtils_ShowNotificationMsEx(renderFn, 2000u, onShow, onHide);
     }
 }
 
@@ -302,37 +315,35 @@ void OledUtils_RenderESPCheckConnection_Wrapper(void)
 {
     __NOP();
     (void)UNER_App_SendCommand(UNER_CMD_ID_PING, NULL, 0u);
-    OledUtils_ShowESPNotification(OledUtils_RenderESPCheckingConnectionNotification);
+    OledUtils_ShowESPNotification(OledUtils_RenderESPCheckingConnectionNotification, NULL, NULL);
 }
 
 void OledUtils_RenderESPFirmwareRequest_Wrapper(void)
 {
     RenderFunction notificationFn = OledUtils_RenderESPCheckConnectionRequiredNotification;
+    OledNotificationHook onHideHook = NULL;
 
-    __NOP();
-    (void)UNER_App_SendCommand(UNER_CMD_ID_REQUEST_FIRMWARE, NULL, 0u);
-
-    if (!IS_FLAG_SET(systemFlags3, ESP_PRESENT)) {
-        notificationFn = OledUtils_RenderESPFirmwareRequestNotification; //Invertir bandera borrando !
+    if (IS_FLAG_SET(systemFlags2, ESP_PRESENT)) {
+        notificationFn = OledUtils_RenderESPFirmwareRequestNotification;
         menuSystem.userEventManagerFn = ClickCancelar_UserEventManager;
+        onHideHook = OledUtils_OnHide_SendFirmwareRequest;
     }
 
-    OledUtils_ShowESPNotification(notificationFn);
+    OledUtils_ShowESPNotification(notificationFn, NULL, onHideHook);
 }
 
 void OledUtils_RenderESPResetSent_Wrapper(void)
 {
     RenderFunction notificationFn = OledUtils_RenderESPCheckConnectionRequiredNotification;
+    OledNotificationHook onHideHook = NULL;
 
-    __NOP();
-    (void)UNER_App_SendCommand(UNER_CMD_ID_REBOOT_ESP, NULL, 0u);
-
-    if (!IS_FLAG_SET(systemFlags3, ESP_PRESENT)) {
-        notificationFn = OledUtils_RenderESPResetSentNotification; //Invertir bandera borrando !
+    if (IS_FLAG_SET(systemFlags2, ESP_PRESENT)) {
+        notificationFn = OledUtils_RenderESPResetSentNotification;
         menuSystem.userEventManagerFn = ClickCancelar_UserEventManager;
+        onHideHook = OledUtils_OnHide_SendESPReset;
     }
 
-    OledUtils_ShowESPNotification(notificationFn);
+    OledUtils_ShowESPNotification(notificationFn, NULL, onHideHook);
 }
 
 void onRenderComplete(void) {

@@ -14,6 +14,8 @@
 // CALLBACKS PARA DASHBOARD (CAMBIO DE MODO)
 // ============================================================================
 
+static bool dashboardModeCanConfirm = false;
+
 static void Dashboard_OnRotateCW(void)
 {
     if (!IS_FLAG_SET(systemFlags2, MODIFYING_CARMODE)) {
@@ -28,6 +30,7 @@ static void Dashboard_OnRotateCW(void)
         auxCarMode = NEXT_CAR_MODE();
         menuSystem.renderFn = OledUtils_RenderModeChange_ModeOnly;
     }
+    dashboardModeCanConfirm = true;
     menuSystem.renderFlag = true;
 }
 
@@ -45,15 +48,17 @@ static void Dashboard_OnRotateCCW(void)
         auxCarMode = PREV_CAR_MODE();
         menuSystem.renderFn = OledUtils_RenderModeChange_ModeOnly;
     }
+    dashboardModeCanConfirm = true;
     menuSystem.renderFlag = true;
 }
 
 static void Dashboard_OnShortPress(void)
 {
-    if (IS_FLAG_SET(systemFlags2, MODIFYING_CARMODE)) {
+    if (dashboardModeCanConfirm && IS_FLAG_SET(systemFlags2, MODIFYING_CARMODE)) {
         // Confirmar el modo
         SET_CAR_MODE(auxCarMode);
         CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
+        dashboardModeCanConfirm = false;
         menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
         menuSystem.clearScreen();
         menuSystem.renderFlag = true;
@@ -63,6 +68,7 @@ static void Dashboard_OnShortPress(void)
 
 static void Dashboard_OnUserButton(void)
 {
+    dashboardModeCanConfirm = false;
     CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
     MenuSys_NavigateToMain(&menuSystem);
     menuSystem.clearScreen();
@@ -76,6 +82,7 @@ static void Dashboard_OnUserButton(void)
 
 static void Dashboard_OnLongPress(void)
 {
+    dashboardModeCanConfirm = false;
     CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
     if (menuSystem.dashboardRender) {
         menuSystem.renderFn = menuSystem.dashboardRender;
@@ -460,6 +467,12 @@ void GenericEventManager(UserEvent_t ev, const EventCallbacks_t *callbacks)
         default:
             break;
     }
+}
+
+void Dashboard_ResetModeConfirmState(void)
+{
+    dashboardModeCanConfirm = false;
+    CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
 }
 
 // ============================================================================
