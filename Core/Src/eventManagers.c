@@ -469,6 +469,12 @@ void GenericEventManager(UserEvent_t ev, const EventCallbacks_t *callbacks)
     }
 }
 
+void Dashboard_ResetModeConfirmState(void)
+{
+    dashboardModeCanConfirm = false;
+    CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
+}
+
 // ============================================================================
 // FUNCIONES PÚBLICAS DE EVENT MANAGERS
 // ============================================================================

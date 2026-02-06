@@ -138,6 +138,13 @@ static void OledUtils_RenderNotificationProgress(const OledNotificationState *no
     ssd1306_DrawHorizontalLine(0, 0, (int16_t)width);
 }
 
+static void OledUtils_ExecuteNotificationHook(OledNotificationHook hook)
+{
+    if (hook) {
+        hook();
+    }
+}
+
 void OledUtils_RenderNotification_Wrapper(void)
 {
     OledNotificationState *notif = &oledHandle.notification;
@@ -154,6 +161,8 @@ void OledUtils_NotificationRestore(void)
 {
     OledNotificationState *notif = &oledHandle.notification;
 
+    OledUtils_ExecuteNotificationHook(notif->onHide);
+
     if (notif->suspended.valid) {
         if (menuSystem.clearScreen) {
             menuSystem.clearScreen();
@@ -163,6 +172,8 @@ void OledUtils_NotificationRestore(void)
         notif->timeoutTicks = notif->suspended.remainingTicks;
         notif->totalTicks = notif->suspended.remainingTicks;
         notif->needsFullRender = true;
+        notif->onShow = notif->suspended.onShow;
+        notif->onHide = notif->suspended.onHide;
         notif->suspended.valid = false;
 
         menuSystem.renderFn = OledUtils_RenderNotification_Wrapper;
@@ -176,6 +187,8 @@ void OledUtils_NotificationRestore(void)
     notif->timeoutTicks = 0;
     notif->totalTicks = 0;
     notif->needsFullRender = false;
+    notif->onShow = NULL;
+    notif->onHide = NULL;
 
     menuSystem.renderFn = notif->previousRenderFn;
     menuSystem.allowPeriodicRefresh = notif->previousAllowPeriodicRefresh;
@@ -185,7 +198,10 @@ void OledUtils_NotificationRestore(void)
     menuSystem.renderFlag = true;
 }
 
-void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks)
+void OledUtils_ShowNotificationTicks10msEx(RenderFunction renderFn,
+                                          uint16_t timeout_ticks,
+                                          OledNotificationHook onShow,
+                                          OledNotificationHook onHide)
 {
     OledNotificationState *notif = &oledHandle.notification;
 
@@ -201,6 +217,8 @@ void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeo
         notif->suspended.valid = true;
         notif->suspended.renderFn = notif->renderFn;
         notif->suspended.remainingTicks = notif->timeoutTicks;
+        notif->suspended.onShow = notif->onShow;
+        notif->suspended.onHide = notif->onHide;
     } else {
         notif->previousRenderFn = menuSystem.renderFn;
         notif->previousAllowPeriodicRefresh = menuSystem.allowPeriodicRefresh;
@@ -212,16 +230,33 @@ void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeo
     notif->timeoutTicks = timeout_ticks;
     notif->totalTicks = timeout_ticks;
     notif->needsFullRender = true;
+    notif->onShow = onShow;
+    notif->onHide = onHide;
+
+    OledUtils_ExecuteNotificationHook(notif->onShow);
 
     menuSystem.renderFn = OledUtils_RenderNotification_Wrapper;
     menuSystem.allowPeriodicRefresh = false;
     menuSystem.renderFlag = true;
 }
 
-void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms)
+void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks)
+{
+    OledUtils_ShowNotificationTicks10msEx(renderFn, timeout_ticks, NULL, NULL);
+}
+
+void OledUtils_ShowNotificationMsEx(RenderFunction renderFn,
+                                    uint16_t timeout_ms,
+                                    OledNotificationHook onShow,
+                                    OledNotificationHook onHide)
 {
     uint16_t ticks = (uint16_t)((timeout_ms + 9U) / 10U);
-    OledUtils_ShowNotificationTicks10ms(renderFn, ticks);
+    OledUtils_ShowNotificationTicks10msEx(renderFn, ticks, onShow, onHide);
+}
+
+void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms)
+{
+    OledUtils_ShowNotificationMsEx(renderFn, timeout_ms, NULL, NULL);
 }
 
 void OledUtils_DismissNotification(void)
@@ -1267,14 +1302,14 @@ void OledUtils_RenderControllerConnected(void)
     ssd1306_Clear();
     ssd1306_SetColor(White);
 
-    Oled_DrawXBM(46, 3, 37, 27, Icon_Controller_bits);
+    Oled_DrawXBM(46, 4, 37, 27, Icon_Controller_bits);
 
     Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(34, 43 - fh_grande);
+    ssd1306_SetCursor(28, 48 - fh_grande);
     Oled_DrawStr("Control");
 
-    ssd1306_SetCursor(26, 57 - fh_grande);
+    ssd1306_SetCursor(16, 63 - fh_grande);
     Oled_DrawStr("conectado");
 }
 
@@ -1285,10 +1320,10 @@ void OledUtils_RenderControllerDisconnected(void)
 
     Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(34, 43 - fh_grande);
+    ssd1306_SetCursor(28, 48 - fh_grande);
     Oled_DrawStr("Control");
 
-    ssd1306_SetCursor(14, 57 - fh_grande);
+    ssd1306_SetCursor(16, 63 - fh_grande);
     Oled_DrawStr("desconectado");
 
     ssd1306_DrawLine(46, 2, 84, 30);
@@ -1296,7 +1331,7 @@ void OledUtils_RenderControllerDisconnected(void)
     ssd1306_DrawLine(47, 1, 85, 29);
 
     ssd1306_SetColor(Inverse);
-    Oled_DrawXBM(46, 3, 37, 27, Icon_Controller_bits);
+    Oled_DrawXBM(46, 4, 37, 27, Icon_Controller_bits);
     ssd1306_SetColor(White);
 }
 

@@ -12,12 +12,16 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef void (*OledNotificationHook)(void);
+
 typedef struct OledNotificationState {
 	bool active;
 	RenderFunction renderFn;
 	uint16_t timeoutTicks;
 	uint16_t totalTicks;
 	bool needsFullRender;
+	OledNotificationHook onShow;
+	OledNotificationHook onHide;
 	RenderFunction previousRenderFn;
 	bool previousAllowPeriodicRefresh;
 	bool previousRenderFlag;
@@ -25,6 +29,8 @@ typedef struct OledNotificationState {
 		bool valid;
 		RenderFunction renderFn;
 		uint16_t remainingTicks;
+		OledNotificationHook onShow;
+		OledNotificationHook onHide;
 	} suspended;
 } OledNotificationState;
 

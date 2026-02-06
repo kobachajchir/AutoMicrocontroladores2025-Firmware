@@ -32,6 +32,7 @@ void ReadOnly_UserEventManager(UserEvent_t ev);
 void NotificationDismiss_OnShortPress(void);
 void NotificationDismiss_OnLongPress(void);
 void ClickCancelar_UserEventManager(UserEvent_t ev);
+void Dashboard_ResetModeConfirmState(void);
 
 // Legacy (por compatibilidad)
 void ItemEventManager(UserEvent_t ev, RenderWrapperFn wrapper);
