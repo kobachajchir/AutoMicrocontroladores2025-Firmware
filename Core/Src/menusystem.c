@@ -161,15 +161,23 @@ void MenuSys_OpenSubMenu(MenuSystem *ms, SubMenu *submenu) {
     if (ms->insideMenuFlag) {
         *(ms->insideMenuFlag) = true;
     }
-    ms->currentMenu            = submenu;
+
+    SubMenu *previousMenu = ms->currentMenu;
+    if (previousMenu) {
+        previousMenu->lastSelectedItemIndex = previousMenu->currentItemIndex;
+    }
+
+    ms->currentMenu             = submenu;
     encoder_fast_scroll_enabled = 0;
+
     int8_t firstVisible = MenuSys_FindFirstVisibleIndexFrom(submenu, 0);
     if (firstVisible < 0) return;
-    submenu->currentItemIndex  = firstVisible;
-    submenu->firstVisibleItem  = firstVisible;
-    submenu->lastSelectedItemIndex = -1; //Asi renderiza todo nuevamente
-    submenu->lastVisibleItem = -1; //Asi renderiza todo nuevamente
-    ms->renderFlag             = true;
+
+    submenu->currentItemIndex      = firstVisible;
+    submenu->firstVisibleItem      = firstVisible;
+    submenu->lastSelectedItemIndex = -1; // Así renderiza todo nuevamente
+    submenu->lastVisibleItem       = -1; // Así renderiza todo nuevamente
+    ms->renderFlag                 = true;
 }
 
 void MenuSys_ResetMenu(MenuSystem *ms) {
@@ -192,47 +200,25 @@ void MenuSys_NavigateBack(MenuSystem *ms) {
 
     encoder_fast_scroll_enabled = 0;
 
-    SubMenu *parent = ms->currentMenu->parent;
+    SubMenu *current = ms->currentMenu;
+    SubMenu *parent  = current->parent;
     if (parent) {
-        ms->currentMenu = parent;
-
-        if (!MenuSys_IsItemVisible(&parent->items[parent->currentItemIndex])) {
-            int8_t nextVisible = MenuSys_FindFirstVisibleIndexFrom(parent, parent->currentItemIndex);
-            if (nextVisible < 0) {
-                nextVisible = MenuSys_FindLastVisibleIndexBefore(parent, parent->currentItemIndex);
-            }
-            if (nextVisible >= 0) {
-                parent->currentItemIndex = nextVisible;
-            }
+        int8_t parentIndex = parent->lastSelectedItemIndex;
+        if (parentIndex < 0 || parentIndex >= parent->itemCount ||
+            !MenuSys_IsItemVisible(&parent->items[parentIndex])) {
+            parentIndex = MenuSys_FindFirstVisibleIndexFrom(parent, 0);
         }
 
-        int8_t firstVisible = parent->firstVisibleItem;
-        if (firstVisible < 0 || firstVisible >= parent->itemCount ||
-            !MenuSys_IsItemVisible(&parent->items[firstVisible])) {
-            firstVisible = MenuSys_FindFirstVisibleIndexFrom(parent, 0);
-        }
-
-        while (firstVisible >= 0 && parent->currentItemIndex < firstVisible) {
-            int8_t prevFirst = MenuSys_FindLastVisibleIndexBefore(parent, firstVisible - 1);
-            if (prevFirst < 0) break;
-            firstVisible = prevFirst;
-        }
-
-        int8_t lastVisible = MenuSys_ComputeLastVisibleIndex(parent, firstVisible);
-        while (firstVisible >= 0 && lastVisible >= 0 && parent->currentItemIndex > lastVisible) {
-            int8_t nextFirst = MenuSys_FindFirstVisibleIndexFrom(parent, firstVisible + 1);
-            if (nextFirst < 0) break;
-            firstVisible = nextFirst;
-            lastVisible = MenuSys_ComputeLastVisibleIndex(parent, firstVisible);
-        }
-
-        if (firstVisible >= 0) {
-            parent->firstVisibleItem = firstVisible;
+        if (parentIndex >= 0) {
+            parent->currentItemIndex = parentIndex;
+            parent->firstVisibleItem = parentIndex;
         }
 
         parent->lastSelectedItemIndex = -1;
-        parent->lastVisibleItem = -1;
-        ms->renderFlag = true;
+        parent->lastVisibleItem       = -1;
+
+        ms->currentMenu = parent;
+        ms->renderFlag  = true;
         return;
     }
 

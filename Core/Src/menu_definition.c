@@ -11,7 +11,7 @@ MenuItem submenuESPItems[] = {
     {"Chk Conexion", NULL, NULL, Icon_Link_bits, OledUtils_RenderESPCheckConnection_Wrapper, menuEventManager},
     {"Firmware",    NULL, NULL, Icon_Info_bits,  OledUtils_RenderESPFirmwareRequest_Wrapper, menuEventManager},
     {"Reset ESP",   NULL, NULL, Icon_Refrescar_bits, OledUtils_RenderESPResetSent_Wrapper, menuEventManager},
-    {"Volver", MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
+    {"Volver", MenuSys_GoBack_Wrapper, NULL, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
 };
 
 SubMenu submenuESP = {
@@ -60,7 +60,7 @@ MenuItem submenu1Items[] = {
     {"Info AP", NULL, NULL, Icon_Info_bits, OledUtils_RenderWiFiConnectionStatus_Wrapper, menuEventManager},
     {"Buscar APs", NULL, NULL, Icon_Refrescar_bits, OledUtils_RenderWiFiSearching_Wrapper, WiFiSearch_UserEventManager},
     {"Conexion ESP", NULL, &submenuESP, Icon_Link_bits, MenuSys_RenderMenu_Wrapper, menuEventManager},
-    {"Volver", MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
+    {"Volver", MenuSys_GoBack_Wrapper, NULL, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
 };
 
 SubMenu submenu1 = {
@@ -79,7 +79,7 @@ MenuItem submenu2Items[] = {
     {"Valores IR", NULL, NULL, Icon_Tool_bits, OledUtils_RenderValoresIR_Wrapper, ReadOnly_UserEventManager},
     {"Valores MPU", NULL, NULL, Icon_Tool_bits, OledUtils_RenderValoresMPU_Wrapper, ReadOnly_UserEventManager},
     {"Test motores", NULL, NULL, Icon_Tool_bits, OledUtils_RenderMotorTest_Wrapper, motorTestEventManager},
-    {"Volver", MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
+    {"Volver", MenuSys_GoBack_Wrapper, NULL, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
 };
 
 SubMenu submenu2 = {
@@ -97,7 +97,7 @@ SubMenu submenu2 = {
 MenuItem submenu3Items[] = {
     {"Preferencias", NULL, NULL, Icon_Prefs_bits, NULL, menuEventManager},
     {"Acerca de", NULL, NULL, Icon_Info_bits, OledUtils_About_Wrapper, About_UserEventManager},
-    {"Volver", MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
+    {"Volver", MenuSys_GoBack_Wrapper, NULL, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager}
 };
 
 SubMenu submenu3 = {
