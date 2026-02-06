@@ -1323,7 +1323,7 @@ void OledUtils_RenderControllerDisconnected(void)
     ssd1306_SetCursor(28, 48 - fh_grande);
     Oled_DrawStr("Control");
 
-    ssd1306_SetCursor(16, 63 - fh_grande);
+    ssd1306_SetCursor(8, 63 - fh_grande);
     Oled_DrawStr("desconectado");
 
     ssd1306_DrawLine(46, 2, 84, 30);
