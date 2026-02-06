@@ -196,42 +196,16 @@ void MenuSys_NavigateBack(MenuSystem *ms) {
     if (parent) {
         ms->currentMenu = parent;
 
-        if (!MenuSys_IsItemVisible(&parent->items[parent->currentItemIndex])) {
-            int8_t nextVisible = MenuSys_FindFirstVisibleIndexFrom(parent, parent->currentItemIndex);
-            if (nextVisible < 0) {
-                nextVisible = MenuSys_FindLastVisibleIndexBefore(parent, parent->currentItemIndex);
-            }
-            if (nextVisible >= 0) {
-                parent->currentItemIndex = nextVisible;
-            }
+        int8_t firstVisible = MenuSys_FindFirstVisibleIndexFrom(parent, 0);
+        if (firstVisible < 0) {
+            return;
         }
 
-        int8_t firstVisible = parent->firstVisibleItem;
-        if (firstVisible < 0 || firstVisible >= parent->itemCount ||
-            !MenuSys_IsItemVisible(&parent->items[firstVisible])) {
-            firstVisible = MenuSys_FindFirstVisibleIndexFrom(parent, 0);
-        }
-
-        while (firstVisible >= 0 && parent->currentItemIndex < firstVisible) {
-            int8_t prevFirst = MenuSys_FindLastVisibleIndexBefore(parent, firstVisible - 1);
-            if (prevFirst < 0) break;
-            firstVisible = prevFirst;
-        }
-
-        int8_t lastVisible = MenuSys_ComputeLastVisibleIndex(parent, firstVisible);
-        while (firstVisible >= 0 && lastVisible >= 0 && parent->currentItemIndex > lastVisible) {
-            int8_t nextFirst = MenuSys_FindFirstVisibleIndexFrom(parent, firstVisible + 1);
-            if (nextFirst < 0) break;
-            firstVisible = nextFirst;
-            lastVisible = MenuSys_ComputeLastVisibleIndex(parent, firstVisible);
-        }
-
-        if (firstVisible >= 0) {
-            parent->firstVisibleItem = firstVisible;
-        }
-
+        parent->currentItemIndex = firstVisible;
+        parent->firstVisibleItem = firstVisible;
         parent->lastSelectedItemIndex = -1;
         parent->lastVisibleItem = -1;
+
         ms->renderFlag = true;
         return;
     }
@@ -304,7 +278,7 @@ void MenuSys_HandleClick(MenuSystem *ms) {
 
     SubMenu  *m   = ms->currentMenu;
     int8_t    idx = m->currentItemIndex;
-    if (idx >= m->itemCount) return;
+    if (idx < 0 || idx >= m->itemCount) return;
 
     if (!MenuSys_IsItemVisible(&m->items[idx])) {
         int8_t nextVisible = MenuSys_FindFirstVisibleIndexFrom(m, idx);
