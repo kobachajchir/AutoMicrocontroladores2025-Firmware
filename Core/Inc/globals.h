@@ -129,6 +129,7 @@ extern volatile uint32_t tcrt_calib_cnt_phase;  // contador de 10 µs para la fa
 extern volatile uint8_t oled10msCounter;
 
 extern volatile uint8_t inside_menu_flag;
+extern volatile uint8_t encoder_fast_scroll_enabled;
 extern volatile uint16_t encoderValue;
 
 extern volatile uint8_t motorSelected; // 0: izquierdo, 1: derecho, 2: ambos

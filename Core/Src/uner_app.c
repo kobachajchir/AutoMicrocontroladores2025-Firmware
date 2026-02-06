@@ -39,6 +39,7 @@ typedef enum {
     UNER_CMD_GET_PREFERENCES = 0x40u,
     UNER_CMD_REQUEST_FIRMWARE = 0x41u,
     UNER_CMD_ECHO = 0x42u,
+    UNER_CMD_SET_ENCODER_FAST = 0x43u,
     UNER_CMD_ACK = 0xE0u,
     UNER_CMD_NACK = 0xE1u,
     UNER_EVT_BOOT = 0x80u,
@@ -94,6 +95,7 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_PING, 0u, 0u, UNER_SPEC_F_RESP, 50u, NULL },
     { UNER_CMD_GET_PREFERENCES, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_REQUEST_FIRMWARE, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
+    { UNER_CMD_SET_ENCODER_FAST, 1u, 1u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_ACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_CMD_NACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_EVT_BOOT, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_boot_handler },
@@ -142,6 +144,10 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
     if (packet->cmd == UNER_CMD_ECHO) {
         OledUtils_ShowNotificationMs(OledUtils_RenderCommandReceivedNotification, 2000u);
         __NOP();
+    }
+
+    if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 1u && packet->payload) {
+        encoder_fast_scroll_enabled = (packet->payload[0] != 0u) ? 1u : 0u;
     }
 }
 

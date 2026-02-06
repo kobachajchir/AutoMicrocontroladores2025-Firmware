@@ -23,6 +23,7 @@ uint8_t UNER_App_GetWaitingCommandId(void);
 #define UNER_CMD_ID_GET_STATUS         0x30u
 #define UNER_CMD_ID_PING               0x31u
 #define UNER_CMD_ID_REQUEST_FIRMWARE   0x41u
+#define UNER_CMD_ID_SET_ENCODER_FAST   0x43u
 
 void UNER_App_OnUart1TxComplete(void);
 void UNER_App_NotifyUart1Rx(void);

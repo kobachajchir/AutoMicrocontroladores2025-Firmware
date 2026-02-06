@@ -162,6 +162,7 @@ void MenuSys_OpenSubMenu(MenuSystem *ms, SubMenu *submenu) {
         *(ms->insideMenuFlag) = true;
     }
     ms->currentMenu            = submenu;
+    encoder_fast_scroll_enabled = 0;
     int8_t firstVisible = MenuSys_FindFirstVisibleIndexFrom(submenu, 0);
     if (firstVisible < 0) return;
     submenu->currentItemIndex  = firstVisible;
@@ -174,6 +175,7 @@ void MenuSys_OpenSubMenu(MenuSystem *ms, SubMenu *submenu) {
 void MenuSys_ResetMenu(MenuSystem *ms) {
 	if (!ms) return;
 	ms->currentMenu            = &mainMenu;
+	encoder_fast_scroll_enabled = 0;
 	int8_t firstVisible = MenuSys_FindFirstVisibleIndexFrom(ms->currentMenu, 0);
 	if (firstVisible < 0) return;
 	ms->currentMenu->currentItemIndex  = firstVisible;
@@ -188,25 +190,65 @@ void MenuSys_ResetMenu(MenuSystem *ms) {
 void MenuSys_NavigateBack(MenuSystem *ms) {
     if (!ms || !ms->currentMenu) return;
 
+    encoder_fast_scroll_enabled = 0;
+
     SubMenu *parent = ms->currentMenu->parent;
     if (parent) {
-        // si hay padre, subimos
-        MenuSys_OpenSubMenu(ms, parent);
-        MenuSys_RenderMenu(ms);
-    }
-    else {
-        // en el Main: vamos al dashboard
-        ms->dashboardRender();
-        // salimos del menú
-        if (ms->insideMenuFlag) *ms->insideMenuFlag = false;
-    }
-}
+        ms->currentMenu = parent;
 
+        if (!MenuSys_IsItemVisible(&parent->items[parent->currentItemIndex])) {
+            int8_t nextVisible = MenuSys_FindFirstVisibleIndexFrom(parent, parent->currentItemIndex);
+            if (nextVisible < 0) {
+                nextVisible = MenuSys_FindLastVisibleIndexBefore(parent, parent->currentItemIndex);
+            }
+            if (nextVisible >= 0) {
+                parent->currentItemIndex = nextVisible;
+            }
+        }
+
+        int8_t firstVisible = parent->firstVisibleItem;
+        if (firstVisible < 0 || firstVisible >= parent->itemCount ||
+            !MenuSys_IsItemVisible(&parent->items[firstVisible])) {
+            firstVisible = MenuSys_FindFirstVisibleIndexFrom(parent, 0);
+        }
+
+        while (firstVisible >= 0 && parent->currentItemIndex < firstVisible) {
+            int8_t prevFirst = MenuSys_FindLastVisibleIndexBefore(parent, firstVisible - 1);
+            if (prevFirst < 0) break;
+            firstVisible = prevFirst;
+        }
+
+        int8_t lastVisible = MenuSys_ComputeLastVisibleIndex(parent, firstVisible);
+        while (firstVisible >= 0 && lastVisible >= 0 && parent->currentItemIndex > lastVisible) {
+            int8_t nextFirst = MenuSys_FindFirstVisibleIndexFrom(parent, firstVisible + 1);
+            if (nextFirst < 0) break;
+            firstVisible = nextFirst;
+            lastVisible = MenuSys_ComputeLastVisibleIndex(parent, firstVisible);
+        }
+
+        if (firstVisible >= 0) {
+            parent->firstVisibleItem = firstVisible;
+        }
+
+        parent->lastSelectedItemIndex = -1;
+        parent->lastVisibleItem = -1;
+        ms->renderFlag = true;
+        return;
+    }
+
+    // en el Main: vamos al dashboard
+    if (ms->dashboardRender) {
+        ms->dashboardRender();
+    }
+    // salimos del menú
+    if (ms->insideMenuFlag) *ms->insideMenuFlag = false;
+}
 
 /**
  * @brief  va directamente al menú principal, levanta renderFlag.
  */
 void MenuSys_NavigateToMain(MenuSystem *ms) {
+    encoder_fast_scroll_enabled = 0;
     MenuSys_OpenSubMenu(ms, &mainMenu);
 }
 

@@ -934,7 +934,7 @@ void Encoder_MainTask(ENC_Handle_t *encoder) {
         if (local_ev == UE_ROTATE_CW || local_ev == UE_ROTATE_CCW) {
             int16_t repeats = 1;
 
-            if (!inside_menu_flag) {
+            if (!inside_menu_flag && encoder_fast_scroll_enabled) {
                 repeats = scaled_steps;
                 if (repeats < 0) {
                     repeats = (int16_t)(-repeats);

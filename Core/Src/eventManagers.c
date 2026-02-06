@@ -71,8 +71,8 @@ static void Dashboard_OnUserButton(void)
     dashboardModeCanConfirm = false;
     CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
     MenuSys_NavigateToMain(&menuSystem);
-    menuSystem.clearScreen();
     menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
+    menuSystem.clearScreen();
     if (menuSystem.insideMenuFlag) {
         *menuSystem.insideMenuFlag = 1;
     }
@@ -178,6 +178,7 @@ static void About_OnShortPress(void)
 {
     CLEAR_FLAG(systemFlags2, SHOWSECONDSCREEN);
     MenuSys_NavigateToMain(&menuSystem);
+    menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
     menuSystem.clearScreen();
     if (menuSystem.insideMenuFlag) {
         *menuSystem.insideMenuFlag = 1;
@@ -545,6 +546,7 @@ void ItemEventManager(UserEvent_t ev, RenderWrapperFn wrapper)
         case UE_ENC_SHORT_PRESS:
             CLEAR_FLAG(systemFlags2, SHOWSECONDSCREEN);
             MenuSys_NavigateToMain(&menuSystem);
+            menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
             menuSystem.clearScreen();
             if (menuSystem.insideMenuFlag) {
                 *menuSystem.insideMenuFlag = 1;

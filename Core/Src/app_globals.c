@@ -31,6 +31,7 @@ volatile uint32_t tcrt_calib_cnt_phase = 0;
 
 /* UI / inputs */
 volatile uint8_t  inside_menu_flag = 0;
+volatile uint8_t  encoder_fast_scroll_enabled = 0;
 volatile uint16_t encoderValue = 0;
 volatile uint8_t  oled10msCounter = 0;
 
