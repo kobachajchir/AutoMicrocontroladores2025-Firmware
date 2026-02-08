@@ -79,6 +79,7 @@ static uint8_t uner_payload_pool[UNER_QUEUE_SLOTS * 255u];
 static volatile uint8_t uner_uart1_rx_hint = 0;
 static volatile uint8_t uner_waiting_validation = 0;
 static volatile uint8_t uner_wait_cmd_id = 0;
+static volatile uint8_t uner_boot_notified = 0u;
 
 static volatile uint32_t uner_cmd_flags_pending = 0u;
 static volatile uint32_t uner_cmd_flags_inflight = 0u;
@@ -250,7 +251,10 @@ void UNER_CmdScheduler_OnTxComplete(void)
 static void UNER_App_OnBootDetected(void)
 {
     SET_FLAG(systemFlags2, ESP_PRESENT);
-    OledUtils_RenderESPBootOk_Wrapper();
+    if (uner_boot_notified == 0u) {
+        uner_boot_notified = 1u;
+        OledUtils_RenderESPBootOk_Wrapper();
+    }
 }
 
 static void UNER_App_HandleFirmwareResponse(const UNER_Packet *packet)
@@ -366,6 +370,11 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         UNER_App_OnBootDetected();
     }
 
+    if (packet->cmd == UNER_CMD_NETWORK_IP || packet->cmd == UNER_EVT_NETWORK_IP) {
+        evt_network_ip_handler(ctx, packet);
+        UNER_App_OnBootDetected();
+    }
+
     if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 2u && packet->payload) {
         encoder_fast_scroll_enabled = (packet->payload[1] != 0u) ? 1u : 0u;
     }
@@ -374,10 +383,16 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         UNER_App_ParseScanResults(packet);
     }
 
-    if ((packet->cmd == UNER_CMD_CONNECT_WIFI || packet->cmd == UNER_CMD_START_AP) &&
+    if (packet->cmd == UNER_CMD_CONNECT_WIFI &&
         packet->len == 5u && packet->payload && packet->payload[0] == UNER_SCAN_FINALIZER)
     {
         SET_FLAG(systemFlags2, WIFI_ACTIVE);
+    }
+
+    if (packet->cmd == UNER_CMD_START_AP &&
+        packet->len == 5u && packet->payload && packet->payload[0] == UNER_SCAN_FINALIZER)
+    {
+        SET_FLAG(systemFlags2, AP_ACTIVE);
     }
 
     if (packet->cmd == UNER_CMD_GET_STATUS && packet->len >= 3u && packet->payload) {
@@ -468,6 +483,7 @@ static void evt_usb_connected_handler(void *ctx, const UNER_Packet *p)
     (void)ctx;
     (void)p;
     SET_FLAG(systemFlags2, USB_ACTIVE);
+    UNER_App_OnBootDetected();
 }
 
 static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p)
@@ -543,6 +559,9 @@ UNER_Status UNER_App_SendCommand(uint8_t cmd, const uint8_t *payload, uint8_t le
     }
 
     uner_cmd_last_sent = cmd;
+    if (cmd == UNER_CMD_REBOOT_ESP) {
+        uner_boot_notified = 0u;
+    }
     return UNER_Send(&uner_handle, UNER_TR_UART1_ESP, UNER_NODE_MCU, dst, cmd, payload, len);
 }
 
