@@ -314,7 +314,7 @@ static const EventCallbacks_t motorTestCallbacks = {
 
 static void WiFiSearch_OnShortPress(void)
 {
-    (void)UNER_App_SendCommand(UNER_CMD_ID_STOP_SCAN, NULL, 0u);
+    UNER_CmdFlag_Set(UNER_FLAG_CMD_STOP_SCAN);
 
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
     wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
@@ -398,6 +398,7 @@ const EventCallbacks_t readOnlyCallbacks = {
 void NotificationDismiss_OnShortPress(void)
 {
     /* Cerrar notificación y restaurar lo anterior */
+    espNotificationCanceled = 1u;
     OledUtils_NotificationRestore();
     oled_first_draw = true;
 }
@@ -405,6 +406,7 @@ void NotificationDismiss_OnShortPress(void)
 void NotificationDismiss_OnLongPress(void)
 {
     /* Misma lógica: long press también descarta */
+    espNotificationCanceled = 1u;
     OledUtils_NotificationRestore();
     oled_first_draw = true;
 }

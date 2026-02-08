@@ -86,6 +86,8 @@
 #define ICON_Y_OFFSET         -13
 
 #define WIFIDEFAULTSEARCHTIMEOUT 1000
+#define WIFI_SCAN_MAX_NETWORKS 8
+#define WIFI_SCAN_MAX_SSID_LEN 32
 
 // =============================
 // Variables globales (extern)
@@ -138,6 +140,9 @@ extern volatile uint8_t motorDir; // 0: adelante, 1: atrás
 
 extern uint16_t wifiSearchingTimeout;
 extern uint8_t networksFound;
+extern volatile uint8_t espNotificationCanceled;
+extern uint8_t wifiScanCount;
+extern char wifiScanSsids[WIFI_SCAN_MAX_NETWORKS][WIFI_SCAN_MAX_SSID_LEN + 1u];
 
 /* --- Handlers de librerias --- */
 extern USART_Buffer_t usart1Buf;
@@ -170,4 +175,3 @@ extern const RenderScreenFunction wifiDataScreen;
 extern OledHandle    oledHandle;
 
 #endif // GLOBALS_H
-

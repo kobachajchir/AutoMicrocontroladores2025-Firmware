@@ -8,21 +8,15 @@
 #include "uner_transport_uart1_dma.h"
 #include "uner_v2.h"
 #include "oled_utils.h"
+#include "screenWrappers.h"
 #include "stm32f1xx_hal.h"
+#include <string.h>
 
 extern UART_HandleTypeDef huart1;
 extern DMA_HandleTypeDef hdma_usart1_rx;
 
 #define UNER_QUEUE_SLOTS 4u
-
-static UNER_Handle uner_handle;
-static UNER_TransportUart1Dma uner_uart1;
-static UNER_Packet uner_slots[UNER_QUEUE_SLOTS];
-static uint8_t uner_payload_pool[UNER_QUEUE_SLOTS * 255u];
-static volatile uint8_t uner_uart1_rx_hint = 0;
-static volatile uint8_t uner_tx_marked = 0;
-static volatile uint8_t uner_waiting_validation = 0;
-static volatile uint8_t uner_wait_cmd_id = 0;
+#define UNER_SCAN_FINALIZER 0xFEu
 
 typedef enum {
     UNER_CMD_SET_MODE_AP = 0x10u,
@@ -40,6 +34,19 @@ typedef enum {
     UNER_CMD_REQUEST_FIRMWARE = 0x41u,
     UNER_CMD_ECHO = 0x42u,
     UNER_CMD_SET_ENCODER_FAST = 0x43u,
+    UNER_CMD_GET_CONNECTED_USERS = 0x44u,
+    UNER_CMD_GET_USER_INFO = 0x45u,
+    UNER_CMD_GET_INTERFACES_CONNECTED = 0x46u,
+    UNER_CMD_GET_CREDENTIALS = 0x47u,
+    UNER_CMD_CONNECT_WIFI = 0x48u,
+    UNER_CMD_DISCONNECT_WIFI = 0x49u,
+    UNER_CMD_SET_AP_CONFIG = 0x4Au,
+    UNER_CMD_START_AP = 0x4Bu,
+    UNER_CMD_STOP_AP = 0x4Cu,
+    UNER_CMD_GET_CONNECTED_USERS_MODE = 0x4Du,
+    UNER_CMD_SET_AUTO_RECONNECT = 0x4Eu,
+    UNER_CMD_BOOT_COMPLETE = 0x4Fu,
+    UNER_CMD_NETWORK_IP = 0x50u,
     UNER_CMD_ACK = 0xE0u,
     UNER_CMD_NACK = 0xE1u,
     UNER_EVT_BOOT = 0x80u,
@@ -60,7 +67,23 @@ typedef enum {
     UNER_EVT_USB_DISCONNECTED = 0x8Fu,
     UNER_EVT_APP_GET_MPU_READINGS = 0x90u,
     UNER_EVT_APP_GET_TCRT_READINGS = 0x91u,
+    UNER_EVT_WIFI_CONNECTED = 0x92u,
+    UNER_EVT_NETWORK_IP = 0x93u,
+    UNER_EVT_BOOT_COMPLETE = 0x94u,
 } UNER_CommandId;
+
+static UNER_Handle uner_handle;
+static UNER_TransportUart1Dma uner_uart1;
+static UNER_Packet uner_slots[UNER_QUEUE_SLOTS];
+static uint8_t uner_payload_pool[UNER_QUEUE_SLOTS * 255u];
+static volatile uint8_t uner_uart1_rx_hint = 0;
+static volatile uint8_t uner_waiting_validation = 0;
+static volatile uint8_t uner_wait_cmd_id = 0;
+
+static volatile uint32_t uner_cmd_flags_pending = 0u;
+static volatile uint32_t uner_cmd_flags_inflight = 0u;
+static volatile uint8_t uner_cmd_last_sent = 0u;
+static volatile uint32_t uner_cmd_last_flag = 0u;
 
 static void evt_boot_handler(void *ctx, const UNER_Packet *p);
 static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p);
@@ -80,22 +103,38 @@ static void evt_controller_connected_handler(void *ctx, const UNER_Packet *p);
 static void evt_controller_disconnected_handler(void *ctx, const UNER_Packet *p);
 static void evt_usb_connected_handler(void *ctx, const UNER_Packet *p);
 static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p);
+static void evt_network_ip_handler(void *ctx, const UNER_Packet *p);
+static void evt_boot_complete_handler(void *ctx, const UNER_Packet *p);
 
 static const UNER_CommandSpec uner_commands[] = {
-    { UNER_CMD_SET_MODE_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_SET_MODE_STA, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 300u, NULL },
+    { UNER_CMD_SET_MODE_AP, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_SET_MODE_STA, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 300u, NULL },
     { UNER_CMD_SET_CREDENTIALS, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_CLEAR_CREDENTIALS, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_START_SCAN, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
-    { UNER_CMD_GET_SCAN_RESULTS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_REBOOT_ESP, 0u, 0u, UNER_SPEC_F_ACK, 50u, NULL },
-    { UNER_CMD_FACTORY_RESET, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
-    { UNER_CMD_STOP_SCAN, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_GET_STATUS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_PING, 0u, 0u, UNER_SPEC_F_RESP, 50u, NULL },
-    { UNER_CMD_GET_PREFERENCES, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_REQUEST_FIRMWARE, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
-    { UNER_CMD_SET_ENCODER_FAST, 1u, 1u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_CLEAR_CREDENTIALS, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_START_SCAN, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
+    { UNER_CMD_GET_SCAN_RESULTS, 0u, 255u, UNER_SPEC_F_RESP, 200u, NULL },
+    { UNER_CMD_REBOOT_ESP, 0u, 255u, UNER_SPEC_F_ACK, 50u, NULL },
+    { UNER_CMD_FACTORY_RESET, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
+    { UNER_CMD_STOP_SCAN, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_STATUS, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_PING, 0u, 255u, UNER_SPEC_F_RESP, 50u, NULL },
+    { UNER_CMD_GET_PREFERENCES, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_REQUEST_FIRMWARE, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
+    { UNER_CMD_ECHO, 0u, 255u, 0u, 0u, NULL },
+    { UNER_CMD_SET_ENCODER_FAST, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_CONNECTED_USERS, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_USER_INFO, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_INTERFACES_CONNECTED, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_CREDENTIALS, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_CONNECT_WIFI, 0u, 255u, UNER_SPEC_F_RESP, 300u, NULL },
+    { UNER_CMD_DISCONNECT_WIFI, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_SET_AP_CONFIG, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_START_AP, 0u, 255u, UNER_SPEC_F_RESP, 200u, NULL },
+    { UNER_CMD_STOP_AP, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_CONNECTED_USERS_MODE, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_SET_AUTO_RECONNECT, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_BOOT_COMPLETE, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_NETWORK_IP, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_ACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_CMD_NACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_EVT_BOOT, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_boot_handler },
@@ -116,8 +155,155 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_EVT_LASTWIFI_NOTFOUND, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_lastwifi_notfound_handler },
     { UNER_EVT_APP_GET_MPU_READINGS, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_app_mpu_readings_handler },
     { UNER_EVT_APP_GET_TCRT_READINGS, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_app_tcrt_readings_handler },
-    { UNER_CMD_ECHO, 4u, 4u, 0u, 0u, NULL },
+    { UNER_EVT_WIFI_CONNECTED, 0u, 255u, UNER_SPEC_F_EVT, 0u, NULL },
+    { UNER_EVT_NETWORK_IP, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_network_ip_handler },
+    { UNER_EVT_BOOT_COMPLETE, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_boot_complete_handler },
 };
+
+typedef struct {
+    uint32_t flag;
+    uint8_t cmd;
+    const uint8_t *payload;
+    uint8_t len;
+} UNER_FlagCommand;
+
+static uint8_t encoder_fast_snapshot[1] = {1u};
+
+static const UNER_FlagCommand flag_priority[] = {
+    { UNER_FLAG_CMD_STOP_SCAN, UNER_CMD_STOP_SCAN, NULL, 0u },
+    { UNER_FLAG_CMD_START_SCAN, UNER_CMD_START_SCAN, NULL, 0u },
+    { UNER_FLAG_CMD_GET_SCAN_RESULTS, UNER_CMD_GET_SCAN_RESULTS, NULL, 0u },
+    { UNER_FLAG_CMD_PING, UNER_CMD_PING, NULL, 0u },
+    { UNER_FLAG_CMD_REQUEST_FIRMWARE, UNER_CMD_REQUEST_FIRMWARE, NULL, 0u },
+    { UNER_FLAG_CMD_REBOOT_ESP, UNER_CMD_REBOOT_ESP, NULL, 0u },
+    { UNER_FLAG_CMD_GET_STATUS, UNER_CMD_GET_STATUS, NULL, 0u },
+};
+
+static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet);
+static const UNER_CommandSpec *UNER_App_FindSpecById(uint8_t cmd);
+
+static void UNER_CmdFlag_Lock(void) { __disable_irq(); }
+static void UNER_CmdFlag_Unlock(void) { __enable_irq(); }
+
+void UNER_CmdFlag_Set(uint32_t mask)
+{
+    UNER_CmdFlag_Lock();
+    uner_cmd_flags_pending |= mask;
+    UNER_CmdFlag_Unlock();
+}
+
+void UNER_CmdFlag_Clear(uint32_t mask)
+{
+    UNER_CmdFlag_Lock();
+    uner_cmd_flags_pending &= ~mask;
+    UNER_CmdFlag_Unlock();
+}
+
+uint32_t UNER_CmdFlag_GetPending(void)
+{
+    uint32_t p;
+    UNER_CmdFlag_Lock();
+    p = uner_cmd_flags_pending;
+    UNER_CmdFlag_Unlock();
+    return p;
+}
+
+bool UNER_CmdScheduler_TrySendNext(void)
+{
+    if (uner_cmd_flags_inflight != 0u) {
+        return false;
+    }
+
+    const uint32_t pending = UNER_CmdFlag_GetPending();
+    for (uint8_t i = 0u; i < (uint8_t)(sizeof(flag_priority) / sizeof(flag_priority[0])); ++i) {
+        const UNER_FlagCommand *it = &flag_priority[i];
+        if ((pending & it->flag) == 0u) {
+            continue;
+        }
+
+        const UNER_Status st = UNER_App_SendCommand(it->cmd, it->payload, it->len);
+        if (st == UNER_OK) {
+            UNER_CmdFlag_Lock();
+            uner_cmd_flags_inflight = it->flag;
+            uner_cmd_last_flag = it->flag;
+            UNER_CmdFlag_Unlock();
+            return true;
+        }
+        return false;
+    }
+
+    return false;
+}
+
+void UNER_CmdScheduler_OnTxComplete(void)
+{
+    UNER_CmdFlag_Lock();
+    if (uner_cmd_last_flag != 0u) {
+        uner_cmd_flags_pending &= ~uner_cmd_last_flag;
+    }
+    uner_cmd_flags_inflight = 0u;
+    UNER_CmdFlag_Unlock();
+}
+
+static void UNER_App_ParseScanResults(const UNER_Packet *packet)
+{
+    if (!packet || !packet->payload || packet->len == 0u) {
+        return;
+    }
+
+    if (packet->len == 1u && packet->payload[0] == UNER_SCAN_FINALIZER) {
+        CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+        OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCompleteNotification, 2000u);
+        UNER_CmdFlag_Set(UNER_FLAG_CMD_GET_SCAN_RESULTS);
+        return;
+    }
+
+    const uint8_t status = packet->payload[0];
+    if (status != 0u) {
+        if (status == 2u) {
+            wifiScanCount = 0u;
+            networksFound = 0u;
+        }
+        return;
+    }
+
+    if (packet->len < 2u) {
+        return;
+    }
+
+    uint8_t count = packet->payload[1];
+    uint16_t off = 2u;
+    if (count > WIFI_SCAN_MAX_NETWORKS) {
+        count = WIFI_SCAN_MAX_NETWORKS;
+    }
+
+    for (uint8_t i = 0u; i < WIFI_SCAN_MAX_NETWORKS; ++i) {
+        wifiScanSsids[i][0] = '\0';
+    }
+
+    for (uint8_t i = 0u; i < count; ++i) {
+        if (off >= packet->len) {
+            count = i;
+            break;
+        }
+        uint8_t slen = packet->payload[off++];
+        if (off + slen > packet->len) {
+            count = i;
+            break;
+        }
+        uint8_t cpy = (slen > WIFI_SCAN_MAX_SSID_LEN) ? WIFI_SCAN_MAX_SSID_LEN : slen;
+        memcpy(wifiScanSsids[i], &packet->payload[off], cpy);
+        wifiScanSsids[i][cpy] = '\0';
+        off += slen;
+    }
+
+    wifiScanCount = count;
+    networksFound = count;
+    CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+    menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
+    menuSystem.renderFlag = true;
+    oled_first_draw = false;
+}
 
 static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
 {
@@ -130,7 +316,6 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         if (packet->len >= 1u && packet->payload && packet->payload[0] == uner_wait_cmd_id) {
             uner_waiting_validation = 0u;
             uner_wait_cmd_id = 0u;
-            __NOP();
         }
         return;
     }
@@ -138,20 +323,45 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
     if (uner_waiting_validation && packet->cmd == uner_wait_cmd_id) {
         uner_waiting_validation = 0u;
         uner_wait_cmd_id = 0u;
-        __NOP();
     }
 
-    if (packet->cmd == UNER_CMD_ECHO) {
-        OledUtils_ShowNotificationMs(OledUtils_RenderCommandReceivedNotification, 2000u);
-        __NOP();
+    if (packet->cmd == UNER_CMD_PING && packet->len >= 1u && packet->payload && packet->payload[0] == 0u) {
+        SET_FLAG(systemFlags2, ESP_PRESENT);
+        OledUtils_ShowNotificationMs(OledUtils_RenderCommandReceivedNotification, 1500u);
     }
 
-    if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 1u && packet->payload) {
-        encoder_fast_scroll_enabled = (packet->payload[0] != 0u) ? 1u : 0u;
+    if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 2u && packet->payload) {
+        encoder_fast_scroll_enabled = (packet->payload[1] != 0u) ? 1u : 0u;
+    }
+
+    if (packet->cmd == UNER_CMD_GET_SCAN_RESULTS) {
+        UNER_App_ParseScanResults(packet);
+    }
+
+    if ((packet->cmd == UNER_CMD_CONNECT_WIFI || packet->cmd == UNER_CMD_START_AP) &&
+        packet->len == 5u && packet->payload && packet->payload[0] == UNER_SCAN_FINALIZER)
+    {
+        SET_FLAG(systemFlags2, WIFI_ACTIVE);
+    }
+
+    if (packet->cmd == UNER_CMD_GET_STATUS && packet->len >= 3u && packet->payload) {
+        if (packet->payload[0] == 0u) {
+            if (packet->payload[1] != 0u) {
+                SET_FLAG(systemFlags2, AP_ACTIVE);
+            } else {
+                CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+            }
+            if (packet->payload[2] != 0u) {
+                SET_FLAG(systemFlags2, WIFI_ACTIVE);
+            } else {
+                CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
+            }
+        }
     }
 }
 
-static void evt_boot_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
+static void evt_boot_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+
 static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
@@ -160,11 +370,14 @@ static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
     }
 
     const uint8_t mode = p->payload[0];
-    if (mode == UNER_CMD_SET_MODE_AP) {
+    if (mode == 2u) {
         SET_FLAG(systemFlags2, AP_ACTIVE);
         CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
-    } else if (mode == UNER_CMD_SET_MODE_STA) {
+    } else if (mode == 1u) {
         CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+    } else if (mode == 3u) {
+        SET_FLAG(systemFlags2, AP_ACTIVE);
+        SET_FLAG(systemFlags2, WIFI_ACTIVE);
     }
 }
 
@@ -173,7 +386,6 @@ static void evt_sta_connected_handler(void *ctx, const UNER_Packet *p)
     (void)ctx;
     (void)p;
     SET_FLAG(systemFlags2, WIFI_ACTIVE);
-    CLEAR_FLAG(systemFlags2, AP_ACTIVE);
 }
 
 static void evt_sta_disconnected_handler(void *ctx, const UNER_Packet *p)
@@ -183,16 +395,17 @@ static void evt_sta_disconnected_handler(void *ctx, const UNER_Packet *p)
     CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
 }
 
-static void evt_ap_client_join_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_ap_client_leave_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_webserver_up_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_webserver_client_conn_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_webserver_client_disconn_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_lastwifi_notfound_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_app_mpu_readings_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_app_tcrt_readings_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_app_user_connected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_app_user_disconnected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
+static void evt_ap_client_join_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_ap_client_leave_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_webserver_up_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_webserver_client_conn_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_webserver_client_disconn_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_lastwifi_notfound_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_app_mpu_readings_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_app_tcrt_readings_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_app_user_connected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_app_user_disconnected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+
 static void evt_controller_connected_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
@@ -223,7 +436,36 @@ static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p)
     CLEAR_FLAG(systemFlags2, USB_ACTIVE);
 }
 
+static void evt_network_ip_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    if (!p || p->len < 5u || !p->payload) {
+        return;
+    }
 
+    const uint8_t iface = p->payload[0];
+    if (iface == 0x01u) {
+        SET_FLAG(systemFlags2, WIFI_ACTIVE);
+    } else if (iface == 0x02u) {
+        SET_FLAG(systemFlags2, AP_ACTIVE);
+    }
+}
+
+static void evt_boot_complete_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    evt_network_ip_handler(ctx, p);
+    SET_FLAG(systemFlags2, ESP_PRESENT);
+}
+
+static uint8_t UNER_App_ValidateOutgoing(uint8_t cmd, uint8_t len)
+{
+    switch (cmd) {
+        case UNER_CMD_SET_ENCODER_FAST: return (len == 1u) ? 1u : 0u;
+        case UNER_CMD_ECHO: return (len == 4u) ? 1u : 0u;
+        default: return (len == 0u) ? 1u : 0u;
+    }
+}
 
 static const UNER_CommandSpec *UNER_App_FindSpecById(uint8_t cmd)
 {
@@ -242,19 +484,15 @@ UNER_Status UNER_App_SendCommand(uint8_t cmd, const uint8_t *payload, uint8_t le
         return UNER_ERR_LEN;
     }
 
-    if (len < spec->min_args || len > spec->max_args) {
+    if (!UNER_App_ValidateOutgoing(cmd, len)) {
         return UNER_ERR_LEN;
     }
-
-    __NOP();
 
     uint8_t dst = UNER_NODE_PC_QT;
     if (spec->flags & UNER_SPEC_F_EVT) {
         dst = UNER_NODE_BROADCAST;
     }
 
-    __NOP();
-    uner_tx_marked = 1u;
     if (spec->flags & (UNER_SPEC_F_ACK | UNER_SPEC_F_RESP)) {
         uner_waiting_validation = 1u;
         uner_wait_cmd_id = cmd;
@@ -262,12 +500,10 @@ UNER_Status UNER_App_SendCommand(uint8_t cmd, const uint8_t *payload, uint8_t le
         uner_waiting_validation = 0u;
         uner_wait_cmd_id = 0u;
     }
-    __NOP();
-    __NOP();
 
+    uner_cmd_last_sent = cmd;
     return UNER_Send(&uner_handle, UNER_TR_UART1_ESP, UNER_NODE_MCU, dst, cmd, payload, len);
 }
-
 
 uint8_t UNER_App_IsWaitingValidation(void)
 {
@@ -319,9 +555,13 @@ void UNER_App_Init(void)
         (uint8_t)(sizeof(uner_commands) / sizeof(uner_commands[0])),
         UNER_App_ExecuteCommand,
         NULL);
+
     usart1_feed_pending = 0;
     usart1_rx_prev_pos = 0;
     (void)HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
+
+    UNER_CmdFlag_Set(UNER_FLAG_CMD_GET_STATUS);
+    (void)encoder_fast_snapshot[0];
 }
 
 void UNER_App_Poll(void)
@@ -331,17 +571,16 @@ void UNER_App_Poll(void)
     }
     UNER_Handle_Poll(&uner_handle);
     UNER_Handle_ProcessPending(&uner_handle);
+    (void)UNER_CmdScheduler_TrySendNext();
 }
 
 void UNER_App_OnUart1TxComplete(void)
 {
-    __NOP();
-    uner_tx_marked = 0u;
+    UNER_CmdScheduler_OnTxComplete();
     UNER_TransportUart1Dma_OnTxComplete(&uner_uart1);
 }
 
 void UNER_App_NotifyUart1Rx(void)
 {
     uner_uart1_rx_hint = 1u;
-    __NOP();
 }

@@ -46,6 +46,9 @@ TCRT_LightConfig_t tcrtLight;
 /* WiFi */
 uint16_t wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
 uint8_t networksFound = 0;
+volatile uint8_t espNotificationCanceled = 0u;
+uint8_t wifiScanCount = 0;
+char wifiScanSsids[WIFI_SCAN_MAX_NETWORKS][WIFI_SCAN_MAX_SSID_LEN + 1u] = {{0}};
 
 /* Pull config */
 bool pull_cfg[TCRT5000_NUM_SENSORS] = {

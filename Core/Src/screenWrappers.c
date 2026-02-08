@@ -11,15 +11,20 @@
 #include "oled_utils.h"
 #include "encoder.h"
 #include "eventManagers.h"
+#include "globals.h"
 
 static void OledUtils_OnHide_SendFirmwareRequest(void)
 {
-    (void)UNER_App_SendCommand(UNER_CMD_ID_REQUEST_FIRMWARE, NULL, 0u);
+    if (!espNotificationCanceled) {
+        UNER_CmdFlag_Set(UNER_FLAG_CMD_REQUEST_FIRMWARE);
+    }
 }
 
 static void OledUtils_OnHide_SendESPReset(void)
 {
-    (void)UNER_App_SendCommand(UNER_CMD_ID_REBOOT_ESP, NULL, 0u);
+    if (!espNotificationCanceled) {
+        UNER_CmdFlag_Set(UNER_FLAG_CMD_REBOOT_ESP);
+    }
 }
 
 static uint8_t MenuSys_VisibleOffset(const SubMenu *menu, int8_t firstVisible, int8_t itemIndex) {
@@ -256,7 +261,7 @@ void OledUtils_RenderWiFiSearching_Wrapper(void)
     if (!oled_first_draw) {
         wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
         __NOP();
-        (void)UNER_App_SendCommand(UNER_CMD_ID_START_SCAN, NULL, 0u);
+        UNER_CmdFlag_Set(UNER_FLAG_CMD_START_SCAN);
         OledUtils_Clear();
         OledUtils_RenderWiFiSearchScene();
         OledUtils_UpdateWiFiSearchTimer((uint8_t)(wifiSearchingTimeout / 100U));
@@ -274,7 +279,7 @@ void OledUtils_RenderWiFiConnectionStatus_Wrapper(){
 		menuSystem.renderFn = OledUtils_RenderWiFiNotConnected;
 	}else{ //Aca deberia pedir datos de conexion al esp
 		__NOP();
-		(void)UNER_App_SendCommand(UNER_CMD_ID_GET_STATUS, NULL, 0u);
+		UNER_CmdFlag_Set(UNER_FLAG_CMD_GET_STATUS);
 		menuSystem.renderFn = OledUtils_RenderWiFiStatus;
 	}
 	menuSystem.renderFlag = true;
@@ -307,6 +312,7 @@ static void OledUtils_ShowESPNotification(RenderFunction renderFn,
     if (!oled_first_draw) {
         menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
         oled_first_draw = true;
+        espNotificationCanceled = 0u;
         OledUtils_ShowNotificationMsEx(renderFn, 2000u, onShow, onHide);
     }
 }
@@ -314,7 +320,7 @@ static void OledUtils_ShowESPNotification(RenderFunction renderFn,
 void OledUtils_RenderESPCheckConnection_Wrapper(void)
 {
     __NOP();
-    (void)UNER_App_SendCommand(UNER_CMD_ID_PING, NULL, 0u);
+    UNER_CmdFlag_Set(UNER_FLAG_CMD_PING);
     OledUtils_ShowESPNotification(OledUtils_RenderESPCheckingConnectionNotification, NULL, NULL);
 }
 

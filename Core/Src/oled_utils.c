@@ -1446,15 +1446,26 @@ void OledUtils_ShowWifiResults()
 
     Oled_SetFont(&Font_11x18);
     const uint8_t fh = Oled_FontHeight();
-    ssd1306_SetCursor(14, 20 - fh);
+    ssd1306_SetCursor(14, 18 - fh);
     Oled_DrawStr("Resultados");
-    ssd1306_SetCursor(36, 38 - fh);
-    Oled_DrawStr("WiFi");
 
     Oled_SetFont(&Font_7x10);
     const uint8_t fh_small = Oled_FontHeight();
-    ssd1306_SetCursor(4, 60 - fh_small);
-    Oled_DrawStr("OK: volver");
 
+    if (wifiScanCount == 0u) {
+        ssd1306_SetCursor(18, 38 - fh_small);
+        Oled_DrawStr("Sin redes");
+    } else {
+        uint8_t max_lines = (wifiScanCount > 3u) ? 3u : wifiScanCount;
+        for (uint8_t i = 0u; i < max_lines; ++i) {
+            ssd1306_SetCursor(2, (uint8_t)(30u + (i * 10u)) - fh_small);
+            Oled_DrawStr("-");
+            ssd1306_SetCursor(10, (uint8_t)(30u + (i * 10u)) - fh_small);
+            Oled_DrawStr(wifiScanSsids[i]);
+        }
+    }
+
+    ssd1306_SetCursor(4, 63 - fh_small);
+    Oled_DrawStr("OK: volver");
     Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
 }
