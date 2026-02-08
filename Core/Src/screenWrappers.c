@@ -359,3 +359,19 @@ void onRenderComplete(void) {
         __NOP();
     }
 }
+
+void OledUtils_RenderESPCheckConnectionOk_Wrapper(void)
+{
+    OledUtils_ShowNotificationMs(OledUtils_RenderESPCheckConnectionOkNotification, 2000u);
+}
+
+void OledUtils_RenderESPFirmwareOk_Wrapper(void)
+{
+    OledUtils_ShowNotificationMs(OledUtils_RenderESPFirmwareOkNotification, 2000u);
+}
+
+void OledUtils_RenderESPResetOk_Wrapper(void)
+{
+    OledUtils_ShowNotificationMs(OledUtils_RenderESPResetOkNotification, 2000u);
+}
+

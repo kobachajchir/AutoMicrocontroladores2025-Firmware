@@ -1440,6 +1440,51 @@ void OledUtils_RenderESPCheckConnectionRequiredNotification(void)
     Oled_DrawStr("conexion");
 }
 
+void OledUtils_RenderESPCheckConnectionOkNotification(void)
+{
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(8, 14, 16, 16, Icon_Link_bits);
+
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(28, 28 - fh_grande);
+    Oled_DrawStr("Conexion");
+    ssd1306_SetCursor(32, 50 - fh_grande);
+    Oled_DrawStr("OK");
+}
+
+void OledUtils_RenderESPFirmwareOkNotification(void)
+{
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(8, 14, 16, 16, Icon_Info_bits);
+
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(22, 28 - fh_grande);
+    Oled_DrawStr("Firmware");
+    ssd1306_SetCursor(24, 50 - fh_grande);
+    Oled_DrawStr("pedido");
+}
+
+void OledUtils_RenderESPResetOkNotification(void)
+{
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(8, 14, 16, 16, Icon_Refrescar_bits);
+
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(32, 28 - fh_grande);
+    Oled_DrawStr("Reset");
+    ssd1306_SetCursor(10, 50 - fh_grande);
+    Oled_DrawStr("confirmado");
+}
+
 void OledUtils_ShowWifiResults()
 {
     ssd1306_SetColor(White);

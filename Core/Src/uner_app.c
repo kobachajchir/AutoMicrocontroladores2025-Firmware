@@ -317,6 +317,14 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
             uner_waiting_validation = 0u;
             uner_wait_cmd_id = 0u;
         }
+
+        if (packet->cmd == UNER_CMD_ACK && packet->len >= 2u && packet->payload) {
+            const uint8_t acked_cmd = packet->payload[0];
+            const uint8_t ack_status = packet->payload[1];
+            if (ack_status == 0u && acked_cmd == UNER_CMD_REBOOT_ESP) {
+                OledUtils_RenderESPResetOk_Wrapper();
+            }
+        }
         return;
     }
 
@@ -327,7 +335,11 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
 
     if (packet->cmd == UNER_CMD_PING && packet->len >= 1u && packet->payload && packet->payload[0] == 0u) {
         SET_FLAG(systemFlags2, ESP_PRESENT);
-        OledUtils_ShowNotificationMs(OledUtils_RenderCommandReceivedNotification, 1500u);
+        OledUtils_RenderESPCheckConnectionOk_Wrapper();
+    }
+
+    if (packet->cmd == UNER_CMD_REQUEST_FIRMWARE && packet->len >= 1u && packet->payload && packet->payload[0] == 0u) {
+        OledUtils_RenderESPFirmwareOk_Wrapper();
     }
 
     if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 2u && packet->payload) {
