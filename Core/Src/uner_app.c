@@ -538,7 +538,7 @@ uint8_t UNER_App_CmdScheduler_TrySendNext(void)
         return 0u;
     }
 
-    uint8_t dst = UNER_NODE_PC_QT;
+    uint8_t dst = UNER_NODE_ESP01;
     if (spec->flags & UNER_SPEC_F_EVT) {
         dst = UNER_NODE_BROADCAST;
     }

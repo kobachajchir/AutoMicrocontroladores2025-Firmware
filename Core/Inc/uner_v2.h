@@ -27,6 +27,7 @@ extern "C" {
 /* Node IDs (nibbles) */
 #define UNER_NODE_MCU           0x1u
 #define UNER_NODE_PC_QT         0x2u
+#define UNER_NODE_ESP01         UNER_NODE_PC_QT
 #define UNER_NODE_WEB_APP       0x3u
 #define UNER_NODE_REMOTE_NRF    0x4u
 #define UNER_NODE_BROADCAST     0xFu
