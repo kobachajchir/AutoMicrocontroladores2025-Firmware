@@ -24,6 +24,35 @@ const uint8_t bar_x[OLED_BAR_COUNT] = {
 
 static const FontDef *oled_font = &Font_7x10;
 
+static char uner_notif_line1[22] = "UNER";
+static char uner_notif_line2[22] = "";
+
+void OledUtils_SetUNERNotificationText(const char *line1, const char *line2)
+{
+    if (line1) {
+        snprintf(uner_notif_line1, sizeof(uner_notif_line1), "%s", line1);
+    }
+    if (line2) {
+        snprintf(uner_notif_line2, sizeof(uner_notif_line2), "%s", line2);
+    }
+}
+
+void OledUtils_RenderUNERNotification(void)
+{
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(2, 28 - fh_grande);
+    Oled_DrawStr(uner_notif_line1);
+
+    Oled_SetFont(&Font_7x10);
+    const uint8_t fh_small = Oled_FontHeight();
+    ssd1306_SetCursor(2, 58 - fh_small);
+    Oled_DrawStr(uner_notif_line2);
+}
+
 static void Oled_SetFont(const FontDef *font)
 {
     oled_font = font;

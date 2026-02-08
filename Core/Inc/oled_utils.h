@@ -91,6 +91,8 @@ void OledUtils_RenderCommandReceivedNotification(void);
 void OledUtils_RenderControllerConnected(void);
 void OledUtils_RenderControllerDisconnected(void);
 void OledUtils_RenderStartupNotification(void);
+void OledUtils_SetUNERNotificationText(const char *line1, const char *line2);
+void OledUtils_RenderUNERNotification(void);
 
 void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms);
 void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks);
