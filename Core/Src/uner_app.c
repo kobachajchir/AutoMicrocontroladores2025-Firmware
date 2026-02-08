@@ -46,6 +46,8 @@ typedef enum {
     UNER_CMD_STOP_AP = 0x4Cu,
     UNER_CMD_GET_CONNECTED_USERS_MODE = 0x4Du,
     UNER_CMD_SET_AUTO_RECONNECT = 0x4Eu,
+    UNER_CMD_BOOT_COMPLETE = 0x4Fu,
+    UNER_CMD_NETWORK_IP = 0x50u,
     UNER_CMD_ACK = 0xE0u,
     UNER_CMD_NACK = 0xE1u,
     UNER_EVT_BOOT = 0x80u,
@@ -67,6 +69,8 @@ typedef enum {
     UNER_EVT_APP_GET_MPU_READINGS = 0x90u,
     UNER_EVT_APP_GET_TCRT_READINGS = 0x91u,
     UNER_EVT_WIFI_CONNECTED = 0x92u,
+    UNER_EVT_NETWORK_IP = 0x93u,
+    UNER_EVT_BOOT_COMPLETE = 0x94u,
 } UNER_CommandId;
 
 typedef enum {
@@ -169,6 +173,8 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_STOP_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 120u, NULL },
     { UNER_CMD_GET_CONNECTED_USERS_MODE, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_SET_AUTO_RECONNECT, 1u, 1u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_BOOT_COMPLETE, 0u, 255u, UNER_SPEC_F_EVT, 0u, NULL },
+    { UNER_CMD_NETWORK_IP, 5u, 5u, UNER_SPEC_F_EVT, 0u, NULL },
     { UNER_CMD_ACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_CMD_NACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_EVT_BOOT, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_boot_handler },
@@ -190,6 +196,8 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_EVT_APP_GET_MPU_READINGS, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_app_mpu_readings_handler },
     { UNER_EVT_APP_GET_TCRT_READINGS, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_app_tcrt_readings_handler },
     { UNER_EVT_WIFI_CONNECTED, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_wifi_connected_handler },
+    { UNER_EVT_NETWORK_IP, 5u, 5u, UNER_SPEC_F_EVT, 0u, NULL },
+    { UNER_EVT_BOOT_COMPLETE, 5u, 5u, UNER_SPEC_F_EVT, 0u, NULL },
 };
 
 static const UNER_CommandSpec *UNER_App_FindSpecById(uint8_t cmd)
@@ -325,7 +333,7 @@ static UNER_CommandSnapshot *UNER_App_GetSnapshotByCmd(uint8_t cmd)
 
 static uint8_t UNER_App_IsEventCmd(uint8_t cmd)
 {
-    return (cmd >= UNER_EVT_BOOT && cmd <= UNER_EVT_WIFI_CONNECTED) ? 1u : 0u;
+    return (cmd >= UNER_EVT_BOOT && cmd <= UNER_EVT_BOOT_COMPLETE) ? 1u : 0u;
 }
 
 static void UNER_App_ShowNotification(const char *line1, const char *line2)
@@ -360,10 +368,8 @@ static void UNER_App_HandleNotificationByPacket(const UNER_Packet *packet)
     case UNER_CMD_GET_SCAN_RESULTS:
         if (packet->len >= 1u && packet->payload && packet->payload[0] == 0xFEu) {
             CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
-            menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
-            menuSystem.renderFlag = true;
-            oled_first_draw = false;
             OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCompleteNotification, 1500u);
+            (void)UNER_App_SendCommand(UNER_CMD_GET_SCAN_RESULTS, NULL, 0u);
             break;
         }
         if (status == 1u) {
@@ -375,6 +381,9 @@ static void UNER_App_HandleNotificationByPacket(const UNER_Packet *packet)
             networksFound = packet->payload[1];
             (void)snprintf(l2, sizeof(l2), "redes: %u", networksFound);
             UNER_App_ShowNotification("Scan listo", l2);
+            menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
+            menuSystem.renderFlag = true;
+            oled_first_draw = false;
         }
         break;
     case UNER_CMD_CONNECT_WIFI:
@@ -397,6 +406,25 @@ static void UNER_App_HandleNotificationByPacket(const UNER_Packet *packet)
         if (packet->len >= 8u && packet->payload && status == 0u) {
             (void)snprintf(l2, sizeof(l2), "M:%u WL:%u", packet->payload[3], packet->payload[4]);
             UNER_App_ShowNotification("Estado WiFi", l2);
+        }
+        break;
+    case UNER_CMD_PING:
+        UNER_App_ShowNotification((status == 0u) ? "Conexion OK" : "Conexion fallo", "PING");
+        break;
+    case UNER_CMD_REQUEST_FIRMWARE:
+        UNER_App_ShowNotification((status == 0u) ? "Firmware recibido" : "Firmware error", "CMD 0x41");
+        break;
+    case UNER_CMD_REBOOT_ESP:
+        UNER_App_ShowNotification((status == 0u) ? "Reset enviado" : "Reset error", "CMD 0x16");
+        break;
+    case UNER_CMD_NETWORK_IP:
+    case UNER_EVT_NETWORK_IP:
+    case UNER_CMD_BOOT_COMPLETE:
+    case UNER_EVT_BOOT_COMPLETE:
+        if (packet->len >= 5u && packet->payload) {
+            (void)snprintf(l2, sizeof(l2), "%u.%u.%u.%u", packet->payload[1], packet->payload[2], packet->payload[3], packet->payload[4]);
+            UNER_App_ShowNotification((packet->payload[0] == 0x02u) ? "AP IP" : "STA IP", l2);
+            SET_FLAG(systemFlags2, ESP_PRESENT);
         }
         break;
     case UNER_EVT_STA_CONNECTED:

@@ -398,6 +398,7 @@ const EventCallbacks_t readOnlyCallbacks = {
 void NotificationDismiss_OnShortPress(void)
 {
     /* Cerrar notificación y restaurar lo anterior */
+    ScreenWrappers_MarkEspNotificationCanceled();
     OledUtils_NotificationRestore();
     oled_first_draw = true;
 }

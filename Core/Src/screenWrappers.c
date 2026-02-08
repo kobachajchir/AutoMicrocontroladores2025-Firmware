@@ -12,13 +12,29 @@
 #include "encoder.h"
 #include "eventManagers.h"
 
+static volatile uint8_t esp_notification_canceled = 0u;
+
+void ScreenWrappers_MarkEspNotificationCanceled(void)
+{
+    esp_notification_canceled = 1u;
+}
+
+
 static void OledUtils_OnHide_SendFirmwareRequest(void)
 {
+    if (esp_notification_canceled) {
+        esp_notification_canceled = 0u;
+        return;
+    }
     (void)UNER_App_SendCommand(UNER_CMD_ID_REQUEST_FIRMWARE, NULL, 0u);
 }
 
 static void OledUtils_OnHide_SendESPReset(void)
 {
+    if (esp_notification_canceled) {
+        esp_notification_canceled = 0u;
+        return;
+    }
     (void)UNER_App_SendCommand(UNER_CMD_ID_REBOOT_ESP, NULL, 0u);
 }
 
@@ -320,6 +336,7 @@ void OledUtils_RenderESPCheckConnection_Wrapper(void)
 
 void OledUtils_RenderESPFirmwareRequest_Wrapper(void)
 {
+    esp_notification_canceled = 0u;
     RenderFunction notificationFn = OledUtils_RenderESPCheckConnectionRequiredNotification;
     OledNotificationHook onHideHook = NULL;
 
@@ -334,6 +351,7 @@ void OledUtils_RenderESPFirmwareRequest_Wrapper(void)
 
 void OledUtils_RenderESPResetSent_Wrapper(void)
 {
+    esp_notification_canceled = 0u;
     RenderFunction notificationFn = OledUtils_RenderESPCheckConnectionRequiredNotification;
     OledNotificationHook onHideHook = NULL;
 

@@ -38,6 +38,8 @@ Se contemplan comandos de WiFi/estado y diagnóstico:
 - `0x4C STOP_AP`
 - `0x4D GET_CONNECTED_USERS_MODE`
 - `0x4E SET_AUTO_RECONNECT`
+- `0x4F BOOT_COMPLETE` (push desde ESP)
+- `0x50 NETWORK_IP` (push desde ESP)
 
 ## 3) Scheduler por flags (bitmask)
 Para evitar perder comandos simultáneos, STM32 no usa un único pending: usa bitmap de 32 bits.
@@ -68,7 +70,7 @@ STM32 procesa:
   - `0x48 [0xFE,ip0..ip3]` conexión STA finalizada,
   - `0x4B [0xFE,ip0..ip3]` AP listo.
 
-## 5) Eventos UNER (`0x80..0x92`)
+## 5) Eventos UNER (`0x80..0x94`)
 STM32 recibe y actualiza estado local (flags de sistema) para:
 - modo WiFi,
 - STA conectada/desconectada,
@@ -76,6 +78,7 @@ STM32 recibe y actualiza estado local (flags de sistema) para:
 - webserver/app user,
 - USB/RF,
 - WiFi connected credentials event (`0x92`).
+- network ip event (`0x93`) y boot complete (`0x94`) con payload `[if, ip0, ip1, ip2, ip3]`.
 
 ## 6) Notificaciones a usuario
 La implementación muestra respuestas/eventos en OLED con renderer genérico:
@@ -89,7 +92,8 @@ Y mantiene pantallas existentes para casos puntuales (ej: scan completado/cancel
 1. Productor llama `UNER_App_SendCommand`.
 2. Loop principal ejecuta `UNER_App_Poll()` (incluye scheduler + parser).
 3. Al recibir ACK/RESP se libera `inflight`.
-4. UI consume notificaciones y estado.
+4. En scan: `START_SCAN` -> esperar finalizador `0xFE` -> enviar `GET_SCAN_RESULTS` y luego renderizar lista.
+5. UI consume notificaciones y estado.
 
 ## 8) Nota de seguridad
 `GET_CREDENTIALS` y algunos eventos pueden transportar password en claro. Usar sólo en enlaces confiables.

@@ -41,6 +41,8 @@ void UNER_App_GetFlagBitmap(Byte_Flag_Struct *pending_low,
 #define UNER_CMD_ID_STOP_AP            0x4Cu
 #define UNER_CMD_ID_GET_CONNECTED_USERS_MODE 0x4Du
 #define UNER_CMD_ID_SET_AUTO_RECONNECT 0x4Eu
+#define UNER_CMD_ID_BOOT_COMPLETE      0x4Fu
+#define UNER_CMD_ID_NETWORK_IP         0x50u
 #define UNER_CMD_ID_REQUEST_FIRMWARE   0x41u
 #define UNER_CMD_ID_ECHO               0x42u
 #define UNER_CMD_ID_SET_ENCODER_FAST   0x43u
