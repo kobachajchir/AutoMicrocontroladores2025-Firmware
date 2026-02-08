@@ -539,9 +539,6 @@ uint8_t UNER_App_CmdScheduler_TrySendNext(void)
     }
 
     uint8_t dst = UNER_NODE_ESP01;
-    if (spec->flags & UNER_SPEC_F_EVT) {
-        dst = UNER_NODE_BROADCAST;
-    }
 
     UNER_Status st = UNER_Send(&uner_handle,
                                UNER_TR_UART1_ESP,
