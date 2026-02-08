@@ -318,13 +318,6 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
             uner_wait_cmd_id = 0u;
         }
 
-        if (packet->cmd == UNER_CMD_ACK && packet->len >= 2u && packet->payload) {
-            const uint8_t acked_cmd = packet->payload[0];
-            const uint8_t ack_status = packet->payload[1];
-            if (ack_status == 0u && acked_cmd == UNER_CMD_REBOOT_ESP) {
-                OledUtils_RenderESPResetOk_Wrapper();
-            }
-        }
         return;
     }
 
@@ -339,6 +332,11 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
     }
 
     if (packet->cmd == UNER_CMD_REQUEST_FIRMWARE && packet->len >= 1u && packet->payload && packet->payload[0] == 0u) {
+        if (packet->len > 1u) {
+            OledUtils_SetEspFirmwareAscii(&packet->payload[1], (uint8_t)(packet->len - 1u));
+        } else {
+            OledUtils_SetEspFirmwareAscii(NULL, 0u);
+        }
         OledUtils_RenderESPFirmwareOk_Wrapper();
     }
 
@@ -372,7 +370,13 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
     }
 }
 
-static void evt_boot_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_boot_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    SET_FLAG(systemFlags2, ESP_PRESENT);
+    OledUtils_RenderESPBootOk_Wrapper();
+}
 
 static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
 {

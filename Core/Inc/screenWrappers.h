@@ -30,6 +30,7 @@ void OledUtils_RenderESPResetSent_Wrapper(void);
 void OledUtils_RenderESPCheckConnectionOk_Wrapper(void);
 void OledUtils_RenderESPFirmwareOk_Wrapper(void);
 void OledUtils_RenderESPResetOk_Wrapper(void);
+void OledUtils_RenderESPBootOk_Wrapper(void);
 void onRenderComplete(void);
 
 #endif /* INC_SCREENWRAPPERS_H_ */

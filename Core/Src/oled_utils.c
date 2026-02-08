@@ -24,6 +24,9 @@ const uint8_t bar_x[OLED_BAR_COUNT] = {
 
 static const FontDef *oled_font = &Font_7x10;
 
+static char esp_firmware_ascii[33] = "sin dato";
+
+
 static void Oled_SetFont(const FontDef *font)
 {
     oled_font = font;
@@ -1464,10 +1467,13 @@ void OledUtils_RenderESPFirmwareOkNotification(void)
 
     Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(22, 28 - fh_grande);
-    Oled_DrawStr("Firmware");
-    ssd1306_SetCursor(24, 50 - fh_grande);
-    Oled_DrawStr("pedido");
+    ssd1306_SetCursor(28, 24 - fh_grande);
+    Oled_DrawStr("FW ESP01");
+
+    Oled_SetFont(&Font_7x10);
+    const uint8_t fh_small = Oled_FontHeight();
+    ssd1306_SetCursor(4, 52 - fh_small);
+    Oled_DrawStr(esp_firmware_ascii);
 }
 
 void OledUtils_RenderESPResetOkNotification(void)
@@ -1482,7 +1488,34 @@ void OledUtils_RenderESPResetOkNotification(void)
     ssd1306_SetCursor(32, 28 - fh_grande);
     Oled_DrawStr("Reset");
     ssd1306_SetCursor(10, 50 - fh_grande);
-    Oled_DrawStr("confirmado");
+    Oled_DrawStr("enviado");
+}
+
+void OledUtils_RenderESPBootNotification(void)
+{
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(8, 14, 16, 16, Icon_Wifi_100_bits);
+
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(26, 28 - fh_grande);
+    Oled_DrawStr("ESP01");
+    ssd1306_SetCursor(8, 50 - fh_grande);
+    Oled_DrawStr("Iniciada");
+}
+
+void OledUtils_SetEspFirmwareAscii(const uint8_t *ascii, uint8_t len)
+{
+    if (!ascii || len == 0u) {
+        strcpy(esp_firmware_ascii, "sin dato");
+        return;
+    }
+
+    uint8_t copy_len = (len > 32u) ? 32u : len;
+    memcpy(esp_firmware_ascii, ascii, copy_len);
+    esp_firmware_ascii[copy_len] = '\0';
 }
 
 void OledUtils_ShowWifiResults()

@@ -362,6 +362,7 @@ void onRenderComplete(void) {
 
 void OledUtils_RenderESPCheckConnectionOk_Wrapper(void)
 {
+    OledUtils_DismissNotification();
     OledUtils_ShowNotificationMs(OledUtils_RenderESPCheckConnectionOkNotification, 2000u);
 }
 
@@ -375,3 +376,7 @@ void OledUtils_RenderESPResetOk_Wrapper(void)
     OledUtils_ShowNotificationMs(OledUtils_RenderESPResetOkNotification, 2000u);
 }
 
+void OledUtils_RenderESPBootOk_Wrapper(void)
+{
+    OledUtils_ShowNotificationMs(OledUtils_RenderESPBootNotification, 2000u);
+}

@@ -90,6 +90,8 @@ void OledUtils_RenderESPCheckConnectionRequiredNotification(void);
 void OledUtils_RenderESPCheckConnectionOkNotification(void);
 void OledUtils_RenderESPFirmwareOkNotification(void);
 void OledUtils_RenderESPResetOkNotification(void);
+void OledUtils_RenderESPBootNotification(void);
+void OledUtils_SetEspFirmwareAscii(const uint8_t *ascii, uint8_t len);
 void OledUtils_RenderCommandReceivedNotification(void);
 void OledUtils_RenderControllerConnected(void);
 void OledUtils_RenderControllerDisconnected(void);
