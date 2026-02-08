@@ -24,6 +24,10 @@ const uint8_t bar_x[OLED_BAR_COUNT] = {
 
 static const FontDef *oled_font = &Font_7x10;
 
+static void Oled_SetFont(const FontDef *font);
+static uint8_t Oled_FontHeight(void);
+static void Oled_DrawStr(const char *text);
+
 static char uner_notif_line1[22] = "UNER";
 static char uner_notif_line2[22] = "";
 

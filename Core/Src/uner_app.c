@@ -8,6 +8,7 @@
 #include "uner_transport_uart1_dma.h"
 #include "uner_v2.h"
 #include "oled_utils.h"
+#include "screenWrappers.h"
 #include "stm32f1xx_hal.h"
 #include <stdio.h>
 #include <string.h>
@@ -139,6 +140,7 @@ static void evt_controller_disconnected_handler(void *ctx, const UNER_Packet *p)
 static void evt_usb_connected_handler(void *ctx, const UNER_Packet *p);
 static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p);
 static void evt_wifi_connected_handler(void *ctx, const UNER_Packet *p);
+static void UNER_App_HandleNotificationByPacket(const UNER_Packet *packet);
 
 static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_SET_MODE_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
@@ -332,34 +334,94 @@ static void UNER_App_ShowNotification(const char *line1, const char *line2)
     OledUtils_ShowNotificationMs(OledUtils_RenderUNERNotification, 2500u);
 }
 
-static void UNER_App_ShowResponseSummary(const UNER_Packet *packet)
+static void UNER_App_HandleNotificationByPacket(const UNER_Packet *packet)
 {
-    char l1[22];
-    char l2[22];
-    uint8_t status = (packet->len > 0u && packet->payload) ? packet->payload[0] : 0xFFu;
-
-    (void)snprintf(l1, sizeof(l1), "CMD 0x%02X ST 0x%02X", packet->cmd, status);
-    (void)snprintf(l2, sizeof(l2), "Payload: %u bytes", packet->len);
-    UNER_App_ShowNotification(l1, l2);
-}
-
-static void UNER_App_HandleAsyncPush(const UNER_Packet *packet)
-{
-    if (!packet || !packet->payload || packet->len == 0u) {
+    if (!packet) {
         return;
     }
 
-    if (packet->cmd == UNER_CMD_GET_SCAN_RESULTS && packet->payload[0] == 0xFEu) {
-        UNER_App_ShowNotification("Scan finalizado", "Pedir resultados");
-        OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCompleteNotification, 1500u);
-    } else if (packet->cmd == UNER_CMD_CONNECT_WIFI && packet->len >= 5u && packet->payload[0] == 0xFEu) {
-        char l2[22];
-        (void)snprintf(l2, sizeof(l2), "IP %u.%u.%u.%u", packet->payload[1], packet->payload[2], packet->payload[3], packet->payload[4]);
-        UNER_App_ShowNotification("STA conectada", l2);
-    } else if (packet->cmd == UNER_CMD_START_AP && packet->len >= 5u && packet->payload[0] == 0xFEu) {
-        char l2[22];
-        (void)snprintf(l2, sizeof(l2), "AP %u.%u.%u.%u", packet->payload[1], packet->payload[2], packet->payload[3], packet->payload[4]);
-        UNER_App_ShowNotification("AP listo", l2);
+    char l1[22];
+    char l2[22];
+    const uint8_t status = (packet->len > 0u && packet->payload) ? packet->payload[0] : 0xFFu;
+
+    switch (packet->cmd) {
+    case UNER_CMD_ACK:
+    case UNER_CMD_NACK:
+        if (packet->len >= 2u && packet->payload) {
+            (void)snprintf(l1, sizeof(l1), "%s 0x%02X", (packet->cmd == UNER_CMD_ACK) ? "ACK" : "NACK", packet->payload[0]);
+            (void)snprintf(l2, sizeof(l2), "code 0x%02X", packet->payload[1]);
+            UNER_App_ShowNotification(l1, l2);
+        }
+        break;
+    case UNER_EVT_BOOT:
+        SET_FLAG(systemFlags2, ESP_PRESENT);
+        UNER_App_ShowNotification("ESP conectada", "Evento BOOT");
+        break;
+    case UNER_CMD_GET_SCAN_RESULTS:
+        if (packet->len >= 1u && packet->payload && packet->payload[0] == 0xFEu) {
+            CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+            menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
+            menuSystem.renderFlag = true;
+            oled_first_draw = false;
+            OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCompleteNotification, 1500u);
+            break;
+        }
+        if (status == 1u) {
+            UNER_App_ShowNotification("Scan en curso", "espere...");
+        } else if (status == 2u) {
+            CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+            OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCanceledNotification, 1500u);
+        } else if (packet->len >= 2u && packet->payload) {
+            networksFound = packet->payload[1];
+            (void)snprintf(l2, sizeof(l2), "redes: %u", networksFound);
+            UNER_App_ShowNotification("Scan listo", l2);
+        }
+        break;
+    case UNER_CMD_CONNECT_WIFI:
+        if (packet->len >= 5u && packet->payload && packet->payload[0] == 0xFEu) {
+            (void)snprintf(l2, sizeof(l2), "IP %u.%u.%u.%u", packet->payload[1], packet->payload[2], packet->payload[3], packet->payload[4]);
+            UNER_App_ShowNotification("STA conectada", l2);
+        } else {
+            UNER_App_ShowNotification("CONNECT_WIFI", (status == 0u) ? "intentando" : "error");
+        }
+        break;
+    case UNER_CMD_START_AP:
+        if (packet->len >= 5u && packet->payload && packet->payload[0] == 0xFEu) {
+            (void)snprintf(l2, sizeof(l2), "AP %u.%u.%u.%u", packet->payload[1], packet->payload[2], packet->payload[3], packet->payload[4]);
+            UNER_App_ShowNotification("AP listo", l2);
+        } else {
+            UNER_App_ShowNotification("START_AP", (status == 0u) ? "ok" : "error");
+        }
+        break;
+    case UNER_CMD_GET_STATUS:
+        if (packet->len >= 8u && packet->payload && status == 0u) {
+            (void)snprintf(l2, sizeof(l2), "M:%u WL:%u", packet->payload[3], packet->payload[4]);
+            UNER_App_ShowNotification("Estado WiFi", l2);
+        }
+        break;
+    case UNER_EVT_STA_CONNECTED:
+        UNER_App_ShowNotification("Evento STA", "Conectada");
+        break;
+    case UNER_EVT_STA_DISCONNECTED:
+        UNER_App_ShowNotification("Evento STA", "Desconectada");
+        break;
+    case UNER_EVT_AP_CLIENT_JOIN:
+    case UNER_EVT_AP_CLIENT_LEAVE:
+        if (packet->len >= 1u && packet->payload) {
+            (void)snprintf(l2, sizeof(l2), "Total: %u", packet->payload[0]);
+            UNER_App_ShowNotification((packet->cmd == UNER_EVT_AP_CLIENT_JOIN) ? "Cliente AP entro" : "Cliente AP salio", l2);
+        }
+        break;
+    case UNER_EVT_WIFI_CONNECTED:
+        UNER_App_ShowNotification("WiFi conectada", "Credenciales aplicadas");
+        break;
+    default:
+        if (!UNER_App_IsEventCmd(packet->cmd)) {
+            (void)snprintf(l1, sizeof(l1), "CMD 0x%02X", packet->cmd);
+            (void)snprintf(l2, sizeof(l2), "status 0x%02X", status);
+            UNER_App_ShowNotification(l1, l2);
+        }
+        break;
     }
 }
 
@@ -371,59 +433,19 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
     }
 
     if (packet->cmd == UNER_CMD_ACK || packet->cmd == UNER_CMD_NACK) {
-        if (packet->len >= 2u && packet->payload) {
-            char l1[22];
-            char l2[22];
-            (void)snprintf(l1, sizeof(l1), "%s cmd 0x%02X", (packet->cmd == UNER_CMD_ACK) ? "ACK" : "NACK", packet->payload[0]);
-            (void)snprintf(l2, sizeof(l2), "status/reason 0x%02X", packet->payload[1]);
-            UNER_App_ShowNotification(l1, l2);
-
-            if (packet->payload[0] == uner_wait_cmd_id) {
-                uner_waiting_validation = 0u;
-                uner_wait_cmd_id = 0u;
-                UNER_App_CmdFlag_Clear(UNER_App_FlagFromCmd(packet->payload[0]));
-            }
+        if (packet->len >= 1u && packet->payload && packet->payload[0] == uner_wait_cmd_id) {
+            uner_waiting_validation = 0u;
+            uner_wait_cmd_id = 0u;
+            UNER_App_CmdFlag_Clear(UNER_App_FlagFromCmd(packet->payload[0]));
         }
+        UNER_App_HandleNotificationByPacket(packet);
         return;
     }
-
-    UNER_App_HandleAsyncPush(packet);
 
     if (uner_waiting_validation && packet->cmd == uner_wait_cmd_id) {
         uner_waiting_validation = 0u;
         uner_wait_cmd_id = 0u;
         UNER_App_CmdFlag_Clear(UNER_App_FlagFromCmd(packet->cmd));
-    }
-
-    if (!UNER_App_IsEventCmd(packet->cmd)) {
-        UNER_App_ShowResponseSummary(packet);
-    }
-
-    if (packet->cmd == UNER_CMD_GET_STATUS && packet->len >= 8u && packet->payload) {
-        uint8_t status = packet->payload[0];
-        if (status == 0u) {
-            char l2[22];
-            uint8_t mode = packet->payload[3];
-            uint8_t wl_status = packet->payload[4];
-            (void)snprintf(l2, sizeof(l2), "M:%u WL:%u", mode, wl_status);
-            UNER_App_ShowNotification("Estado WiFi", l2);
-        }
-    }
-
-    if (packet->cmd == UNER_CMD_GET_SCAN_RESULTS && packet->len >= 2u && packet->payload) {
-        uint8_t status = packet->payload[0];
-        if (status == 1u) {
-            UNER_App_ShowNotification("Scan en curso", "espere...");
-        } else if (status == 2u) {
-            UNER_App_ShowNotification("Scan detenido", "por comando");
-            OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCanceledNotification, 1500u);
-        } else {
-            char l2[22];
-            uint8_t count = packet->payload[1];
-            (void)snprintf(l2, sizeof(l2), "redes: %u", count);
-            UNER_App_ShowNotification("Scan listo", l2);
-            networksFound = count;
-        }
     }
 
     if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 2u && packet->payload) {
@@ -433,6 +455,8 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
     if (packet->cmd == UNER_CMD_ECHO) {
         OledUtils_ShowNotificationMs(OledUtils_RenderCommandReceivedNotification, 2000u);
     }
+
+    UNER_App_HandleNotificationByPacket(packet);
 }
 
 UNER_Status UNER_App_SendCommand(uint8_t cmd, const uint8_t *payload, uint8_t len)
@@ -640,7 +664,6 @@ static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
         CLEAR_FLAG(systemFlags2, AP_ACTIVE);
     }
 
-    UNER_App_ShowNotification("Evento modo", (mode == 1u) ? "STA" : "AP/otro");
 }
 
 static void evt_sta_connected_handler(void *ctx, const UNER_Packet *p)
@@ -649,7 +672,6 @@ static void evt_sta_connected_handler(void *ctx, const UNER_Packet *p)
     (void)p;
     SET_FLAG(systemFlags2, WIFI_ACTIVE);
     CLEAR_FLAG(systemFlags2, AP_ACTIVE);
-    UNER_App_ShowNotification("Evento STA", "Conectada");
 }
 
 static void evt_sta_disconnected_handler(void *ctx, const UNER_Packet *p)
@@ -657,37 +679,28 @@ static void evt_sta_disconnected_handler(void *ctx, const UNER_Packet *p)
     (void)ctx;
     (void)p;
     CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
-    UNER_App_ShowNotification("Evento STA", "Desconectada");
 }
 
 static void evt_ap_client_join_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
-    if (p && p->len >= 1u && p->payload) {
-        char l2[22];
-        (void)snprintf(l2, sizeof(l2), "Total: %u", p->payload[0]);
-        UNER_App_ShowNotification("Cliente AP entro", l2);
-    }
+    (void)p;
 }
 
 static void evt_ap_client_leave_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
-    if (p && p->len >= 1u && p->payload) {
-        char l2[22];
-        (void)snprintf(l2, sizeof(l2), "Total: %u", p->payload[0]);
-        UNER_App_ShowNotification("Cliente AP salio", l2);
-    }
+    (void)p;
 }
 
-static void evt_webserver_up_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; UNER_App_ShowNotification("WebServer", "Levantado"); }
-static void evt_webserver_client_conn_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; UNER_App_ShowNotification("Web cliente", "Conectado"); }
-static void evt_webserver_client_disconn_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; UNER_App_ShowNotification("Web cliente", "Desconectado"); }
-static void evt_lastwifi_notfound_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; UNER_App_ShowNotification("WiFi", "Ultima no hallada"); }
+static void evt_webserver_up_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_webserver_client_conn_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_webserver_client_disconn_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_lastwifi_notfound_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
 static void evt_app_mpu_readings_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
 static void evt_app_tcrt_readings_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
-static void evt_app_user_connected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; UNER_App_ShowNotification("App user", "Conectado"); }
-static void evt_app_user_disconnected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; UNER_App_ShowNotification("App user", "Desconectado"); }
+static void evt_app_user_connected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
+static void evt_app_user_disconnected_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; }
 
 static void evt_controller_connected_handler(void *ctx, const UNER_Packet *p)
 {
@@ -734,6 +747,5 @@ static void evt_wifi_connected_handler(void *ctx, const UNER_Packet *p)
         }
         memcpy(l2, &p->payload[2], ssid_len);
         l2[ssid_len] = '\0';
-        UNER_App_ShowNotification("WiFi cred activa", l2);
     }
 }
