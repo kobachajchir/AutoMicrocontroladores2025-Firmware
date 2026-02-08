@@ -12,6 +12,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 const uint8_t text_bar_x[OLED_BAR_COUNT] = {
     4, 19, 34, 49,
@@ -1514,9 +1515,17 @@ void OledUtils_SetEspFirmwareAscii(const uint8_t *ascii, uint8_t len)
     }
 
     uint8_t copy_len = (len > 32u) ? 32u : len;
-    memcpy(esp_firmware_ascii, ascii, copy_len);
+    for (uint8_t i = 0u; i < copy_len; ++i) {
+        char ch = (char)ascii[i];
+        if (isprint((unsigned char)ch) != 0) {
+            esp_firmware_ascii[i] = ch;
+        } else {
+            esp_firmware_ascii[i] = '?';
+        }
+    }
     esp_firmware_ascii[copy_len] = '\0';
 }
+
 
 void OledUtils_ShowWifiResults()
 {

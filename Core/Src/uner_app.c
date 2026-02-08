@@ -181,6 +181,8 @@ static const UNER_FlagCommand flag_priority[] = {
 
 static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet);
 static const UNER_CommandSpec *UNER_App_FindSpecById(uint8_t cmd);
+static void UNER_App_OnBootDetected(void);
+static void UNER_App_HandleFirmwareResponse(const UNER_Packet *packet);
 
 static void UNER_CmdFlag_Lock(void) { __disable_irq(); }
 static void UNER_CmdFlag_Unlock(void) { __enable_irq(); }
@@ -243,6 +245,31 @@ void UNER_CmdScheduler_OnTxComplete(void)
     }
     uner_cmd_flags_inflight = 0u;
     UNER_CmdFlag_Unlock();
+}
+
+static void UNER_App_OnBootDetected(void)
+{
+    SET_FLAG(systemFlags2, ESP_PRESENT);
+    OledUtils_RenderESPBootOk_Wrapper();
+}
+
+static void UNER_App_HandleFirmwareResponse(const UNER_Packet *packet)
+{
+    if (!packet || packet->cmd != UNER_CMD_REQUEST_FIRMWARE || packet->len < 1u || !packet->payload) {
+        return;
+    }
+
+    if (packet->payload[0] != 0u) {
+        return;
+    }
+
+    if (packet->len > 1u) {
+        OledUtils_SetEspFirmwareAscii(&packet->payload[1], (uint8_t)(packet->len - 1u));
+    } else {
+        OledUtils_SetEspFirmwareAscii(NULL, 0u);
+    }
+
+    OledUtils_RenderESPFirmwareOk_Wrapper();
 }
 
 static void UNER_App_ParseScanResults(const UNER_Packet *packet)
@@ -331,13 +358,12 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         OledUtils_RenderESPCheckConnectionOk_Wrapper();
     }
 
-    if (packet->cmd == UNER_CMD_REQUEST_FIRMWARE && packet->len >= 1u && packet->payload && packet->payload[0] == 0u) {
-        if (packet->len > 1u) {
-            OledUtils_SetEspFirmwareAscii(&packet->payload[1], (uint8_t)(packet->len - 1u));
-        } else {
-            OledUtils_SetEspFirmwareAscii(NULL, 0u);
-        }
-        OledUtils_RenderESPFirmwareOk_Wrapper();
+    if (packet->cmd == UNER_CMD_REQUEST_FIRMWARE) {
+        UNER_App_HandleFirmwareResponse(packet);
+    }
+
+    if (packet->cmd == UNER_CMD_BOOT_COMPLETE || packet->cmd == UNER_EVT_BOOT_COMPLETE) {
+        UNER_App_OnBootDetected();
     }
 
     if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 2u && packet->payload) {
@@ -374,8 +400,7 @@ static void evt_boot_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
     (void)p;
-    SET_FLAG(systemFlags2, ESP_PRESENT);
-    OledUtils_RenderESPBootOk_Wrapper();
+    UNER_App_OnBootDetected();
 }
 
 static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
@@ -471,7 +496,7 @@ static void evt_boot_complete_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
     evt_network_ip_handler(ctx, p);
-    SET_FLAG(systemFlags2, ESP_PRESENT);
+    UNER_App_OnBootDetected();
 }
 
 static uint8_t UNER_App_ValidateOutgoing(uint8_t cmd, uint8_t len)
