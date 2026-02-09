@@ -66,6 +66,7 @@ typedef enum {
     UNER_EVT_APP_GET_MPU_READINGS = 0x90u,
     UNER_EVT_APP_GET_TCRT_READINGS = 0x91u,
     UNER_EVT_WIFI_CONNECTED = 0x92u,
+    UNER_EVT_WIFI_GOT_IP = 0x93u,
 } UNER_CommandId;
 
 static void evt_boot_handler(void *ctx, const UNER_Packet *p);
@@ -86,11 +87,14 @@ static void evt_controller_connected_handler(void *ctx, const UNER_Packet *p);
 static void evt_controller_disconnected_handler(void *ctx, const UNER_Packet *p);
 static void evt_usb_connected_handler(void *ctx, const UNER_Packet *p);
 static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p);
+static void evt_wifi_connected_handler(void *ctx, const UNER_Packet *p);
+static void evt_wifi_got_ip_handler(void *ctx, const UNER_Packet *p);
 
 static uint8_t UNER_App_ParseWifiInfoIP(const uint8_t *payload, uint8_t len, IPStruct_t *outIp);
 static void UNER_App_HandleWifiInfoPayload(const UNER_Packet *packet, uint8_t hasStatusPrefix);
 static void UNER_App_HandleFirmwareResponse(const UNER_Packet *packet);
 static void UNER_App_HandleAsyncIpFinalizer(const UNER_Packet *packet);
+static void UNER_App_HandleTaggedIpPayload(const UNER_Packet *packet);
 
 static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_SET_MODE_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
@@ -107,6 +111,10 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_GET_PREFERENCES, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_REQUEST_FIRMWARE, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
     { UNER_CMD_SET_ENCODER_FAST, 1u, 1u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_CONNECT_WIFI, 0u, 255u, 0u, 0u, NULL },
+    { UNER_CMD_DISCONNECT_WIFI, 0u, 255u, 0u, 0u, NULL },
+    { UNER_CMD_START_AP, 0u, 255u, 0u, 0u, NULL },
+    { UNER_CMD_STOP_AP, 0u, 255u, 0u, 0u, NULL },
     { UNER_CMD_ACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_CMD_NACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_EVT_BOOT, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_boot_handler },
@@ -127,6 +135,8 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_EVT_LASTWIFI_NOTFOUND, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_lastwifi_notfound_handler },
     { UNER_EVT_APP_GET_MPU_READINGS, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_app_mpu_readings_handler },
     { UNER_EVT_APP_GET_TCRT_READINGS, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_app_tcrt_readings_handler },
+    { UNER_EVT_WIFI_CONNECTED, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_wifi_connected_handler },
+    { UNER_EVT_WIFI_GOT_IP, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_wifi_got_ip_handler },
     { UNER_CMD_ECHO, 4u, 4u, 0u, 0u, NULL },
 };
 
@@ -217,6 +227,24 @@ static void UNER_App_HandleAsyncIpFinalizer(const UNER_Packet *packet)
     OledUtils_SetDisplayIP(&ip);
 }
 
+static void UNER_App_HandleTaggedIpPayload(const UNER_Packet *packet)
+{
+    if (!packet || !packet->payload || packet->len < 5u) {
+        return;
+    }
+
+    IPStruct_t ip = {
+        .block = {
+            packet->payload[1],
+            packet->payload[2],
+            packet->payload[3],
+            packet->payload[4],
+        }
+    };
+
+    OledUtils_SetDisplayIP(&ip);
+}
+
 static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
 {
     (void)ctx;
@@ -264,6 +292,8 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         }
     } else if (packet->cmd == UNER_CMD_REQUEST_FIRMWARE) {
         UNER_App_HandleFirmwareResponse(packet);
+    } else if (packet->cmd == UNER_EVT_WIFI_GOT_IP) {
+        UNER_App_HandleTaggedIpPayload(packet);
     }
 }
 
@@ -295,9 +325,9 @@ static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
 static void evt_sta_connected_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
-    (void)p;
     SET_FLAG(systemFlags2, WIFI_ACTIVE);
     CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+    UNER_App_HandleWifiInfoPayload(p, 0u);
 }
 
 static void evt_sta_disconnected_handler(void *ctx, const UNER_Packet *p)
@@ -345,6 +375,20 @@ static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p)
     (void)ctx;
     (void)p;
     CLEAR_FLAG(systemFlags2, USB_ACTIVE);
+}
+
+static void evt_wifi_connected_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    SET_FLAG(systemFlags2, WIFI_ACTIVE);
+    CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+}
+
+static void evt_wifi_got_ip_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    UNER_App_HandleTaggedIpPayload(p);
 }
 
 
