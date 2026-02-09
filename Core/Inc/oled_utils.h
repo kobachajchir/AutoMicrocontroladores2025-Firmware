@@ -14,6 +14,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef struct {
+    uint8_t block[4];
+} IPStruct_t;
+
 /**
  * @brief  Wrapper para la pantalla de Valores MPU.
  */
@@ -91,6 +95,10 @@ void OledUtils_RenderCommandReceivedNotification(void);
 void OledUtils_RenderControllerConnected(void);
 void OledUtils_RenderControllerDisconnected(void);
 void OledUtils_RenderStartupNotification(void);
+void OledUtils_RenderESPBootedNotification(void);
+void OledUtils_RenderESPFirmwareParsedNotification(void);
+void OledUtils_SetDisplayIP(const IPStruct_t *ip);
+void OledUtils_SetFirmwareVersion(const char *version);
 
 void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms);
 void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks);

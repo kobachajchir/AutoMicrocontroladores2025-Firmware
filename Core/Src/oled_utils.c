@@ -24,6 +24,30 @@ const uint8_t bar_x[OLED_BAR_COUNT] = {
 
 static const FontDef *oled_font = &Font_7x10;
 
+static IPStruct_t displayIP = {{0}};
+static char oledFirmwareVersion[24] = "N/D";
+
+void OledUtils_SetDisplayIP(const IPStruct_t *ip)
+{
+    if (ip != NULL) {
+        displayIP.block[0] = ip->block[0];
+        displayIP.block[1] = ip->block[1];
+        displayIP.block[2] = ip->block[2];
+        displayIP.block[3] = ip->block[3];
+    }
+}
+
+void OledUtils_SetFirmwareVersion(const char *version)
+{
+    if (version == NULL) {
+        return;
+    }
+
+    size_t maxLen = sizeof(oledFirmwareVersion) - 1u;
+    strncpy(oledFirmwareVersion, version, maxLen);
+    oledFirmwareVersion[maxLen] = '\0';
+}
+
 static void Oled_SetFont(const FontDef *font)
 {
     oled_font = font;
@@ -585,13 +609,25 @@ void OledUtils_RenderDashboard(void)
             ssd1306_SetCursor(21, 10 - fh);
             Oled_DrawStr("Wifi name");
             ssd1306_SetCursor(18, 20 - fh);
-            Oled_DrawStr("192.168.1.1");
+            char ipStr[16];
+            snprintf(ipStr, sizeof(ipStr), "%d.%d.%d.%d",
+                     displayIP.block[0],
+                     displayIP.block[1],
+                     displayIP.block[2],
+                     displayIP.block[3]);
+            Oled_DrawStr(ipStr);
         } else if (IS_FLAG_SET(systemFlags2, AP_ACTIVE)) {
             Oled_DrawXBM(1, 2, 15, 16, Icon_APWifi_bits);
             ssd1306_SetCursor(21, 10 - fh);
             Oled_DrawStr("AP name");
             ssd1306_SetCursor(18, 20 - fh);
-            Oled_DrawStr("10.100.100.1");
+            char ipStr[16];
+            snprintf(ipStr, sizeof(ipStr), "%d.%d.%d.%d",
+                     displayIP.block[0],
+                     displayIP.block[1],
+                     displayIP.block[2],
+                     displayIP.block[3]);
+            Oled_DrawStr(ipStr);
         }
     } else {
         ssd1306_SetCursor(2, 10 - fh);
@@ -1438,6 +1474,36 @@ void OledUtils_RenderESPCheckConnectionRequiredNotification(void)
 
     ssd1306_SetCursor(10, 50 - fh_grande);
     Oled_DrawStr("conexion");
+}
+
+void OledUtils_RenderESPBootedNotification(void)
+{
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh = Oled_FontHeight();
+    ssd1306_SetCursor(16, 30 - fh);
+    Oled_DrawStr("ESP");
+
+    ssd1306_SetCursor(4, 52 - fh);
+    Oled_DrawStr("Iniciada");
+}
+
+void OledUtils_RenderESPFirmwareParsedNotification(void)
+{
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_SetFont(&Font_7x10);
+    const uint8_t fh_small = Oled_FontHeight();
+    ssd1306_SetCursor(2, 14 - fh_small);
+    Oled_DrawStr("FW ESP:");
+
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_big = Oled_FontHeight();
+    ssd1306_SetCursor(2, 46 - fh_big);
+    Oled_DrawStr(oledFirmwareVersion);
 }
 
 void OledUtils_ShowWifiResults()
