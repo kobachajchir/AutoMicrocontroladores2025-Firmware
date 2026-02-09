@@ -108,31 +108,31 @@ static void evt_network_ip_handler(void *ctx, const UNER_Packet *p);
 static void evt_boot_complete_handler(void *ctx, const UNER_Packet *p);
 
 static const UNER_CommandSpec uner_commands[] = {
-    { UNER_CMD_SET_MODE_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_SET_MODE_STA, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 300u, NULL },
+    { UNER_CMD_SET_MODE_AP, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_SET_MODE_STA, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 300u, NULL },
     { UNER_CMD_SET_CREDENTIALS, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_CLEAR_CREDENTIALS, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_START_SCAN, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
-    { UNER_CMD_GET_SCAN_RESULTS, 0u, 0u, UNER_SPEC_F_RESP, 200u, NULL },
-    { UNER_CMD_REBOOT_ESP, 0u, 0u, UNER_SPEC_F_ACK, 50u, NULL },
-    { UNER_CMD_FACTORY_RESET, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
-    { UNER_CMD_STOP_SCAN, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_GET_STATUS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_PING, 0u, 0u, UNER_SPEC_F_RESP, 50u, NULL },
-    { UNER_CMD_GET_PREFERENCES, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_REQUEST_FIRMWARE, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
+    { UNER_CMD_CLEAR_CREDENTIALS, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_START_SCAN, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
+    { UNER_CMD_GET_SCAN_RESULTS, 0u, 255u, UNER_SPEC_F_RESP, 200u, NULL },
+    { UNER_CMD_REBOOT_ESP, 0u, 255u, UNER_SPEC_F_ACK, 50u, NULL },
+    { UNER_CMD_FACTORY_RESET, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
+    { UNER_CMD_STOP_SCAN, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_STATUS, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_PING, 0u, 255u, UNER_SPEC_F_RESP, 50u, NULL },
+    { UNER_CMD_GET_PREFERENCES, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_REQUEST_FIRMWARE, 0u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
     { UNER_CMD_ECHO, 4u, 4u, 0u, 0u, NULL },
     { UNER_CMD_SET_ENCODER_FAST, 1u, 1u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_GET_CONNECTED_USERS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_CONNECTED_USERS, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_GET_USER_INFO, 1u, 1u, UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_GET_INTERFACES_CONNECTED, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_GET_CREDENTIALS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_CONNECT_WIFI, 0u, 0u, UNER_SPEC_F_RESP, 300u, NULL },
-    { UNER_CMD_DISCONNECT_WIFI, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_INTERFACES_CONNECTED, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_CREDENTIALS, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_CONNECT_WIFI, 0u, 255u, UNER_SPEC_F_RESP, 300u, NULL },
+    { UNER_CMD_DISCONNECT_WIFI, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_SET_AP_CONFIG, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_START_AP, 0u, 0u, UNER_SPEC_F_RESP, 200u, NULL },
-    { UNER_CMD_STOP_AP, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_GET_CONNECTED_USERS_MODE, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_START_AP, 0u, 255u, UNER_SPEC_F_RESP, 200u, NULL },
+    { UNER_CMD_STOP_AP, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_CONNECTED_USERS_MODE, 0u, 255u, UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_SET_AUTO_RECONNECT, 1u, 1u, UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_BOOT_COMPLETE, 5u, 5u, UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_NETWORK_IP, 5u, 5u, UNER_SPEC_F_RESP, 100u, NULL },
@@ -350,6 +350,7 @@ static void UNER_App_ParseScanResults(const UNER_Packet *packet)
 static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
 {
     (void)ctx;
+    __NOP();
     if (!packet) {
         return;
     }
@@ -368,19 +369,23 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         uner_wait_cmd_id = 0u;
     }
 
+    __NOP();
     if (packet->cmd == UNER_CMD_PING && packet->len >= 1u && packet->payload && packet->payload[0] == 0u) {
         SET_FLAG(systemFlags2, ESP_PRESENT);
         OledUtils_RenderESPCheckConnectionOk_Wrapper();
     }
 
+    __NOP();
     if (packet->cmd == UNER_CMD_REQUEST_FIRMWARE) {
         UNER_App_HandleFirmwareResponse(packet);
     }
 
+    __NOP();
     if (packet->cmd == UNER_CMD_BOOT_COMPLETE || packet->cmd == UNER_EVT_BOOT_COMPLETE) {
         UNER_App_OnBootDetected();
     }
 
+    __NOP();
     if (packet->cmd == UNER_CMD_NETWORK_IP || packet->cmd == UNER_EVT_NETWORK_IP) {
         evt_network_ip_handler(ctx, packet);
     }
@@ -389,6 +394,7 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         encoder_fast_scroll_enabled = (packet->payload[1] != 0u) ? 1u : 0u;
     }
 
+    __NOP();
     if (packet->cmd == UNER_CMD_GET_SCAN_RESULTS) {
         UNER_App_ParseScanResults(packet);
     }
@@ -407,6 +413,7 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         UNER_App_SetDisplayIpBytes(&packet->payload[1]);
     }
 
+    __NOP();
     if (packet->cmd == UNER_CMD_GET_STATUS && packet->len >= 3u && packet->payload) {
         if (packet->payload[0] == 0u) {
             if (packet->payload[1] != 0u) {
@@ -537,6 +544,20 @@ static void evt_boot_complete_handler(void *ctx, const UNER_Packet *p)
     UNER_App_OnBootDetected();
 }
 
+static uint8_t UNER_App_ValidateOutgoing(uint8_t cmd, uint8_t len)
+{
+    switch (cmd) {
+        case UNER_CMD_SET_ENCODER_FAST:
+        case UNER_CMD_SET_AUTO_RECONNECT:
+        case UNER_CMD_GET_USER_INFO:
+            return (len == 1u) ? 1u : 0u;
+        case UNER_CMD_ECHO:
+            return (len == 4u) ? 1u : 0u;
+        default:
+            return (len == 0u) ? 1u : 0u;
+    }
+}
+
 static const UNER_CommandSpec *UNER_App_FindSpecById(uint8_t cmd)
 {
     for (uint8_t i = 0u; i < (uint8_t)(sizeof(uner_commands) / sizeof(uner_commands[0])); ++i) {
@@ -551,6 +572,10 @@ UNER_Status UNER_App_SendCommand(uint8_t cmd, const uint8_t *payload, uint8_t le
 {
     const UNER_CommandSpec *spec = UNER_App_FindSpecById(cmd);
     if (!spec) {
+        return UNER_ERR_LEN;
+    }
+
+    if (!UNER_App_ValidateOutgoing(cmd, len)) {
         return UNER_ERR_LEN;
     }
 
