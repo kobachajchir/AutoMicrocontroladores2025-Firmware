@@ -184,6 +184,7 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet);
 static const UNER_CommandSpec *UNER_App_FindSpecById(uint8_t cmd);
 static void UNER_App_OnBootDetected(void);
 static void UNER_App_HandleFirmwareResponse(const UNER_Packet *packet);
+static void UNER_App_SetDisplayIpBytes(const uint8_t *ip_bytes);
 
 static void UNER_CmdFlag_Lock(void) { __disable_irq(); }
 static void UNER_CmdFlag_Unlock(void) { __enable_irq(); }
@@ -246,6 +247,16 @@ void UNER_CmdScheduler_OnTxComplete(void)
     }
     uner_cmd_flags_inflight = 0u;
     UNER_CmdFlag_Unlock();
+}
+
+
+static void UNER_App_SetDisplayIpBytes(const uint8_t *ip_bytes)
+{
+    if (!ip_bytes) {
+        return;
+    }
+    IPStruct_t ip = {{ip_bytes[0], ip_bytes[1], ip_bytes[2], ip_bytes[3]}};
+    OledUtils_SetDisplayIP(&ip);
 }
 
 static void UNER_App_OnBootDetected(void)
@@ -372,7 +383,6 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
 
     if (packet->cmd == UNER_CMD_NETWORK_IP || packet->cmd == UNER_EVT_NETWORK_IP) {
         evt_network_ip_handler(ctx, packet);
-        UNER_App_OnBootDetected();
     }
 
     if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 2u && packet->payload) {
@@ -387,12 +397,14 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         packet->len == 5u && packet->payload && packet->payload[0] == UNER_SCAN_FINALIZER)
     {
         SET_FLAG(systemFlags2, WIFI_ACTIVE);
+        UNER_App_SetDisplayIpBytes(&packet->payload[1]);
     }
 
     if (packet->cmd == UNER_CMD_START_AP &&
         packet->len == 5u && packet->payload && packet->payload[0] == UNER_SCAN_FINALIZER)
     {
         SET_FLAG(systemFlags2, AP_ACTIVE);
+        UNER_App_SetDisplayIpBytes(&packet->payload[1]);
     }
 
     if (packet->cmd == UNER_CMD_GET_STATUS && packet->len >= 3u && packet->payload) {
@@ -415,7 +427,7 @@ static void evt_boot_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
     (void)p;
-    UNER_App_OnBootDetected();
+    SET_FLAG(systemFlags2, ESP_PRESENT);
 }
 
 static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
@@ -426,14 +438,19 @@ static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
     }
 
     const uint8_t mode = p->payload[0];
-    if (mode == 2u) {
+    if (mode == 0x01u) {
+        SET_FLAG(systemFlags2, WIFI_ACTIVE);
+        CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+    } else if (mode == 0x02u) {
         SET_FLAG(systemFlags2, AP_ACTIVE);
         CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
-    } else if (mode == 1u) {
-        CLEAR_FLAG(systemFlags2, AP_ACTIVE);
-    } else if (mode == 3u) {
+    } else if (mode == 0x03u) {
         SET_FLAG(systemFlags2, AP_ACTIVE);
         SET_FLAG(systemFlags2, WIFI_ACTIVE);
+    }
+
+    if (p->len >= 6u) {
+        UNER_App_SetDisplayIpBytes(&p->payload[2]);
     }
 }
 
@@ -483,6 +500,7 @@ static void evt_usb_connected_handler(void *ctx, const UNER_Packet *p)
     (void)ctx;
     (void)p;
     SET_FLAG(systemFlags2, USB_ACTIVE);
+    uner_boot_notified = 0u;
     UNER_App_OnBootDetected();
 }
 
@@ -503,9 +521,13 @@ static void evt_network_ip_handler(void *ctx, const UNER_Packet *p)
     const uint8_t iface = p->payload[0];
     if (iface == 0x01u) {
         SET_FLAG(systemFlags2, WIFI_ACTIVE);
+        CLEAR_FLAG(systemFlags2, AP_ACTIVE);
     } else if (iface == 0x02u) {
         SET_FLAG(systemFlags2, AP_ACTIVE);
+        CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
     }
+
+    UNER_App_SetDisplayIpBytes(&p->payload[1]);
 }
 
 static void evt_boot_complete_handler(void *ctx, const UNER_Packet *p)

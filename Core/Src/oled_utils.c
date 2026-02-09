@@ -26,6 +26,7 @@ const uint8_t bar_x[OLED_BAR_COUNT] = {
 static const FontDef *oled_font = &Font_7x10;
 
 static char esp_firmware_ascii[33] = "sin dato";
+static IPStruct_t displayIP = {{0,0,0,0}};
 
 
 static void Oled_SetFont(const FontDef *font)
@@ -589,13 +590,17 @@ void OledUtils_RenderDashboard(void)
             ssd1306_SetCursor(21, 10 - fh);
             Oled_DrawStr("Wifi name");
             ssd1306_SetCursor(18, 20 - fh);
-            Oled_DrawStr("192.168.1.1");
+            char ipStr[16];
+            snprintf(ipStr, sizeof(ipStr), "%u.%u.%u.%u", displayIP.block[0], displayIP.block[1], displayIP.block[2], displayIP.block[3]);
+            Oled_DrawStr(ipStr);
         } else if (IS_FLAG_SET(systemFlags2, AP_ACTIVE)) {
             Oled_DrawXBM(1, 2, 15, 16, Icon_APWifi_bits);
             ssd1306_SetCursor(21, 10 - fh);
             Oled_DrawStr("AP name");
             ssd1306_SetCursor(18, 20 - fh);
-            Oled_DrawStr("10.100.100.1");
+            char ipStr[16];
+            snprintf(ipStr, sizeof(ipStr), "%u.%u.%u.%u", displayIP.block[0], displayIP.block[1], displayIP.block[2], displayIP.block[3]);
+            Oled_DrawStr(ipStr);
         }
     } else {
         ssd1306_SetCursor(2, 10 - fh);
@@ -1526,6 +1531,27 @@ void OledUtils_SetEspFirmwareAscii(const uint8_t *ascii, uint8_t len)
     esp_firmware_ascii[copy_len] = '\0';
 }
 
+
+
+void OledUtils_SetDisplayIP(const IPStruct_t *ip)
+{
+    if (ip == NULL) {
+        return;
+    }
+
+    displayIP = *ip;
+
+    Oled_SetFont(&Font_7x10);
+    const uint8_t fh = Oled_FontHeight();
+    Oled_ClearBox(18, 20 - fh, 100, fh);
+
+    char ipStr[16];
+    snprintf(ipStr, sizeof(ipStr), "%u.%u.%u.%u",
+             displayIP.block[0], displayIP.block[1], displayIP.block[2], displayIP.block[3]);
+    ssd1306_SetCursor(18, 20 - fh);
+    Oled_DrawStr(ipStr);
+    menuSystem.renderFlag = true;
+}
 
 void OledUtils_ShowWifiResults()
 {
