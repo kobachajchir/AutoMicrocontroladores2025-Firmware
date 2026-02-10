@@ -16,6 +16,41 @@ static void UNER_Handle_OnPacketQueued(void *ctx, const UNER_Packet *p)
     __NOP();
 }
 
+
+static uint8_t UNER_Handle_IsRawAsyncPush(const UNER_Packet *packet)
+{
+    if (!packet || packet->len == 0u || !packet->payload) {
+        return 0u;
+    }
+
+    if ((packet->cmd == 0x15u || packet->cmd == 0x48u || packet->cmd == 0x4Bu) && packet->payload[0] == 0xFEu) {
+        return 1u;
+    }
+
+    return 0u;
+}
+
+static uint8_t UNER_Handle_IsLengthValid(const UNER_CommandSpec *spec, const UNER_Packet *packet)
+{
+    if (!spec || !packet) {
+        return 0u;
+    }
+
+    if (packet->len >= spec->min_args && packet->len <= spec->max_args) {
+        return 1u;
+    }
+
+    if ((spec->flags & UNER_SPEC_F_RESP) && packet->len >= 1u) {
+        return 1u;
+    }
+
+    if (UNER_Handle_IsRawAsyncPush(packet)) {
+        return 1u;
+    }
+
+    return 0u;
+}
+
 static uint8_t UNER_Handle_FindCommandSpec(
     const UNER_CommandSpec *table,
     uint8_t count,
@@ -129,7 +164,7 @@ void UNER_Handle_ProcessPending(UNER_Handle *handle)
         UNER_CommandSpec spec = {0u, 0u, 0u, 0u, 0u, NULL};
 
         if (UNER_Handle_FindCommandSpec(handle->command_table, handle->command_count, packet.cmd, &spec)) {
-            if (packet.len >= spec.min_args && packet.len <= spec.max_args) {
+            if (UNER_Handle_IsLengthValid(&spec, &packet)) {
                 valid_cmd = 1u;
             }
         }
