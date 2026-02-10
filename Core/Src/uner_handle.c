@@ -173,6 +173,7 @@ void UNER_Handle_ProcessPending(UNER_Handle *handle)
             if (spec.handler) {
                 spec.handler(handle->execute_ctx, &packet);
             } else if (handle->execute_command) {
+            	__NOP();
                 handle->execute_command(handle->execute_ctx, &packet);
             }
 

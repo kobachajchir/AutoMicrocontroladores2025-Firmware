@@ -1356,7 +1356,7 @@ void OledUtils_RenderPingReceivedNotification(void)
     ssd1306_Clear();
     ssd1306_SetColor(White);
 
-    Oled_DrawXBM(2, 12, 19, 16, Icon_Wifi_100_bits);
+    Oled_DrawXBM(2, 12, 19, 16, Icon_Info_bits);
 
     Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
