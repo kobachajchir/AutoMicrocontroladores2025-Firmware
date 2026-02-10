@@ -40,6 +40,17 @@ typedef enum {
     UNER_CMD_REQUEST_FIRMWARE = 0x41u,
     UNER_CMD_ECHO = 0x42u,
     UNER_CMD_SET_ENCODER_FAST = 0x43u,
+    UNER_CMD_GET_CONNECTED_USERS = 0x44u,
+    UNER_CMD_GET_USER_INFO = 0x45u,
+    UNER_CMD_GET_INTERFACES_CONNECTED = 0x46u,
+    UNER_CMD_GET_CREDENTIALS = 0x47u,
+    UNER_CMD_CONNECT_WIFI = 0x48u,
+    UNER_CMD_DISCONNECT_WIFI = 0x49u,
+    UNER_CMD_SET_AP_CONFIG = 0x4Au,
+    UNER_CMD_START_AP = 0x4Bu,
+    UNER_CMD_STOP_AP = 0x4Cu,
+    UNER_CMD_GET_CONNECTED_USERS_MODE = 0x4Du,
+    UNER_CMD_SET_AUTO_RECONNECT = 0x4Eu,
     UNER_CMD_ACK = 0xE0u,
     UNER_CMD_NACK = 0xE1u,
     UNER_EVT_BOOT = 0x80u,
@@ -60,6 +71,7 @@ typedef enum {
     UNER_EVT_USB_DISCONNECTED = 0x8Fu,
     UNER_EVT_APP_GET_MPU_READINGS = 0x90u,
     UNER_EVT_APP_GET_TCRT_READINGS = 0x91u,
+    UNER_EVT_WIFI_CONNECTED = 0x92u,
 } UNER_CommandId;
 
 static void evt_boot_handler(void *ctx, const UNER_Packet *p);
@@ -80,6 +92,7 @@ static void evt_controller_connected_handler(void *ctx, const UNER_Packet *p);
 static void evt_controller_disconnected_handler(void *ctx, const UNER_Packet *p);
 static void evt_usb_connected_handler(void *ctx, const UNER_Packet *p);
 static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p);
+static void evt_wifi_connected_handler(void *ctx, const UNER_Packet *p);
 
 static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_SET_MODE_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
@@ -96,6 +109,17 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_GET_PREFERENCES, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_REQUEST_FIRMWARE, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
     { UNER_CMD_SET_ENCODER_FAST, 1u, 1u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_CONNECTED_USERS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_USER_INFO, 1u, 1u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_INTERFACES_CONNECTED, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_CREDENTIALS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_CONNECT_WIFI, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 300u, NULL },
+    { UNER_CMD_DISCONNECT_WIFI, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_SET_AP_CONFIG, 2u, 96u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_START_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 300u, NULL },
+    { UNER_CMD_STOP_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_GET_CONNECTED_USERS_MODE, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
+    { UNER_CMD_SET_AUTO_RECONNECT, 1u, 1u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_ACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_CMD_NACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_EVT_BOOT, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_boot_handler },
@@ -116,6 +140,7 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_EVT_LASTWIFI_NOTFOUND, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_lastwifi_notfound_handler },
     { UNER_EVT_APP_GET_MPU_READINGS, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_app_mpu_readings_handler },
     { UNER_EVT_APP_GET_TCRT_READINGS, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_app_tcrt_readings_handler },
+    { UNER_EVT_WIFI_CONNECTED, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_wifi_connected_handler },
     { UNER_CMD_ECHO, 4u, 4u, 0u, 0u, NULL },
 };
 
@@ -221,6 +246,14 @@ static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p)
     (void)ctx;
     (void)p;
     CLEAR_FLAG(systemFlags2, USB_ACTIVE);
+}
+
+static void evt_wifi_connected_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    SET_FLAG(systemFlags2, WIFI_ACTIVE);
+    CLEAR_FLAG(systemFlags2, AP_ACTIVE);
 }
 
 
