@@ -1351,6 +1351,22 @@ void OledUtils_RenderCommandReceivedNotification(void)
     Oled_DrawStr("completada");
 }
 
+void OledUtils_RenderPingReceivedNotification(void)
+{
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(2, 12, 19, 16, Icon_Wifi_100_bits);
+
+    Oled_SetFont(&Font_11x18);
+    const uint8_t fh_grande = Oled_FontHeight();
+    ssd1306_SetCursor(27, 30 - fh_grande);
+    Oled_DrawStr("PING");
+
+    ssd1306_SetCursor(2, 50 - fh_grande);
+    Oled_DrawStr("recibido");
+}
+
 void OledUtils_RenderESPCheckingConnectionNotification(void)
 {
     ssd1306_Clear();
