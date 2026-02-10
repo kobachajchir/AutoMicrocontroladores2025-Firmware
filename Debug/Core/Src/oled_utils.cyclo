@@ -49,8 +49,9 @@
 ../Core/Src/oled_utils.c:1300:6:OledUtils_RenderControllerConnected	1
 ../Core/Src/oled_utils.c:1316:6:OledUtils_RenderControllerDisconnected	1
 ../Core/Src/oled_utils.c:1338:6:OledUtils_RenderCommandReceivedNotification	1
-../Core/Src/oled_utils.c:1354:6:OledUtils_RenderESPCheckingConnectionNotification	1
-../Core/Src/oled_utils.c:1369:6:OledUtils_RenderESPFirmwareRequestNotification	1
-../Core/Src/oled_utils.c:1398:6:OledUtils_RenderESPResetSentNotification	1
-../Core/Src/oled_utils.c:1428:6:OledUtils_RenderESPCheckConnectionRequiredNotification	1
-../Core/Src/oled_utils.c:1443:6:OledUtils_ShowWifiResults	1
+../Core/Src/oled_utils.c:1354:6:OledUtils_RenderPingReceivedNotification	1
+../Core/Src/oled_utils.c:1370:6:OledUtils_RenderESPCheckingConnectionNotification	1
+../Core/Src/oled_utils.c:1385:6:OledUtils_RenderESPFirmwareRequestNotification	1
+../Core/Src/oled_utils.c:1414:6:OledUtils_RenderESPResetSentNotification	1
+../Core/Src/oled_utils.c:1444:6:OledUtils_RenderESPCheckConnectionRequiredNotification	1
+../Core/Src/oled_utils.c:1459:6:OledUtils_ShowWifiResults	1

@@ -6,7 +6,7 @@
 ../Core/Src/main.c:861:19:uart1_send_bytes	5
 ../Core/Src/main.c:879:6:initCarMode	1
 ../Core/Src/main.c:898:6:UserBtn_MainTask	3
-../Core/Src/main.c:913:6:Encoder_MainTask	9
+../Core/Src/main.c:913:6:Encoder_MainTask	10
 ../Core/Src/main.c:956:6:initTCRTLib	2
 ../Core/Src/main.c:992:6:TCRT_MainTask	4
 ../Core/Src/main.c:1026:6:My_TimerCalcFunc	6
