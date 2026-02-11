@@ -187,6 +187,7 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
     }
 
     if (packet->cmd == UNER_CMD_PING) {
+        SET_FLAG(systemFlags2, ESP_PRESENT);
         OledUtils_DismissNotification();
         OledUtils_ShowNotificationMs(OledUtils_RenderPingReceivedNotification, 2000u);
         __NOP();
@@ -340,9 +341,8 @@ static void UNER_App_ParseWifiFinalizer(const UNER_Packet *p)
         espApIp.block4 = p->payload[4];
 
         SET_FLAG(systemFlags2, AP_ACTIVE);
-        // Si tenés renderer específico AP, podés cambiar esta notificación
         OledUtils_DismissNotification();
-        OledUtils_ShowNotificationMs(OledUtils_RenderESPWifiConnectedNotification, 2500u);
+        OledUtils_ShowNotificationMs(OledUtils_RenderESPAPStartedNotification, 2500u);
     }
 }
 
@@ -362,13 +362,25 @@ static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
         return;
     }
 
+    // Evento 0x81: payload directo wifi_info => byte0=mode, byte1=wl_status,
+    // byte2..5=IP, byte6=ssid_len, resto ssid
     const uint8_t mode = p->payload[0];
-    if (mode == UNER_CMD_SET_MODE_AP) {
-        SET_FLAG(systemFlags2, AP_ACTIVE);
-        CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
-    } else if (mode == UNER_CMD_SET_MODE_STA) {
-        CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+    UNER_App_UpdateModeFlags(mode);
+
+    if (p->len >= 6u) {
+        // IP reportada por el wifi_info del evento
+        espStaIp.block1 = p->payload[2];
+        espStaIp.block2 = p->payload[3];
+        espStaIp.block3 = p->payload[4];
+        espStaIp.block4 = p->payload[5];
+
+        if (mode == WIFI_MODE_AP || mode == WIFI_MODE_AP_STA) {
+            espApIp = espStaIp;
+        }
     }
+
+    OledUtils_DismissNotification();
+    OledUtils_ShowNotificationMs(OledUtils_RenderESPModeChangedNotification, 2200u);
 }
 
 static void evt_sta_connected_handler(void *ctx, const UNER_Packet *p)
@@ -388,7 +400,13 @@ static void evt_sta_disconnected_handler(void *ctx, const UNER_Packet *p)
 
 static void evt_ap_client_join_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
 static void evt_ap_client_leave_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
-static void evt_webserver_up_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
+static void evt_webserver_up_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    OledUtils_DismissNotification();
+    OledUtils_ShowNotificationMs(OledUtils_RenderESPWebServerUpNotification, 2000u);
+}
 static void evt_webserver_client_conn_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
 static void evt_webserver_client_disconn_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
 static void evt_lastwifi_notfound_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
@@ -417,6 +435,8 @@ static void evt_usb_connected_handler(void *ctx, const UNER_Packet *p)
     (void)ctx;
     (void)p;
     SET_FLAG(systemFlags2, USB_ACTIVE);
+    OledUtils_DismissNotification();
+    OledUtils_ShowNotificationMs(OledUtils_RenderESPUsbConnectedNotification, 2000u);
 }
 
 static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p)
@@ -424,6 +444,8 @@ static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p)
     (void)ctx;
     (void)p;
     CLEAR_FLAG(systemFlags2, USB_ACTIVE);
+    OledUtils_DismissNotification();
+    OledUtils_ShowNotificationMs(OledUtils_RenderESPUsbDisconnectedNotification, 2000u);
 }
 
 static void evt_wifi_connected_handler(void *ctx, const UNER_Packet *p)
