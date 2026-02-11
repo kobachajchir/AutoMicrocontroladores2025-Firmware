@@ -270,7 +270,6 @@ int main(void)
 	 initMenuSystemTask();
 	 //Aca debemos poner la inicializacion de la ESP
 	 SET_FLAG(systemFlags2, ESP_PRESENT);
-	 (void)UNER_App_SendCommand(UNER_CMD_ID_REBOOT_ESP, NULL, 0u);
 
   //Solo llamo initCarMode() una vez, antes del while
   /* USER CODE END 2 */

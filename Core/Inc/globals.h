@@ -17,7 +17,6 @@
 #include "menusystem.h"
 #include "oled_handle.h"
 #include "mpu6050.h"
-#include "types/IPStruct_t.h"
 
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
@@ -88,7 +87,6 @@
 
 #define WIFIDEFAULTSEARCHTIMEOUT 1000
 
-
 // =============================
 // Variables globales (extern)
 // =============================
@@ -140,9 +138,6 @@ extern volatile uint8_t motorDir; // 0: adelante, 1: atrás
 
 extern uint16_t wifiSearchingTimeout;
 extern uint8_t networksFound;
-extern volatile IPStruct_t espStaIp;
-extern volatile IPStruct_t espApIp;
-extern char espFirmwareVersion[33];
 
 /* --- Handlers de librerias --- */
 extern USART_Buffer_t usart1Buf;
