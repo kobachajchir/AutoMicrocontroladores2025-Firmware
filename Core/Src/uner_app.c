@@ -167,6 +167,7 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
     }
 
     if (packet->cmd == UNER_CMD_ECHO) {
+    	OledUtils_DismissNotification();
         OledUtils_ShowNotificationMs(OledUtils_RenderCommandReceivedNotification, 2000u);
         __NOP();
     }
