@@ -270,7 +270,7 @@ void OledUtils_RenderWiFiConnectionStatus_Wrapper(){
 	oled_first_draw = true;
 	encoder.allowEncoderInput = true;
 	menuSystem.userEventManagerFn = ReadOnly_UserEventManager;
-	if(!IS_FLAG_SET(systemFlags3, WIFI_ACTIVE)){
+	if(!IS_FLAG_SET(systemFlags2, WIFI_ACTIVE)){
 		menuSystem.renderFn = OledUtils_RenderWiFiNotConnected;
 	}else{ //Aca deberia pedir datos de conexion al esp
 		__NOP();
@@ -304,11 +304,9 @@ static void OledUtils_ShowESPNotification(RenderFunction renderFn,
     encoder.allowEncoderInput = false;
     menuSystem.userEventManagerFn = menuEventManager;
 
-    if (!oled_first_draw) {
-        menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
-        oled_first_draw = true;
-        OledUtils_ShowNotificationMsEx(renderFn, 2000u, onShow, onHide);
-    }
+    menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
+    oled_first_draw = true;
+    OledUtils_ShowNotificationMsEx(renderFn, 2000u, onShow, onHide);
 }
 
 void OledUtils_RenderESPCheckConnection_Wrapper(void)
