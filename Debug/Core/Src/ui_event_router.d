@@ -43,7 +43,7 @@ Core/Src/ui_event_router.o: ../Core/Src/ui_event_router.c \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/FirmwareAutitoMicro2025/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
  ../Core/Inc/menusystem.h ../Core/Inc/oled_handle.h ../Core/Inc/mpu6050.h \
- ../Core/Inc/menusystem.h
+ ../Core/Inc/types/IPStruct_t.h ../Core/Inc/menusystem.h
 ../Core/Inc/ui_event_router.h:
 ../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/globals.h:
@@ -97,4 +97,5 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/Fi
 ../Core/Inc/menusystem.h:
 ../Core/Inc/oled_handle.h:
 ../Core/Inc/mpu6050.h:
+../Core/Inc/types/IPStruct_t.h:
 ../Core/Inc/menusystem.h:

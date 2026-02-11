@@ -1220,26 +1220,6 @@ void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining)
 /**
  * @brief Pantalla de WiFi no conectado
  */
-void OledUtils_RenderWiFiStatus(void)
-{
-	//Aca podemos crear un switch para poder mostrar el icono
-	//que corresponda segun la respuesta de señal del ESP
-    ssd1306_SetColor(White);
-
-    // Texto "No hay red" con fuente grande
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh = Oled_FontHeight();
-    ssd1306_SetCursor(19, 38 - fh);
-    Oled_DrawStr("Red");
-
-    // Icono WiFi desconectado (19x16 píxeles)
-    Oled_DrawXBM(54, 8, 19, 16, Icon_Wifi_100_bits);
-
-}
-
-/**
- * @brief Pantalla de WiFi no conectado
- */
 void OledUtils_RenderWiFiNotConnected(void)
 {
     ssd1306_SetColor(White);
@@ -1345,18 +1325,97 @@ void OledUtils_RenderCommandReceivedNotification(void)
     Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();
     ssd1306_SetCursor(27, 30 - fh_grande);
-    Oled_DrawStr("Busqueda");
+    Oled_DrawStr("ECHO");
 
     ssd1306_SetCursor(2, 50 - fh_grande);
-    Oled_DrawStr("completada");
+    Oled_DrawStr("recibido");
 }
+
+void OledUtils_RenderWiFiStatus(void)
+{
+	if(!IS_FLAG_SET(systemFlags, WIFI_ACTIVE) || IS_FLAG_SET(systemFlags, AP_ACTIVE)){
+	    ssd1306_SetColor(White);
+
+	    // Texto "No hay red" con fuente grande
+	    Oled_SetFont(&Font_11x18);
+	    const uint8_t fh = Oled_FontHeight();
+	    ssd1306_SetCursor(19, 38 - fh);
+	    Oled_DrawStr("Red");
+
+	    // Icono WiFi desconectado (19x16 píxeles)
+	    Oled_DrawXBM(54, 8, 19, 16, Icon_Wifi_100_bits);
+	}else{
+		ssd1306_SetColor(White);
+
+		char ipStr[20];
+
+		Oled_SetFont(&Font_11x18);
+		const uint8_t fh = Oled_FontHeight();
+		ssd1306_SetCursor(19, 20 - fh);
+		Oled_DrawStr("Red");
+
+		Oled_DrawXBM(54, 4, 19, 16, Icon_Wifi_100_bits);
+
+		Oled_SetFont(&Font_7x10);
+		snprintf(ipStr, sizeof(ipStr), "%u.%u.%u.%u",
+				 (unsigned)espStaIp.block1,
+				 (unsigned)espStaIp.block2,
+				 (unsigned)espStaIp.block3,
+				 (unsigned)espStaIp.block4);
+		ssd1306_SetCursor(8, 40 - Oled_FontHeight());
+		Oled_DrawStr(ipStr);
+
+		ssd1306_SetCursor(3, 58 - Oled_FontHeight());
+		Oled_DrawStr(espFirmwareVersion);
+	}
+
+}
+
+void OledUtils_RenderESPBootReceivedNotification(void){
+	ssd1306_Clear();
+	ssd1306_SetColor(White);
+
+	Oled_DrawXBM_MSB(2, 12, 19, 16, Icon_Info_bits);
+
+	Oled_SetFont(&Font_11x18);
+	const uint8_t fh_grande = Oled_FontHeight();
+	ssd1306_SetCursor(27, 30 - fh_grande);
+	Oled_DrawStr("ESP");
+
+	ssd1306_SetCursor(2, 50 - fh_grande);
+	Oled_DrawStr("iniciada");
+}
+
+
+void OledUtils_RenderESPWifiConnectedNotification(void){
+	char ipStr[20];
+
+	ssd1306_Clear();
+	ssd1306_SetColor(White);
+
+	Oled_DrawXBM(2, 12, 19, 16, Icon_Wifi_100_bits);
+
+	Oled_SetFont(&Font_11x18);
+	ssd1306_SetCursor(27, 30 - Oled_FontHeight());
+	Oled_DrawStr("WiFi OK");
+
+	Oled_SetFont(&Font_7x10);
+	snprintf(ipStr, sizeof(ipStr), "%u.%u.%u.%u",
+	(unsigned)espStaIp.block1,
+	(unsigned)espStaIp.block2,
+	(unsigned)espStaIp.block3,
+	(unsigned)espStaIp.block4);
+	ssd1306_SetCursor(8, 60 - Oled_FontHeight());
+	Oled_DrawStr(ipStr);
+}
+
 
 void OledUtils_RenderPingReceivedNotification(void)
 {
     ssd1306_Clear();
     ssd1306_SetColor(White);
 
-    Oled_DrawXBM_MSB(2, 12, 19, 16, Icon_Info_bits);
+    Oled_DrawXBM(2, 12, 16, 16, Icon_Info_bits);
 
     Oled_SetFont(&Font_11x18);
     const uint8_t fh_grande = Oled_FontHeight();

@@ -46,6 +46,9 @@ TCRT_LightConfig_t tcrtLight;
 /* WiFi */
 uint16_t wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
 uint8_t networksFound = 0;
+volatile IPStruct_t espStaIp = {0u, 0u, 0u, 0u};
+volatile IPStruct_t espApIp = {0u, 0u, 0u, 0u};
+char espFirmwareVersion[33] = {0};
 
 /* Pull config */
 bool pull_cfg[TCRT5000_NUM_SENSORS] = {

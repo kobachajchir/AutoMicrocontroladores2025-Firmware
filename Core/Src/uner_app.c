@@ -14,6 +14,8 @@ extern UART_HandleTypeDef huart1;
 extern DMA_HandleTypeDef hdma_usart1_rx;
 
 #define UNER_QUEUE_SLOTS 4u
+#define WIFI_ACTIVE_CODE 1
+#define AP_ACTIVE_CODE 2
 
 static UNER_Handle uner_handle;
 static UNER_TransportUart1Dma uner_uart1;
@@ -23,6 +25,18 @@ static volatile uint8_t uner_uart1_rx_hint = 0;
 static volatile uint8_t uner_tx_marked = 0;
 static volatile uint8_t uner_waiting_validation = 0;
 static volatile uint8_t uner_wait_cmd_id = 0;
+
+typedef enum {
+    WIFI_MODE_OFF    = 0x00u, // WIFI_OFF
+    WIFI_MODE_STA    = 0x01u, // WIFI_STA
+    WIFI_MODE_AP     = 0x02u, // WIFI_AP
+    WIFI_MODE_AP_STA = 0x03u  // WIFI_AP_STA
+} UNER_WifiModeEsp;
+
+static void UNER_App_UpdateModeFlags(uint8_t mode);
+static void UNER_App_ParseFirmwareResponse(const UNER_Packet *p);
+static void UNER_App_ParseStatusResponse(const UNER_Packet *p);
+static void UNER_App_ParseWifiFinalizer(const UNER_Packet *p);
 
 typedef enum {
     UNER_CMD_SET_MODE_AP = 0x10u,
@@ -178,12 +192,169 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         __NOP();
     }
 
+    if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 2u && packet->payload) {
+        encoder_fast_scroll_enabled = (packet->payload[1] != 0u) ? 1u : 0u;
+    }
+
+    if (packet->cmd == UNER_CMD_REQUEST_FIRMWARE) {
+    	__NOP();
+        UNER_App_ParseFirmwareResponse(packet);
+    }
+
+    if (packet->cmd == UNER_CMD_GET_STATUS) {
+		__NOP();
+        UNER_App_ParseStatusResponse(packet);
+    }
+
+    if (packet->cmd == UNER_CMD_CONNECT_WIFI || packet->cmd == UNER_CMD_START_AP) {
+    	__NOP();
+        UNER_App_ParseWifiFinalizer(packet);
+    }
+
     if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 1u && packet->payload) {
         encoder_fast_scroll_enabled = (packet->payload[0] != 0u) ? 1u : 0u;
     }
 }
 
-static void evt_boot_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
+static void UNER_App_UpdateModeFlags(uint8_t mode)
+{
+    switch (mode) {
+        case WIFI_MODE_AP:
+            SET_FLAG(systemFlags2, AP_ACTIVE);
+            CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
+            break;
+
+        case WIFI_MODE_STA:
+            SET_FLAG(systemFlags2, WIFI_ACTIVE);
+            CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+            break;
+
+        case WIFI_MODE_AP_STA:
+            SET_FLAG(systemFlags2, WIFI_ACTIVE);
+            SET_FLAG(systemFlags2, AP_ACTIVE);
+            break;
+
+        case WIFI_MODE_OFF:
+        default:
+            CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
+            CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+            break;
+    }
+}
+
+static void UNER_App_ParseFirmwareResponse(const UNER_Packet *p)
+{
+    // Formato real response: [status, ascii_fw...]
+    if (!p || !p->payload || p->len < 2u) {
+        return;
+    }
+
+    if (p->payload[0] != 0u) { // status != OK
+        return;
+    }
+
+    uint8_t fw_len = (uint8_t)(p->len - 1u);
+    if (fw_len > 32u) {
+        fw_len = 32u;
+    }
+
+    (void)memcpy(espFirmwareVersion, &p->payload[1], fw_len);
+    espFirmwareVersion[fw_len] = '\0';
+}
+
+static void UNER_App_ParseStatusResponse(const UNER_Packet *p)
+{
+    // GET_STATUS real:
+    // [0]=status
+    // [1]=ap_active
+    // [2]=wifi_active
+    // [3..] = wifi_info = [mode, wl_status, ip0,ip1,ip2,ip3,ssid_len,ssid...]
+    // [len-8 .. len-5] = sta_ip
+    // [len-4 .. len-1] = ap_ip
+    //
+    // Largo mínimo cuando ssid_len=0:
+    // 1 + 2 + 7 + 8 = 18 bytes
+    if (!p || !p->payload || p->len < 18u) {
+        return;
+    }
+
+    if (p->payload[0] != 0u) { // status != OK
+        return;
+    }
+
+    // Flags "rápidos" del payload
+    if (p->payload[1] != 0u) {
+        SET_FLAG(systemFlags2, AP_ACTIVE);
+    } else {
+        CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+    }
+
+    if (p->payload[2] != 0u) {
+        SET_FLAG(systemFlags2, WIFI_ACTIVE);
+    } else {
+        CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
+    }
+
+    // mode dentro de wifi_info
+    UNER_App_UpdateModeFlags(p->payload[3]);
+
+    // IPs finales (robusto: tomadas desde el tail)
+    espStaIp.block1 = p->payload[p->len - 8u];
+    espStaIp.block2 = p->payload[p->len - 7u];
+    espStaIp.block3 = p->payload[p->len - 6u];
+    espStaIp.block4 = p->payload[p->len - 5u];
+
+    espApIp.block1 = p->payload[p->len - 4u];
+    espApIp.block2 = p->payload[p->len - 3u];
+    espApIp.block3 = p->payload[p->len - 2u];
+    espApIp.block4 = p->payload[p->len - 1u];
+}
+
+static void UNER_App_ParseWifiFinalizer(const UNER_Packet *p)
+{
+    // Finalizadores raw:
+    // - CMD 0x48 (CONNECT_WIFI): [0xFE, sta_ip0..3]
+    // - CMD 0x4B (START_AP):     [0xFE, ap_ip0..3]
+    if (!p || !p->payload || p->len < 5u) {
+        return;
+    }
+
+    if (p->payload[0] != 0xFEu) {
+        return;
+    }
+
+    if (p->cmd == UNER_CMD_CONNECT_WIFI) {
+        espStaIp.block1 = p->payload[1];
+        espStaIp.block2 = p->payload[2];
+        espStaIp.block3 = p->payload[3];
+        espStaIp.block4 = p->payload[4];
+
+        SET_FLAG(systemFlags2, WIFI_ACTIVE);
+        OledUtils_DismissNotification();
+        OledUtils_ShowNotificationMs(OledUtils_RenderESPWifiConnectedNotification, 2500u);
+    }
+    else if (p->cmd == UNER_CMD_START_AP) {
+        espApIp.block1 = p->payload[1];
+        espApIp.block2 = p->payload[2];
+        espApIp.block3 = p->payload[3];
+        espApIp.block4 = p->payload[4];
+
+        SET_FLAG(systemFlags2, AP_ACTIVE);
+        // Si tenés renderer específico AP, podés cambiar esta notificación
+        OledUtils_DismissNotification();
+        OledUtils_ShowNotificationMs(OledUtils_RenderESPWifiConnectedNotification, 2500u);
+    }
+}
+
+
+static void evt_boot_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    OledUtils_DismissNotification();
+    OledUtils_ShowNotificationMs(OledUtils_RenderESPBootReceivedNotification, 2000u);
+}
+
 static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
