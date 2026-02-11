@@ -87,6 +87,8 @@ void OledUtils_RenderESPCheckingConnectionNotification(void);
 void OledUtils_RenderESPFirmwareRequestNotification(void);
 void OledUtils_RenderESPResetSentNotification(void);
 void OledUtils_RenderESPCheckConnectionRequiredNotification(void);
+void OledUtils_RenderESPBootReceivedNotification(void);
+void OledUtils_RenderESPWifiConnectedNotification(void);
 void OledUtils_RenderCommandReceivedNotification(void);
 void OledUtils_RenderPingReceivedNotification(void);
 void OledUtils_RenderControllerConnected(void);
