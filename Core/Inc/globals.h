@@ -87,6 +87,13 @@
 
 #define WIFIDEFAULTSEARCHTIMEOUT 1000
 
+typedef struct {
+    uint8_t block1;
+    uint8_t block2;
+    uint8_t block3;
+    uint8_t block4;
+} IPStruct_t;
+
 // =============================
 // Variables globales (extern)
 // =============================
@@ -138,6 +145,9 @@ extern volatile uint8_t motorDir; // 0: adelante, 1: atrás
 
 extern uint16_t wifiSearchingTimeout;
 extern uint8_t networksFound;
+extern volatile IPStruct_t espStaIp;
+extern volatile IPStruct_t espApIp;
+extern char espFirmwareVersion[33];
 
 /* --- Handlers de librerias --- */
 extern USART_Buffer_t usart1Buf;
@@ -170,4 +180,3 @@ extern const RenderScreenFunction wifiDataScreen;
 extern OledHandle    oledHandle;
 
 #endif // GLOBALS_H
-

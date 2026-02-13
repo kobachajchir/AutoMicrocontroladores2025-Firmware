@@ -9,6 +9,7 @@
 #include "uner_v2.h"
 #include "oled_utils.h"
 #include "stm32f1xx_hal.h"
+#include <string.h>
 
 extern UART_HandleTypeDef huart1;
 extern DMA_HandleTypeDef hdma_usart1_rx;
@@ -23,6 +24,16 @@ static volatile uint8_t uner_uart1_rx_hint = 0;
 static volatile uint8_t uner_tx_marked = 0;
 static volatile uint8_t uner_waiting_validation = 0;
 static volatile uint8_t uner_wait_cmd_id = 0;
+
+#define WIFI_MODE_OFF 0u
+#define WIFI_MODE_STA 1u
+#define WIFI_MODE_AP 2u
+#define WIFI_MODE_AP_STA 3u
+
+static void UNER_App_UpdateModeFlags(uint8_t mode);
+static void UNER_App_ParseFirmwareResponse(const UNER_Packet *p);
+static void UNER_App_ParseStatusResponse(const UNER_Packet *p);
+static void UNER_App_ParseWifiFinalizer(const UNER_Packet *p);
 
 typedef enum {
     UNER_CMD_SET_MODE_AP = 0x10u,
@@ -178,12 +189,30 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         __NOP();
     }
 
-    if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 1u && packet->payload) {
-        encoder_fast_scroll_enabled = (packet->payload[0] != 0u) ? 1u : 0u;
+    if (packet->cmd == UNER_CMD_SET_ENCODER_FAST && packet->len >= 2u && packet->payload) {
+        encoder_fast_scroll_enabled = (packet->payload[1] != 0u) ? 1u : 0u;
+    }
+
+    if (packet->cmd == UNER_CMD_REQUEST_FIRMWARE) {
+        UNER_App_ParseFirmwareResponse(packet);
+    }
+
+    if (packet->cmd == UNER_CMD_GET_STATUS) {
+        UNER_App_ParseStatusResponse(packet);
+    }
+
+    if (packet->cmd == UNER_CMD_CONNECT_WIFI || packet->cmd == UNER_CMD_START_AP) {
+        UNER_App_ParseWifiFinalizer(packet);
     }
 }
 
-static void evt_boot_handler(void *ctx, const UNER_Packet *p) { (void)ctx; (void)p; __NOP(); }
+static void evt_boot_handler(void *ctx, const UNER_Packet *p)
+{
+    (void)ctx;
+    (void)p;
+    OledUtils_DismissNotification();
+    OledUtils_ShowNotificationMs(OledUtils_RenderESPBootReceivedNotification, 2000u);
+}
 static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
@@ -192,12 +221,7 @@ static void evt_mode_changed_handler(void *ctx, const UNER_Packet *p)
     }
 
     const uint8_t mode = p->payload[0];
-    if (mode == UNER_CMD_SET_MODE_AP) {
-        SET_FLAG(systemFlags2, AP_ACTIVE);
-        CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
-    } else if (mode == UNER_CMD_SET_MODE_STA) {
-        CLEAR_FLAG(systemFlags2, AP_ACTIVE);
-    }
+    UNER_App_UpdateModeFlags(mode);
 }
 
 static void evt_sta_connected_handler(void *ctx, const UNER_Packet *p)
@@ -258,12 +282,105 @@ static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p)
 static void evt_wifi_connected_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
-    (void)p;
+    if (!p || !p->payload || p->len < 3u) {
+        return;
+    }
+
     SET_FLAG(systemFlags2, WIFI_ACTIVE);
     CLEAR_FLAG(systemFlags2, AP_ACTIVE);
 }
 
+static void UNER_App_UpdateModeFlags(uint8_t mode)
+{
+    if (mode == WIFI_MODE_AP) {
+        SET_FLAG(systemFlags2, AP_ACTIVE);
+        CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
+    } else if (mode == WIFI_MODE_STA) {
+        SET_FLAG(systemFlags2, WIFI_ACTIVE);
+        CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+    } else if (mode == WIFI_MODE_AP_STA) {
+        SET_FLAG(systemFlags2, WIFI_ACTIVE);
+        SET_FLAG(systemFlags2, AP_ACTIVE);
+    } else {
+        CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
+        CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+    }
+}
 
+static void UNER_App_ParseFirmwareResponse(const UNER_Packet *p)
+{
+    if (!p || !p->payload || p->len < 2u) {
+        return;
+    }
+
+    if (p->payload[0] != 0u) {
+        return;
+    }
+
+    uint8_t fw_len = (uint8_t)(p->len - 1u);
+    if (fw_len > 32u) {
+        fw_len = 32u;
+    }
+    (void)memcpy(espFirmwareVersion, &p->payload[1], fw_len);
+    espFirmwareVersion[fw_len] = '\0';
+}
+
+static void UNER_App_ParseStatusResponse(const UNER_Packet *p)
+{
+    if (!p || !p->payload || p->len < 12u) {
+        return;
+    }
+
+    if (p->payload[0] != 0u) {
+        return;
+    }
+
+    if (p->payload[1] != 0u) {
+        SET_FLAG(systemFlags2, AP_ACTIVE);
+    } else {
+        CLEAR_FLAG(systemFlags2, AP_ACTIVE);
+    }
+
+    if (p->payload[2] != 0u) {
+        SET_FLAG(systemFlags2, WIFI_ACTIVE);
+    } else {
+        CLEAR_FLAG(systemFlags2, WIFI_ACTIVE);
+    }
+
+    espStaIp.block1 = p->payload[p->len - 8u];
+    espStaIp.block2 = p->payload[p->len - 7u];
+    espStaIp.block3 = p->payload[p->len - 6u];
+    espStaIp.block4 = p->payload[p->len - 5u];
+
+    espApIp.block1 = p->payload[p->len - 4u];
+    espApIp.block2 = p->payload[p->len - 3u];
+    espApIp.block3 = p->payload[p->len - 2u];
+    espApIp.block4 = p->payload[p->len - 1u];
+
+    if (p->len >= 8u) {
+        const uint8_t mode = p->payload[3];
+        UNER_App_UpdateModeFlags(mode);
+    }
+}
+
+static void UNER_App_ParseWifiFinalizer(const UNER_Packet *p)
+{
+    if (!p || !p->payload || p->len < 5u) {
+        return;
+    }
+
+    if (p->payload[0] != 0xFEu) {
+        return;
+    }
+
+    espStaIp.block1 = p->payload[1];
+    espStaIp.block2 = p->payload[2];
+    espStaIp.block3 = p->payload[3];
+    espStaIp.block4 = p->payload[4];
+
+    OledUtils_DismissNotification();
+    OledUtils_ShowNotificationMs(OledUtils_RenderESPWifiConnectedNotification, 2500u);
+}
 
 static const UNER_CommandSpec *UNER_App_FindSpecById(uint8_t cmd)
 {
