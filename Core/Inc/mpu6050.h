@@ -114,6 +114,24 @@ typedef enum {
     MPU6050_XFER_RX_DATA
 } MPU6050_TransferState;
 
+typedef enum {
+    MPU6050_OP_IDLE = 0,
+    MPU6050_OP_DATA,
+    MPU6050_OP_CONFIG
+} MPU6050_Operation;
+
+typedef enum {
+    MPU6050_CONFIG_NONE = 0,
+    MPU6050_CONFIG_WHOAMI,
+    MPU6050_CONFIG_PWR,
+    MPU6050_CONFIG_SMPLRT,
+    MPU6050_CONFIG_DLPF,
+    MPU6050_CONFIG_GYRO,
+    MPU6050_CONFIG_ACCEL,
+    MPU6050_CONFIG_DONE,
+    MPU6050_CONFIG_ERROR
+} MPU6050_ConfigState;
+
 /** Handle único que el usuario externaliza. */
 typedef struct {
     I2C_HandleTypeDef *hi2c;            ///< I2C hardware handle
@@ -121,12 +139,18 @@ typedef struct {
     uint8_t            dev_id;          ///< ID lógico en I2C_Manager
     uint8_t            i2c_address;     ///< Dirección 7-bit (0x68)
 
-    uint8_t            tx_buffer[1];    ///< {0x3B}
+    uint8_t            tx_buffer[2];    ///< {reg, value}
     uint8_t            rx_buffer[14];   ///< Raw data
+    uint8_t            tx_len;          ///< bytes to transmit
     uint8_t            expected_rx_len; ///< 14
     MPU6050_ReadMode   read_mode;
     MPU6050_ReadMode   last_read_mode;
     MPU6050_TransferState transfer_state;
+    MPU6050_Operation  operation;
+    MPU6050_ConfigState config_state;
+    bool               configured;
+    bool               calib_pending;
+    bool               config_step_pending;
 
     MPU_Byte_Flag_Struct_t flags;
     MPU6050_IntData_t  data;            ///< Datos convertidos
@@ -171,6 +195,11 @@ HAL_StatusTypeDef MPU6050_BindI2CManager(
 HAL_StatusTypeDef MPU6050_Configure(MPU6050_Handle_t *hmpu);
 
 void MPU6050_CalibrateGyro(MPU6050_Handle_t *h, uint16_t samples);
+
+/**
+ * @brief Avanza la máquina de configuración en el loop principal.
+ */
+void MPU6050_ProcessConfig(MPU6050_Handle_t *hmpu);
 
 /**
  * @brief Revisa la señal @p trigger; si está activa, la limpia y pide TX bus.

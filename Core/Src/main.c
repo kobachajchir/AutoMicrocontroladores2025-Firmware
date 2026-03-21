@@ -1124,6 +1124,8 @@ void Motor_MainTask(void)
 
 
 void MPU_MainTask(void) {
+    MPU6050_ProcessConfig(&mpuTask);
+
     // ——————————————————————————————————————————
     // 1) Trigger periódico
     // ——————————————————————————————————————————
