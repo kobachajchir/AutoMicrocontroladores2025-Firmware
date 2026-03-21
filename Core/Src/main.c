@@ -159,7 +159,9 @@ void drawItemWrapper(const char *name, int y, bool selected);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void MPU_Data_Ready(void) {
-    SET_FLAG(systemFlags, MPU_GET_DATA); //Setea bandera de data para volver a pedir
+    if (MPU6050_IsAutoRequestEnabled(&mpuTask)) {
+        SET_FLAG(systemFlags, MPU_GET_DATA); //Setea bandera de data para volver a pedir
+    }
 }
 
 void USART1_DMA_CheckRx(void)
@@ -236,11 +238,7 @@ int main(void)
 	             DEVICE_ID_MPU,
 	             1
 	         );
-	         if (res == HAL_OK) {
-	             MPU6050_Configure(&mpuTask);
-	             MPU6050_CalibrateGyro(&mpuTask, 250);
-	             SET_FLAG(systemFlags, MPU_GET_DATA);
-	         } else {
+	         if (res != HAL_OK) {
 	             // Falló al registrar (posiblemente sin espacio en la tabla)
 	         }
 	     }
@@ -1124,10 +1122,32 @@ void Motor_MainTask(void)
 
 
 void MPU_MainTask(void) {
+    if (!mpuTask.configured) {
+        if (mpuTask.operation == MPU6050_OP_NONE &&
+            mpuTask.config_state == MPU6050_CFG_IDLE) {
+            (void)MPU6050_Configure(&mpuTask);
+        }
+        return;
+    }
+
+    if (!mpuTask.calibration_started) {
+        if (MPU6050_IsAutoRequestEnabled(&mpuTask)) {
+            MPU6050_CalibrateGyro(&mpuTask, 250);
+            mpuTask.calibration_started = true;
+            SET_FLAG(systemFlags, MPU_GET_DATA);
+        } else {
+            return;
+        }
+    }
+
     // ——————————————————————————————————————————
     // 1) Trigger periódico
     // ——————————————————————————————————————————
     if (mpu_trigger) {
+        if (!MPU6050_IsAutoRequestEnabled(&mpuTask)) {
+            mpu_trigger = false;
+            return;
+        }
         __NOP();              // BREAKPOINT #1
         MPU6050_CheckTrigger(&mpuTask);
         mpu_trigger = false;  // consumimos
@@ -1157,13 +1177,17 @@ void MPU_MainTask(void) {
                 __NOP();  // BREAKPOINT #3
 
                 // **rearmamos un nuevo ciclo de lectura**
-                mpu_trigger = true;
-                MPU6050_CheckTrigger(&mpuTask);
+                if (MPU6050_IsAutoRequestEnabled(&mpuTask)) {
+                    mpu_trigger = true;
+                    MPU6050_CheckTrigger(&mpuTask);
+                }
                 return;
             } else {
                 // pedimos siguiente muestra de calibración
-                mpu_trigger = true;
-                MPU6050_CheckTrigger(&mpuTask);
+                if (MPU6050_IsAutoRequestEnabled(&mpuTask)) {
+                    mpu_trigger = true;
+                    MPU6050_CheckTrigger(&mpuTask);
+                }
                 __NOP();  // breakpoint opcional
                 return;
             }

@@ -114,6 +114,25 @@ typedef enum {
     MPU6050_XFER_RX_DATA
 } MPU6050_TransferState;
 
+typedef enum {
+    MPU6050_OP_NONE = 0,
+    MPU6050_OP_CONFIG,
+    MPU6050_OP_READ
+} MPU6050_Operation;
+
+typedef enum {
+    MPU6050_CFG_IDLE = 0,
+    MPU6050_CFG_WHOAMI_TX,
+    MPU6050_CFG_WHOAMI_RX,
+    MPU6050_CFG_PWR_MGMT,
+    MPU6050_CFG_SMPLRT,
+    MPU6050_CFG_CONFIG,
+    MPU6050_CFG_GYRO,
+    MPU6050_CFG_ACCEL,
+    MPU6050_CFG_DONE,
+    MPU6050_CFG_ERROR
+} MPU6050_ConfigState;
+
 /** Handle único que el usuario externaliza. */
 typedef struct {
     I2C_HandleTypeDef *hi2c;            ///< I2C hardware handle
@@ -127,6 +146,8 @@ typedef struct {
     MPU6050_ReadMode   read_mode;
     MPU6050_ReadMode   last_read_mode;
     MPU6050_TransferState transfer_state;
+    MPU6050_Operation  operation;
+    MPU6050_ConfigState config_state;
 
     MPU_Byte_Flag_Struct_t flags;
     MPU6050_IntData_t  data;            ///< Datos convertidos
@@ -135,6 +156,12 @@ typedef struct {
     MPU6050_Callback   on_data_ready_cb;
 
     uint16_t dt_div;
+
+    bool auto_request_enabled;
+    bool configured;
+    bool calibration_started;
+
+    uint8_t config_tx_buffer[2];
 
     volatile bool     *trigger;         ///< Señal externa de disparo
     int32_t gyro_bias_x, gyro_bias_y, gyro_bias_z;
@@ -171,6 +198,16 @@ HAL_StatusTypeDef MPU6050_BindI2CManager(
 HAL_StatusTypeDef MPU6050_Configure(MPU6050_Handle_t *hmpu);
 
 void MPU6050_CalibrateGyro(MPU6050_Handle_t *h, uint16_t samples);
+
+/**
+ * @brief Habilita o deshabilita el pedido cíclico de datos.
+ */
+void MPU6050_EnableAutoRequest(MPU6050_Handle_t *hmpu, bool enable);
+
+/**
+ * @brief Devuelve si el pedido cíclico de datos está activo.
+ */
+bool MPU6050_IsAutoRequestEnabled(const MPU6050_Handle_t *hmpu);
 
 /**
  * @brief Revisa la señal @p trigger; si está activa, la limpia y pide TX bus.

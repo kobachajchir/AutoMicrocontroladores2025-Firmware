@@ -75,7 +75,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 			// sólo disparamos un nuevo trigger si no estamos
 			// ya esperando a procesar datos pendientes
-			if ( IS_FLAG_SET(systemFlags, MPU_GET_DATA) ) {
+			if (IS_FLAG_SET(systemFlags, MPU_GET_DATA) &&
+			    MPU6050_IsAutoRequestEnabled(&mpuTask)) {
 				CLEAR_FLAG(systemFlags, MPU_GET_DATA);
 				mpu_trigger = true;
 				__NOP();  // <— BREAKPOINT #1: programó trigger a 8 ms
