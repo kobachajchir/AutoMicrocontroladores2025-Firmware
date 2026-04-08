@@ -1,5 +1,6 @@
 #include "menu_definitions.h"
 #include "screenWrappers.h"
+#include "notificationWrappers.h"
 #include "eventManagers.h"
 #include "oled_utils.h"
 #include "fonts.h"

@@ -44,6 +44,7 @@
 #include "ssd1306.h"
 #include "mpu6050.h"             // donde se define MPU6050_Handle_t
 #include "screenWrappers.h"
+#include "notificationWrappers.h"
 #include "eventManagers.h"
 #include "menu_definitions.h"
 #include "uner_app.h"
