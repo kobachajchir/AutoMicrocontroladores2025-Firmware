@@ -72,8 +72,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Core/Inc/ui_event_router.h ../Core/Inc/types/userEvent_type.h \
  ../Core/Src/ssd1306.h ../Core/Src/ssd1306_defines.h \
  ../Core/Inc/mpu6050.h ../Core/Inc/screenWrappers.h \
- ../Core/Inc/eventManagers.h ../Core/Inc/menu_definitions.h \
- ../Core/Inc/uner_app.h ../Core/Inc/uner_core.h ../Core/Inc/uner_v2.h
+ ../Core/Inc/notificationWrappers.h ../Core/Inc/eventManagers.h \
+ ../Core/Inc/menu_definitions.h ../Core/Inc/uner_app.h \
+ ../Core/Inc/uner_core.h ../Core/Inc/uner_v2.h
 ../Core/Inc/main.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/stm32f1xx_hal_conf.h:
@@ -173,6 +174,7 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HA
 ../Core/Src/ssd1306_defines.h:
 ../Core/Inc/mpu6050.h:
 ../Core/Inc/screenWrappers.h:
+../Core/Inc/notificationWrappers.h:
 ../Core/Inc/eventManagers.h:
 ../Core/Inc/menu_definitions.h:
 ../Core/Inc/uner_app.h:

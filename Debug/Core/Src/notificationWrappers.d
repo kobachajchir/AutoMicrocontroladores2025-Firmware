@@ -1,9 +1,9 @@
-Core/Src/menu_definition.o: ../Core/Src/menu_definition.c \
- ../Core/Inc/menu_definitions.h ../Core/Inc/menusystem.h \
+Core/Src/notificationWrappers.o: ../Core/Src/notificationWrappers.c \
+ ../Core/Inc/notificationWrappers.h ../Core/Inc/screenWrappers.h \
  ../Core/Inc/types/menu_types.h ../Core/Inc/types/userEvent_type.h \
- ../Core/Inc/screenWrappers.h ../Core/Inc/notificationWrappers.h \
- ../Core/Inc/eventManagers.h ../Core/Inc/types/userEvent_type.h \
- ../Core/Inc/oled_utils.h ../Core/Inc/mpu6050.h \
+ ../Core/Inc/uner_app.h ../Core/Inc/uner_core.h ../Core/Inc/uner_v2.h \
+ ../Core/Inc/menusystem.h ../Core/Inc/oled_utils.h \
+ ../Core/Inc/menusystem.h ../Core/Inc/mpu6050.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/stm32f1xx_hal_conf.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h \
@@ -56,8 +56,9 @@ Core/Src/menu_definition.o: ../Core/Src/menu_definition.c \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd_ex.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_hcd.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_mmc.h \
- ../Core/Inc/i2c_manager.h ../Core/Inc/oled_handle.h ../Core/Src/fonts.h \
- ../Core/Src/../Inc/fonts.h ../Core/Inc/globals.h \
+ ../Core/Inc/i2c_manager.h ../Core/Inc/oled_handle.h \
+ ../Core/Inc/encoder.h ../Core/Inc/eventManagers.h \
+ ../Core/Inc/types/userEvent_type.h ../Core/Inc/globals.h \
  ../Core/Inc/user_button.h ../Core/Inc/types/button_state.h \
  ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
  ../Core/Inc/utils/../types/bitmap_type.h \
@@ -67,15 +68,16 @@ Core/Src/menu_definition.o: ../Core/Src/menu_definition.c \
  ../Core/Inc/utils/macros_utils.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/types/IPStruct_t.h
-../Core/Inc/menu_definitions.h:
-../Core/Inc/menusystem.h:
+../Core/Inc/notificationWrappers.h:
+../Core/Inc/screenWrappers.h:
 ../Core/Inc/types/menu_types.h:
 ../Core/Inc/types/userEvent_type.h:
-../Core/Inc/screenWrappers.h:
-../Core/Inc/notificationWrappers.h:
-../Core/Inc/eventManagers.h:
-../Core/Inc/types/userEvent_type.h:
+../Core/Inc/uner_app.h:
+../Core/Inc/uner_core.h:
+../Core/Inc/uner_v2.h:
+../Core/Inc/menusystem.h:
 ../Core/Inc/oled_utils.h:
+../Core/Inc/menusystem.h:
 ../Core/Inc/mpu6050.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/stm32f1xx_hal_conf.h:
@@ -131,8 +133,9 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_mmc.h:
 ../Core/Inc/i2c_manager.h:
 ../Core/Inc/oled_handle.h:
-../Core/Src/fonts.h:
-../Core/Src/../Inc/fonts.h:
+../Core/Inc/encoder.h:
+../Core/Inc/eventManagers.h:
+../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/globals.h:
 ../Core/Inc/user_button.h:
 ../Core/Inc/types/button_state.h:
