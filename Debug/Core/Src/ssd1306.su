@@ -11,7 +11,7 @@
 ../Core/Src/ssd1306.c:558:6:ssd1306_Fill	0	static
 ../Core/Src/ssd1306.c:567:6:ssd1306_DrawPixel	12	static
 ../Core/Src/ssd1306.c:593:6:ssd1306_DrawLine	48	static
-../Core/Src/ssd1306.c:643:6:ssd1306_DrawHorizontalLine	8	static
+../Core/Src/ssd1306.c:643:6:ssd1306_DrawHorizontalLine	0	static
 ../Core/Src/ssd1306.c:689:6:ssd1306_DrawVerticalLine	20	static
 ../Core/Src/ssd1306.c:771:6:ssd1306_DrawRect	24	static
 ../Core/Src/ssd1306.c:779:6:ssd1306_FillRect	24	static

@@ -46,6 +46,7 @@ uint8_t UNER_App_GetWaitingCommandId(void);
 
 void UNER_App_OnUart1TxComplete(void);
 void UNER_App_NotifyUart1Rx(void);
+uint16_t UNER_App_Uart1RxGetWritePos(void);
 
 #ifdef __cplusplus
 }

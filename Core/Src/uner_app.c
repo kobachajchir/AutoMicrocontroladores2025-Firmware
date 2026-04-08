@@ -578,3 +578,8 @@ void UNER_App_NotifyUart1Rx(void)
     uner_uart1_rx_hint = 1u;
     __NOP();
 }
+
+uint16_t UNER_App_Uart1RxGetWritePos(void)
+{
+    return (uint16_t)(USART1_RX_DMA_BUF_LEN - __HAL_DMA_GET_COUNTER(&hdma_usart1_rx));
+}

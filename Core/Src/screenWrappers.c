@@ -11,6 +11,7 @@
 #include "oled_utils.h"
 #include "encoder.h"
 #include "eventManagers.h"
+#include "globals.h"
 
 static void OledUtils_OnHide_SendFirmwareRequest(void)
 {

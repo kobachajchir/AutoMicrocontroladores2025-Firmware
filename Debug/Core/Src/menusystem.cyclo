@@ -1,8 +1,8 @@
 ../Core/Src/menusystem.c:17:6:MenuSys_IsItemVisible	3
 ../Core/Src/menusystem.c:23:15:MenuSys_FindFirstVisibleIndexFrom	4
-../Core/Src/menusystem.c:45:15:MenuSys_FindNextVisibleIndex	5
-../Core/Src/menusystem.c:34:15:MenuSys_FindLastVisibleIndexBefore	5
-../Core/Src/menusystem.c:57:15:MenuSys_ComputeLastVisibleIndex	6
+../Core/Src/menusystem.c:45:15:MenuSys_FindNextVisibleIndex	4
+../Core/Src/menusystem.c:34:15:MenuSys_FindLastVisibleIndexBefore	4
+../Core/Src/menusystem.c:57:15:MenuSys_ComputeLastVisibleIndex	5
 ../Core/Src/menusystem.c:74:6:MenuSys_Init	4
 ../Core/Src/menusystem.c:88:6:MenuSys_SetCallbacks	2
 ../Core/Src/menusystem.c:109:6:MenuSys_MoveCursorUp	7

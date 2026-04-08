@@ -20,12 +20,12 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f1xx_it.h"
-#include "uner_app.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "globals.h"
 #include "utils.h"
 #include "i2c_manager.h"
+#include "uner_app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/

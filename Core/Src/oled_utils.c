@@ -79,13 +79,6 @@ static void Oled_DrawXBM_MSB(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const u
     ssd1306_DrawBitmap_MSB(x, y, w, h, bits);
 }
 
-static void Oled_DrawXBM_Pages(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const uint8_t *bits)
-{
-    __NOP(); // BREAKPOINT: impresión de bitmap en formato páginas
-    ssd1306_SetColor(White);
-    ssd1306_DrawBitmap_Pages(x, y, w, h, bits);
-}
-
 // ============================================================================
 // Wrappers de render
 // ============================================================================
