@@ -8,7 +8,8 @@
 #ifndef INC_SCREENWRAPPERS_H_
 #define INC_SCREENWRAPPERS_H_
 
-#include "globals.h"
+#include <stdbool.h>
+#include "types/menu_types.h"
 
 void OledUtils_DrawItem_Wrapper(const MenuItem *item, int y, bool selected);
 void OledUtils_RenderDashboard_Wrapper(void);
