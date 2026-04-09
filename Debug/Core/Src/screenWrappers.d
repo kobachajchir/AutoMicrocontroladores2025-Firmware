@@ -55,11 +55,12 @@ Core/Src/screenWrappers.o: ../Core/Src/screenWrappers.c \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pcd_ex.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_hcd.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_mmc.h \
- ../Core/Inc/i2c_manager.h ../Core/Inc/oled_handle.h \
- ../Core/Inc/encoder.h ../Core/Inc/eventManagers.h \
- ../Core/Inc/types/userEvent_type.h ../Core/Inc/globals.h \
- ../Core/Inc/user_button.h ../Core/Inc/types/button_state.h \
- ../Core/Inc/types/bitmap_type.h ../Core/Inc/utils/macros_utils.h \
+ ../Core/Inc/i2c_manager.h ../Core/Inc/oled_handle.h ../Core/Src/fonts.h \
+ ../Core/Src/../Inc/fonts.h ../Core/Inc/encoder.h \
+ ../Core/Inc/eventManagers.h ../Core/Inc/types/userEvent_type.h \
+ ../Core/Inc/globals.h ../Core/Inc/user_button.h \
+ ../Core/Inc/types/button_state.h ../Core/Inc/types/bitmap_type.h \
+ ../Core/Inc/utils/macros_utils.h \
  ../Core/Inc/utils/../types/bitmap_type.h \
  ../Core/Inc/utils/../types/carmode_type.h ../Core/Inc/encoder.h \
  ../Core/Inc/types/led_status.h ../Core/Inc/types/carmode_type.h \
@@ -131,6 +132,8 @@ C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_mmc.h:
 ../Core/Inc/i2c_manager.h:
 ../Core/Inc/oled_handle.h:
+../Core/Src/fonts.h:
+../Core/Src/../Inc/fonts.h:
 ../Core/Inc/encoder.h:
 ../Core/Inc/eventManagers.h:
 ../Core/Inc/types/userEvent_type.h:

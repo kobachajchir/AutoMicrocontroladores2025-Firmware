@@ -308,6 +308,33 @@ static const EventCallbacks_t motorTestCallbacks = {
     .onEncLongPress = MotorTest_OnEncLongPress
 };
 
+static void WiFiResults_BackToWifiMenu(void)
+{
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 1;
+    }
+
+    MenuSys_NavigateBack(&menuSystem);
+    menuSystem.clearScreen();
+    menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static void WiFiResults_RestartScan(void)
+{
+    wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+    networksFound = 0u;
+    wifiScanSessionActive = 1u;
+    wifiScanResultsPending = 0u;
+    CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+
+    menuSystem.renderFn = OledUtils_RenderWiFiSearching_Wrapper;
+    menuSystem.clearScreen();
+    menuSystem.renderFlag = true;
+    oled_first_draw = false;
+}
+
 // ============================================================================
 // CALLBACKS PARA BÚSQUEDA WIFI
 // ============================================================================
@@ -318,6 +345,8 @@ static void WiFiSearch_OnShortPress(void)
 
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
     wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+    wifiScanSessionActive = 0u;
+    wifiScanResultsPending = 0u;
 
     if (menuSystem.insideMenuFlag) {
         *menuSystem.insideMenuFlag = 0;
@@ -336,6 +365,8 @@ static void WiFiSearch_OnLongPress(void)
     // Cancelar y volver al dashboard
     // TODO: Implementar stopWiFiScan() cuando esté disponible
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+    wifiScanSessionActive = 0u;
+    wifiScanResultsPending = 0u;
     if (menuSystem.dashboardRender) {
         menuSystem.renderFn = menuSystem.dashboardRender;
     }
@@ -355,6 +386,67 @@ static const EventCallbacks_t wifiSearchCallbacks = {
     .onLongPress    = WiFiSearch_OnLongPress,
     .onUserButton   = NULL,
     .onEncLongPress = NULL
+};
+
+// ============================================================================
+// CALLBACKS PARA RESULTADOS WIFI
+// ============================================================================
+
+static void WiFiResults_OnRotateCW(void)
+{
+    MenuSys_MoveCursorUp(&menuSystem);
+    menuSystem.renderFlag = true;
+}
+
+static void WiFiResults_OnRotateCCW(void)
+{
+    MenuSys_MoveCursorDown(&menuSystem);
+    menuSystem.renderFlag = true;
+}
+
+static void WiFiResults_OnShortPress(void)
+{
+    SubMenu *menu = menuSystem.currentMenu;
+    int8_t idx = (menu != NULL) ? menu->currentItemIndex : -1;
+
+    if (!menu || idx < 0 || idx >= menu->itemCount || menu->itemCount < 2) {
+        return;
+    }
+
+    if (idx == (menu->itemCount - 2)) {
+        WiFiResults_RestartScan();
+        return;
+    }
+
+    if (idx == (menu->itemCount - 1)) {
+        WiFiResults_BackToWifiMenu();
+    }
+}
+
+static void WiFiResults_OnEncLongPress(void)
+{
+    WiFiResults_BackToWifiMenu();
+}
+
+static void WiFiResults_OnUserButton(void)
+{
+    if (menuSystem.dashboardRender) {
+        menuSystem.renderFn = menuSystem.dashboardRender;
+    }
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 0;
+    }
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static const EventCallbacks_t wifiResultsCallbacks = {
+    .onRotateCW     = WiFiResults_OnRotateCW,
+    .onRotateCCW    = WiFiResults_OnRotateCCW,
+    .onShortPress   = WiFiResults_OnShortPress,
+    .onLongPress    = NULL,
+    .onUserButton   = WiFiResults_OnUserButton,
+    .onEncLongPress = WiFiResults_OnEncLongPress
 };
 
 // ============================================================================
@@ -505,6 +597,11 @@ void motorTestEventManager(UserEvent_t ev)
 void WiFiSearch_UserEventManager(UserEvent_t ev)
 {
     GenericEventManager(ev, &wifiSearchCallbacks);
+}
+
+void wifiEventManager(UserEvent_t ev)
+{
+    GenericEventManager(ev, &wifiResultsCallbacks);
 }
 
 void ReadOnly_UserEventManager(UserEvent_t ev)

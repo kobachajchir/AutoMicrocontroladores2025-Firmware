@@ -16,6 +16,10 @@ void UiEventRouter_HandleEvent(UserEvent_t ev)
     }
 
     if (ev == UE_LONG_PRESS) {
+        CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+        wifiScanSessionActive = 0u;
+        wifiScanResultsPending = 0u;
+        wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
         MenuSys_ResetMenu(&menuSystem);
         if (menuSystem.dashboardRender) {
             menuSystem.renderFn = menuSystem.dashboardRender;

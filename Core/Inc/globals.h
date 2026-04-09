@@ -87,6 +87,9 @@
 #define ICON_Y_OFFSET         -13
 
 #define WIFIDEFAULTSEARCHTIMEOUT 1000
+#define WIFI_SCAN_MAX_NETWORKS 8
+#define WIFI_SSID_MAX_LEN 32
+#define WIFI_RESULTS_MENU_MAX_ITEMS (WIFI_SCAN_MAX_NETWORKS + 2)
 
 
 // =============================
@@ -140,6 +143,9 @@ extern volatile uint8_t motorDir; // 0: adelante, 1: atrás
 
 extern uint16_t wifiSearchingTimeout;
 extern uint8_t networksFound;
+extern char wifiNetworkSsids[WIFI_SCAN_MAX_NETWORKS][WIFI_SSID_MAX_LEN + 1];
+extern volatile uint8_t wifiScanSessionActive;
+extern volatile uint8_t wifiScanResultsPending;
 extern volatile IPStruct_t espStaIp;
 extern volatile IPStruct_t espApIp;
 extern char espFirmwareVersion[33];
@@ -164,7 +170,9 @@ extern volatile uint8_t usart1_tx_busy;
 /* Menu system */
 extern MenuSystem    menuSystem;
 extern SubMenu       mainMenu, submenu1, submenu2, submenu3;
+extern SubMenu       wifiResultsMenu;
 extern MenuItem      mainMenuItems[], submenu1Items[], submenu2Items[], submenu3Items[];
+extern MenuItem      wifiResultsItems[WIFI_RESULTS_MENU_MAX_ITEMS];
 extern const uint8_t* generic_icon;
 extern const RenderScreenFunction mainMenuScreen;
 extern const RenderScreenFunction subMenuScreen;

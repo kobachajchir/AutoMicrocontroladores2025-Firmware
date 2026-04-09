@@ -46,6 +46,9 @@ TCRT_LightConfig_t tcrtLight;
 /* WiFi */
 uint16_t wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
 uint8_t networksFound = 0;
+char wifiNetworkSsids[WIFI_SCAN_MAX_NETWORKS][WIFI_SSID_MAX_LEN + 1] = {{0}};
+volatile uint8_t wifiScanSessionActive = 0;
+volatile uint8_t wifiScanResultsPending = 0;
 volatile IPStruct_t espStaIp = {0u, 0u, 0u, 0u};
 volatile IPStruct_t espApIp = {0u, 0u, 0u, 0u};
 char espFirmwareVersion[33] = {0};
@@ -80,6 +83,19 @@ CarMode_t auxCarMode;
 volatile CarMode_t carMode;
 volatile uint16_t tim3_overflow_count = 0;
 volatile uint32_t contador = 0;
+
+MenuItem wifiResultsItems[WIFI_RESULTS_MENU_MAX_ITEMS] = {0};
+SubMenu wifiResultsMenu = {
+    .name = "Redes WiFi",
+    .items = wifiResultsItems,
+    .itemCount = 0,
+    .currentItemIndex = 0,
+    .lastSelectedItemIndex = -1,
+    .firstVisibleItem = 0,
+    .lastVisibleItem = -1,
+    .parent = &submenu1,
+    .icon = NULL
+};
 
 volatile bool oled_first_draw = false;
 

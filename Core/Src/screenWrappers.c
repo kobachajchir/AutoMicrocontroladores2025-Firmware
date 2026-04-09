@@ -9,9 +9,67 @@
 #include "uner_app.h"
 #include "menusystem.h"
 #include "oled_utils.h"
+#include "fonts.h"
 #include "encoder.h"
 #include "eventManagers.h"
 #include "globals.h"
+
+static void WiFiResults_SetDefaultSelection(SubMenu *menu)
+{
+    if (!menu || menu->itemCount == 0u) {
+        return;
+    }
+
+    if (menu->currentItemIndex < 0 || menu->currentItemIndex >= menu->itemCount) {
+        menu->currentItemIndex = 0;
+    }
+    if (menu->firstVisibleItem < 0 || menu->firstVisibleItem >= menu->itemCount) {
+        menu->firstVisibleItem = 0;
+    }
+    if (menu->currentItemIndex < menu->firstVisibleItem) {
+        menu->firstVisibleItem = menu->currentItemIndex;
+    }
+    if ((menu->currentItemIndex - menu->firstVisibleItem) >= MENU_VISIBLE_ITEMS) {
+        menu->firstVisibleItem = (int8_t)(menu->currentItemIndex - (MENU_VISIBLE_ITEMS - 1));
+    }
+    if (menu->lastSelectedItemIndex >= menu->itemCount) {
+        menu->lastSelectedItemIndex = -1;
+    }
+    if (menu->lastVisibleItem >= menu->itemCount) {
+        menu->lastVisibleItem = -1;
+    }
+}
+
+static void WiFiResults_BuildMenu(void)
+{
+    uint8_t itemIndex = 0u;
+
+    memset(wifiResultsItems, 0, sizeof(wifiResultsItems));
+    wifiResultsMenu.parent = &submenu1;
+
+    if (networksFound == 0u) {
+        wifiResultsItems[itemIndex].name = "Sin redes";
+        wifiResultsItems[itemIndex].icon = Icon_Wifi_bits;
+        itemIndex++;
+    } else {
+        for (uint8_t i = 0u; i < networksFound && i < WIFI_SCAN_MAX_NETWORKS; ++i) {
+            wifiResultsItems[itemIndex].name = wifiNetworkSsids[i];
+            wifiResultsItems[itemIndex].icon = Icon_Wifi_bits;
+            itemIndex++;
+        }
+    }
+
+    wifiResultsItems[itemIndex].name = "Actualizar";
+    wifiResultsItems[itemIndex].icon = Icon_Refrescar_bits;
+    itemIndex++;
+
+    wifiResultsItems[itemIndex].name = "Volver";
+    wifiResultsItems[itemIndex].icon = Icon_Volver_bits;
+    itemIndex++;
+
+    wifiResultsMenu.itemCount = itemIndex;
+    WiFiResults_SetDefaultSelection(&wifiResultsMenu);
+}
 
 static uint8_t MenuSys_VisibleOffset(const SubMenu *menu, int8_t firstVisible, int8_t itemIndex) {
     uint8_t offset = 0;
@@ -234,6 +292,15 @@ void OledUtils_RenderWiFiSearching_Wrapper(void)
 
     if (!oled_first_draw) {
         wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+        networksFound = 0u;
+        wifiScanSessionActive = 1u;
+        wifiScanResultsPending = 0u;
+        memset(wifiNetworkSsids, 0, sizeof(wifiNetworkSsids));
+        wifiResultsMenu.itemCount = 0u;
+        wifiResultsMenu.currentItemIndex = 0;
+        wifiResultsMenu.firstVisibleItem = 0;
+        wifiResultsMenu.lastSelectedItemIndex = -1;
+        wifiResultsMenu.lastVisibleItem = -1;
         __NOP();
         (void)UNER_App_SendCommand(UNER_CMD_ID_START_SCAN, NULL, 0u);
         OledUtils_Clear();
@@ -262,17 +329,24 @@ void OledUtils_RenderWiFiConnectionStatus_Wrapper(){
 void OledUtils_RenderWiFiSearchResults_Wrapper(void)
 {
     OledUtils_DisableContinuousRender();
-    inside_menu_flag = false;
+    inside_menu_flag = true;
     encoder.allowEncoderInput = true;
-    menuSystem.userEventManagerFn = WiFiSearch_UserEventManager;  // AGREGADO
+    menuSystem.userEventManagerFn = wifiEventManager;
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
-    if (!oled_first_draw) {
-        OledUtils_Clear();
-        OledUtils_ShowWifiResults();
-        oled_first_draw = true;
+
+    if (wifiScanResultsPending &&
+        !(UNER_App_IsWaitingValidation() && UNER_App_GetWaitingCommandId() == UNER_CMD_ID_GET_SCAN_RESULTS)) {
+        if (UNER_App_SendCommand(UNER_CMD_ID_GET_SCAN_RESULTS, NULL, 0u) == UNER_OK) {
+            wifiScanResultsPending = 0u;
+        }
     } else {
-        OledUtils_ShowWifiResults();
+        __NOP();
     }
+
+    WiFiResults_BuildMenu();
+    menuSystem.currentMenu = &wifiResultsMenu;
+    MenuSys_RenderMenu(&menuSystem);
+    oled_first_draw = false;
 }
 
 void onRenderComplete(void) {

@@ -8,6 +8,7 @@
 #include "uner_transport_uart1_dma.h"
 #include "uner_v2.h"
 #include "oled_utils.h"
+#include "screenWrappers.h"
 #include "stm32f1xx_hal.h"
 
 extern UART_HandleTypeDef huart1;
@@ -37,6 +38,8 @@ static void UNER_App_UpdateModeFlags(uint8_t mode);
 static void UNER_App_ParseFirmwareResponse(const UNER_Packet *p);
 static void UNER_App_ParseStatusResponse(const UNER_Packet *p);
 static void UNER_App_ParseWifiFinalizer(const UNER_Packet *p);
+static void UNER_App_ParseScanResultsResponse(const UNER_Packet *p);
+static void UNER_App_ShowScanResultsScreen(void);
 
 typedef enum {
     UNER_CMD_SET_MODE_AP = 0x10u,
@@ -202,6 +205,14 @@ static void UNER_App_ExecuteCommand(void *ctx, const UNER_Packet *packet)
         UNER_App_ParseFirmwareResponse(packet);
     }
 
+    if (packet->cmd == UNER_CMD_GET_SCAN_RESULTS) {
+        if (packet->len >= 1u && packet->payload && packet->payload[0] == 0xFEu) {
+            UNER_App_ShowScanResultsScreen();
+        } else {
+            UNER_App_ParseScanResultsResponse(packet);
+        }
+    }
+
     if (packet->cmd == UNER_CMD_GET_STATUS) {
 		__NOP();
         UNER_App_ParseStatusResponse(packet);
@@ -343,6 +354,68 @@ static void UNER_App_ParseWifiFinalizer(const UNER_Packet *p)
         SET_FLAG(systemFlags2, AP_ACTIVE);
         OledUtils_DismissNotification();
         OledUtils_ShowNotificationMs(OledUtils_RenderESPAPStartedNotification, 2500u);
+    }
+}
+
+static void UNER_App_ShowScanResultsScreen(void)
+{
+    if (!wifiScanSessionActive && menuSystem.renderFn != OledUtils_RenderWiFiSearchResults_Wrapper) {
+        return;
+    }
+
+    wifiScanSessionActive = 0u;
+    wifiScanResultsPending = 1u;
+    CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+    wifiSearchingTimeout = 0u;
+
+    menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
+    menuSystem.renderFlag = true;
+    oled_first_draw = false;
+}
+
+static void UNER_App_ParseScanResultsResponse(const UNER_Packet *p)
+{
+    if (!p || !p->payload || p->len < 2u) {
+        return;
+    }
+
+    const uint8_t status = p->payload[0];
+    const uint8_t reportedCount = p->payload[1];
+    uint8_t offset = 2u;
+
+    networksFound = 0u;
+    memset(wifiNetworkSsids, 0, sizeof(wifiNetworkSsids));
+
+    if (status == 0u) {
+        while (offset < p->len &&
+               networksFound < reportedCount &&
+               networksFound < WIFI_SCAN_MAX_NETWORKS) {
+            const uint8_t ssidLen = p->payload[offset++];
+            uint8_t copyLen = ssidLen;
+
+            if ((uint16_t)offset + ssidLen > p->len) {
+                break;
+            }
+
+            if (copyLen > WIFI_SSID_MAX_LEN) {
+                copyLen = WIFI_SSID_MAX_LEN;
+            }
+
+            (void)memcpy(wifiNetworkSsids[networksFound], &p->payload[offset], copyLen);
+            wifiNetworkSsids[networksFound][copyLen] = '\0';
+
+            offset = (uint8_t)(offset + ssidLen);
+            networksFound++;
+        }
+    }
+
+    if (status != 1u) {
+        wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+    }
+
+    if (menuSystem.renderFn == OledUtils_RenderWiFiSearchResults_Wrapper) {
+        menuSystem.renderFlag = true;
+        oled_first_draw = false;
     }
 }
 
