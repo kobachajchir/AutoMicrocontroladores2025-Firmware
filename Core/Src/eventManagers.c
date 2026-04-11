@@ -311,7 +311,10 @@ static const EventCallbacks_t motorTestCallbacks = {
 // CALLBACKS PARA BÚSQUEDA WIFI
 // ============================================================================
 
-static void WiFiSearch_OnShortPress(void)
+/**
+ * @brief Cancela la búsqueda WiFi y regresa al dashboard.
+ */
+static void WiFiSearch_Cancel(void)
 {
     (void)UNER_App_SendCommand(UNER_CMD_ID_STOP_SCAN, NULL, 0u);
 
@@ -324,27 +327,22 @@ static void WiFiSearch_OnShortPress(void)
 
     menuSystem.renderFn = menuSystem.dashboardRender ? menuSystem.dashboardRender
                                                       : OledUtils_RenderDashboard_Wrapper;
+
+    menuSystem.clearScreen();
     OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCanceledNotification, 2000u);
 
     menuSystem.renderFlag = true;
     oled_first_draw = true;
 }
 
+static void WiFiSearch_OnShortPress(void)
+{
+    WiFiSearch_Cancel();
+}
+
 static void WiFiSearch_OnLongPress(void)
 {
-    // Cancelar y volver al dashboard
-    // TODO: Implementar stopWiFiScan() cuando esté disponible
-    CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
-    if (menuSystem.dashboardRender) {
-        menuSystem.renderFn = menuSystem.dashboardRender;
-    }
-    if (menuSystem.insideMenuFlag) {
-        *menuSystem.insideMenuFlag = 0;
-    }
-    menuSystem.clearScreen();
-    wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
-    menuSystem.renderFlag = true;
-    oled_first_draw = true;
+    WiFiSearch_Cancel();
 }
 
 static const EventCallbacks_t wifiSearchCallbacks = {
