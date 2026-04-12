@@ -2,6 +2,6 @@
 ../Core/Src/uner_handle.c:73:13:UNER_Handle_Init	48	static
 ../Core/Src/uner_handle.c:109:13:UNER_Handle_RegisterTransport	0	static
 ../Core/Src/uner_handle.c:123:13:UNER_Handle_RegisterCommands	0	static
-../Core/Src/uner_handle.c:141:6:UNER_Handle_Poll	16	static
-../Core/Src/uner_handle.c:155:6:UNER_Handle_ProcessPending	32	static,ignoring_inline_asm
-../Core/Src/uner_handle.c:192:13:UNER_Send	48	static
+../Core/Src/uner_handle.c:168:6:UNER_Handle_ProcessPending	32	static,ignoring_inline_asm
+../Core/Src/uner_handle.c:141:6:UNER_Handle_Poll	24	static
+../Core/Src/uner_handle.c:209:13:UNER_Send	48	static

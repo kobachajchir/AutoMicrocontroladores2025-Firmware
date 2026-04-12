@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "screen_codes.h"
 #include "userEvent_type.h"
 
 #ifdef __cplusplus
@@ -35,6 +36,7 @@ typedef struct MenuItem {
     RenderScreenFunction screenRenderFn;      ///< Puntero a la pantalla asociada (si existe)
     UserEventManagerFn eventManagerFn;        ///< Callback manager para la pantalla asociada (si existe)
     MenuVisibilityFn visibilityFn;            ///< Condición para mostrar/seleccionar el ítem (si existe)
+    ScreenCode_t screen_code;                 ///< Identificador estable de la pantalla destino
 } MenuItem;
 
 typedef void (*DrawItemFunction)(const MenuItem *item, int y, bool selected);
@@ -49,6 +51,7 @@ typedef struct SubMenu {
     int8_t lastVisibleItem;
     struct SubMenu *parent;                   ///< Puntero al submenú padre (para 'Volver')
     const uint8_t *icon;                      ///< Icono asociado (opcional)
+    ScreenCode_t screen_code;                 ///< Identificador estable de esta pantalla de menu
 } SubMenu;
 
 typedef struct MenuSystem {
@@ -61,6 +64,10 @@ typedef struct MenuSystem {
     volatile uint8_t *insideMenuFlag;         ///< Puntero a una bandera externa que indica si estamos dentro del menú
     volatile bool renderFlag;
     bool allowPeriodicRefresh;
+    ScreenCode_t current_screen_code;
+    ScreenCode_t last_reported_screen_code;
+    uint8_t current_screen_source;
+    bool screen_report_pending;
 } MenuSystem;
 
 #ifdef __cplusplus

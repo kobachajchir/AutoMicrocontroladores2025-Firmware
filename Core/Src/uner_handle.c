@@ -147,14 +147,31 @@ void UNER_Handle_Poll(UNER_Handle *handle)
     for (uint8_t i = 0; i < handle->transport_count; ++i) {
         UNER_Transport *transport = handle->transports[i];
         if (transport && transport->poll_rx) {
-            transport->poll_rx(transport, &handle->core);
+            uint8_t busy_retries = 0u;
+
+            while (transport->poll_rx(transport, &handle->core) == UNER_ERR_BUSY) {
+                if (handle->core.q_count == 0u) {
+                    break;
+                }
+
+                UNER_Handle_ProcessPending(handle);
+
+                busy_retries++;
+                if (busy_retries >= handle->core.slot_count) {
+                    break;
+                }
+            }
         }
     }
 }
 
 void UNER_Handle_ProcessPending(UNER_Handle *handle)
 {
-    if (!handle || !handle->packet_pending) {
+    if (!handle) {
+        return;
+    }
+
+    if (!handle->packet_pending && handle->core.q_count == 0u) {
         return;
     }
 

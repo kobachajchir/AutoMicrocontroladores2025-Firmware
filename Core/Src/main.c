@@ -48,6 +48,7 @@
 #include "eventManagers.h"
 #include "menu_definitions.h"
 #include "uner_app.h"
+#include "permissions.h"
 //#include "oled_screens.h"
 
 /* USER CODE END Includes */
@@ -198,6 +199,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	 HAL_StatusTypeDef result;
 	 UNER_App_Init();
+	 Permission_Init();
 	 initTCRTLib();
 	 InitMotorTask();
 	 I2C_Manager_Init(&i2cManager, &hi2c1, 0);
@@ -251,7 +253,7 @@ int main(void)
 	 initMenuSystemTask();
 	 //Aca debemos poner la inicializacion de la ESP
 	 SET_FLAG(systemFlags2, ESP_PRESENT);
-	 (void)UNER_App_SendCommand(UNER_CMD_ID_REBOOT_ESP, NULL, 0u);
+	 uint8_t espBootRebootPending = 1u;
 
   //Solo llamo initCarMode() una vez, antes del while
   /* USER CODE END 2 */
@@ -260,6 +262,12 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 	while (1) {
 		UNER_App_Poll();
+		if (espBootRebootPending && !usart1_tx_busy) {
+			if (UNER_App_SendCommand(UNER_CMD_ID_REBOOT_ESP, NULL, 0u) == UNER_OK) {
+				espBootRebootPending = 0u;
+			}
+		}
+		Permission_Task(HAL_GetTick());
 		TCRT_MainTask();
 		i2cManager_MainTask();
 		UserBtn_MainTask(&btnUser);

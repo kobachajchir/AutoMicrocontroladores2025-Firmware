@@ -99,7 +99,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             if (IS_FLAG_SET(systemFlags, OLED_READY)) {
 				OLED_Task_10ms();
 			}
-            if(IS_FLAG_SET(systemFlags3, WIFI_SEARCHING)){
+            if(IS_FLAG_SET(systemFlags3, WIFI_SEARCHING) && wifiScanSessionActive){
 				wifi_search_tick_10ms++;
 				if (wifi_search_tick_10ms >= 100) {
 					wifi_search_tick_10ms = 0;
@@ -124,6 +124,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					}
 				}
 			} else {
+				CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
 				wifi_search_tick_10ms = 0;
             }
         }

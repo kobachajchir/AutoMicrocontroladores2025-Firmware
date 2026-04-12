@@ -1,7 +1,8 @@
-../Core/Src/notificationWrappers.c:16:13:OledUtils_OnHide_SendFirmwareRequest	1
-../Core/Src/notificationWrappers.c:21:13:OledUtils_OnHide_SendESPReset	1
-../Core/Src/notificationWrappers.c:26:13:OledUtils_ShowESPNotification.constprop	1
-../Core/Src/notificationWrappers.c:39:6:OledUtils_RenderStartupNotification_Wrapper	1
-../Core/Src/notificationWrappers.c:51:6:OledUtils_RenderESPCheckConnection_Wrapper	1
-../Core/Src/notificationWrappers.c:58:6:OledUtils_RenderESPFirmwareRequest_Wrapper	2
-../Core/Src/notificationWrappers.c:72:6:OledUtils_RenderESPResetSent_Wrapper	2
+../Core/Src/notificationWrappers.c:25:13:OledUtils_SendFirmwareRequest	1
+../Core/Src/notificationWrappers.c:30:13:OledUtils_OnHide_SendESPReset	1
+../Core/Src/notificationWrappers.c:44:13:OledUtils_ShowESPNotification.constprop	1
+../Core/Src/notificationWrappers.c:35:13:OledUtils_ShowESPResetAfterPermission	1
+../Core/Src/notificationWrappers.c:68:6:OledUtils_RenderStartupNotification_Wrapper	1
+../Core/Src/notificationWrappers.c:83:6:OledUtils_RenderESPCheckConnection_Wrapper	1
+../Core/Src/notificationWrappers.c:90:6:OledUtils_RenderESPFirmwareRequest_Wrapper	2
+../Core/Src/notificationWrappers.c:109:6:OledUtils_RenderESPResetSent_Wrapper	2

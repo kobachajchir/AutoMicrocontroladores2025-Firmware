@@ -15,6 +15,7 @@
 "./Core/Src/mpu6050.o"
 "./Core/Src/notificationWrappers.o"
 "./Core/Src/oled_utils.o"
+"./Core/Src/permissions.o"
 "./Core/Src/screenWrappers.o"
 "./Core/Src/spi.o"
 "./Core/Src/ssd1306.o"

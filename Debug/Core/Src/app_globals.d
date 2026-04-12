@@ -61,8 +61,9 @@ Core/Src/app_globals.o: ../Core/Src/app_globals.c ../Core/Inc/globals.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
  ../Core/Inc/menusystem.h ../Core/Inc/types/menu_types.h \
- ../Core/Inc/types/userEvent_type.h ../Core/Inc/oled_handle.h \
- ../Core/Inc/mpu6050.h ../Core/Inc/types/IPStruct_t.h
+ ../Core/Inc/screen_codes.h ../Core/Inc/types/userEvent_type.h \
+ ../Core/Inc/oled_handle.h ../Core/Inc/mpu6050.h \
+ ../Core/Inc/types/IPStruct_t.h
 ../Core/Inc/globals.h:
 ../Core/Inc/user_button.h:
 ../Core/Inc/types/button_state.h:
@@ -133,6 +134,7 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HA
 ../Core/Inc/i2c_manager.h:
 ../Core/Inc/menusystem.h:
 ../Core/Inc/types/menu_types.h:
+../Core/Inc/screen_codes.h:
 ../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/oled_handle.h:
 ../Core/Inc/mpu6050.h:

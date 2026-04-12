@@ -61,8 +61,9 @@ Core/Src/utils.o: ../Core/Src/utils.c ../Core/Inc/globals.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
  ../Core/Inc/menusystem.h ../Core/Inc/types/menu_types.h \
- ../Core/Inc/types/userEvent_type.h ../Core/Inc/oled_handle.h \
- ../Core/Inc/mpu6050.h ../Core/Inc/types/IPStruct_t.h ../Core/Inc/utils.h \
+ ../Core/Inc/screen_codes.h ../Core/Inc/types/userEvent_type.h \
+ ../Core/Inc/oled_handle.h ../Core/Inc/mpu6050.h \
+ ../Core/Inc/types/IPStruct_t.h ../Core/Inc/utils.h \
  ../Core/Inc/oled_utils.h ../Core/Inc/screenWrappers.h \
  ../Core/Inc/i2c_manager.h ../Core/Inc/user_button.h ../Core/Inc/main.h \
  ../Core/Inc/uner_app.h ../Core/Inc/uner_core.h ../Core/Inc/uner_v2.h
@@ -136,6 +137,7 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HA
 ../Core/Inc/i2c_manager.h:
 ../Core/Inc/menusystem.h:
 ../Core/Inc/types/menu_types.h:
+../Core/Inc/screen_codes.h:
 ../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/oled_handle.h:
 ../Core/Inc/mpu6050.h:

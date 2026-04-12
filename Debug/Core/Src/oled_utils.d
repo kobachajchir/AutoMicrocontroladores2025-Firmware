@@ -1,6 +1,7 @@
 Core/Src/oled_utils.o: ../Core/Src/oled_utils.c ../Core/Inc/oled_utils.h \
  ../Core/Inc/menusystem.h ../Core/Inc/types/menu_types.h \
- ../Core/Inc/types/userEvent_type.h ../Core/Inc/mpu6050.h \
+ ../Core/Inc/screen_codes.h ../Core/Inc/types/userEvent_type.h \
+ ../Core/Inc/mpu6050.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/stm32f1xx_hal_conf.h \
  C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h \
@@ -70,6 +71,7 @@ Core/Src/oled_utils.o: ../Core/Src/oled_utils.c ../Core/Inc/oled_utils.h \
 ../Core/Inc/oled_utils.h:
 ../Core/Inc/menusystem.h:
 ../Core/Inc/types/menu_types.h:
+../Core/Inc/screen_codes.h:
 ../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/mpu6050.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:

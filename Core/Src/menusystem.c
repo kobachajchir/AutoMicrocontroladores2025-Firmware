@@ -13,11 +13,63 @@
 #include "types/menu_types.h"
 #include "globals.h"         // USART1_PrintString
 #include "menusystem.h"
+#include "uner_app.h"
 
 bool MenuSys_IsItemVisible(const MenuItem *item) {
     if (!item) return false;
     if (!item->visibilityFn) return true;
     return item->visibilityFn();
+}
+
+void MenuSys_FlushScreenReport(MenuSystem *ms)
+{
+    if (!ms || !ms->screen_report_pending || ms->current_screen_code == SCREEN_CODE_NONE) {
+        return;
+    }
+
+    if (UNER_App_ReportScreenChanged((uint32_t)ms->current_screen_code,
+                                     ms->current_screen_source) == UNER_OK) {
+        ms->last_reported_screen_code = ms->current_screen_code;
+        ms->screen_report_pending = false;
+    }
+}
+
+void MenuSys_SetCurrentScreenCode(MenuSystem *ms, ScreenCode_t screen_code, ScreenReportSource_t source)
+{
+    if (!ms || screen_code == SCREEN_CODE_NONE) {
+        return;
+    }
+
+    if (ms->current_screen_code != screen_code ||
+        ms->current_screen_source != (uint8_t)source ||
+        ms->last_reported_screen_code != screen_code) {
+        ms->current_screen_code = screen_code;
+        ms->current_screen_source = (uint8_t)source;
+        ms->screen_report_pending = true;
+    }
+
+    MenuSys_FlushScreenReport(ms);
+}
+
+void MenuSys_SetCurrentMenuScreenCode(MenuSystem *ms)
+{
+    if (!ms || !ms->currentMenu) {
+        return;
+    }
+
+    MenuSys_SetCurrentScreenCode(ms,
+                                 ms->currentMenu->screen_code,
+                                 SCREEN_REPORT_SOURCE_MENU);
+}
+
+ScreenCode_t MenuSys_GetCurrentScreenCode(const MenuSystem *ms)
+{
+    return ms ? ms->current_screen_code : SCREEN_CODE_NONE;
+}
+
+uint8_t MenuSys_GetCurrentScreenSource(const MenuSystem *ms)
+{
+    return ms ? ms->current_screen_source : SCREEN_REPORT_SOURCE_UNKNOWN;
 }
 
 static int8_t MenuSys_FindFirstVisibleIndexFrom(const SubMenu *menu, int8_t start) {
@@ -83,6 +135,12 @@ void MenuSys_Init(MenuSystem *ms) {
     ms->renderFlag = false;
     ms->allowPeriodicRefresh = false;
     ms->userEventManagerFn = NULL;
+    if (ms->current_screen_code == SCREEN_CODE_NONE) {
+        ms->current_screen_code = SCREEN_CODE_CORE_STARTUP;
+    }
+    ms->last_reported_screen_code = SCREEN_CODE_NONE;
+    ms->current_screen_source = SCREEN_REPORT_SOURCE_SYSTEM;
+    ms->screen_report_pending = false;
 }
 
 void MenuSys_SetCallbacks(MenuSystem *ms,
@@ -260,6 +318,8 @@ void MenuSys_RenderMenu(MenuSystem *ms) {
         return;
 
     SubMenu *m = ms->currentMenu;
+    MenuSys_SetCurrentMenuScreenCode(ms);
+
     int8_t firstVisible = MenuSys_FindFirstVisibleIndexFrom(m, m->firstVisibleItem);
     if (firstVisible < 0) return;
 

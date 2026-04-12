@@ -51,6 +51,13 @@ volatile uint8_t wifiScanSessionActive = 0;
 volatile uint8_t wifiScanResultsPending = 0;
 volatile IPStruct_t espStaIp = {0u, 0u, 0u, 0u};
 volatile IPStruct_t espApIp = {0u, 0u, 0u, 0u};
+ESPWiFiConnectionInfo_t espWifiConnection = {
+    .staIp = {0u, 0u, 0u, 0u},
+    .apIp = {0u, 0u, 0u, 0u},
+    .staSsid = "WiFi",
+    .staIpValid = 0u,
+    .apIpValid = 0u,
+};
 char espFirmwareVersion[33] = {0};
 
 /* Pull config */
@@ -94,7 +101,8 @@ SubMenu wifiResultsMenu = {
     .firstVisibleItem = 0,
     .lastVisibleItem = -1,
     .parent = &submenu1,
-    .icon = NULL
+    .icon = NULL,
+    .screen_code = SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS
 };
 
 volatile bool oled_first_draw = false;

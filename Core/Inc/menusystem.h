@@ -48,6 +48,11 @@ void MenuSys_NavigateToMain(MenuSystem *ms);
 void MenuSys_ResetMenu(MenuSystem *ms);
 void MenuSys_OpenSubMenu(MenuSystem *ms, SubMenu *submenu);
 void MenuSys_HandleClick(MenuSystem *ms);
+void MenuSys_SetCurrentScreenCode(MenuSystem *ms, ScreenCode_t screen_code, ScreenReportSource_t source);
+void MenuSys_SetCurrentMenuScreenCode(MenuSystem *ms);
+ScreenCode_t MenuSys_GetCurrentScreenCode(const MenuSystem *ms);
+uint8_t MenuSys_GetCurrentScreenSource(const MenuSystem *ms);
+void MenuSys_FlushScreenReport(MenuSystem *ms);
 
 bool MenuSys_IsItemVisible(const MenuItem *item);
 

@@ -9,12 +9,24 @@
 #include "screenWrappers.h"
 #include "oled_utils.h"
 #include "globals.h"
+#include "permissions.h"
 
 // ============================================================================
 // CALLBACKS PARA DASHBOARD (CAMBIO DE MODO)
 // ============================================================================
 
 static bool dashboardModeCanConfirm = false;
+
+static void Dashboard_ApplyPendingMode(void *ctx)
+{
+    (void)ctx;
+    SET_CAR_MODE(auxCarMode);
+    CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
+    dashboardModeCanConfirm = false;
+    menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+    menuSystem.clearScreen();
+    menuSystem.renderFlag = true;
+}
 
 static void Dashboard_OnRotateCW(void)
 {
@@ -55,13 +67,15 @@ static void Dashboard_OnRotateCCW(void)
 static void Dashboard_OnShortPress(void)
 {
     if (dashboardModeCanConfirm && IS_FLAG_SET(systemFlags2, MODIFYING_CARMODE)) {
-        // Confirmar el modo
-        SET_CAR_MODE(auxCarMode);
-        CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
-        dashboardModeCanConfirm = false;
-        menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
-        menuSystem.clearScreen();
-        menuSystem.renderFlag = true;
+        if (auxCarMode == TEST_MODE && GET_CAR_MODE() != TEST_MODE) {
+            (void)Permission_Request(
+                PERMISSION_CAR_MODE_TEST,
+                Dashboard_ApplyPendingMode,
+                NULL);
+            return;
+        }
+
+        Dashboard_ApplyPendingMode(NULL);
     }
     // Si no estamos modificando modo, no hacer nada
 }

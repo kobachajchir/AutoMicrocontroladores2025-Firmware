@@ -50,9 +50,16 @@
 #define CHK_ESP_CONN BIT0_MASK
 #define WIFI_SEARCHING BIT1_MASK
 
+/* Estados de pantalla de bloqueo/PIN */
+#define LOCK_STATE_LOCKED           0u
+#define LOCK_STATE_PIN_INCORRECT    1u
+#define LOCK_STATE_PIN_MODIFIED     2u
+#define LOCK_STATE_ENTER_PIN        3u
+
 //Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
-#define USART1_RX_DMA_BUF_LEN 64
+/* Debe cubrir frames UNER largos: payload 255 + overhead 10, con margen para rafagas. */
+#define USART1_RX_DMA_BUF_LEN 512
 
 #define I2C_ADDR_OLED  0x3C
 #define I2C_ADDR_MPU   0x68  // 104 decimal
@@ -90,6 +97,14 @@
 #define WIFI_SCAN_MAX_NETWORKS 8
 #define WIFI_SSID_MAX_LEN 32
 #define WIFI_RESULTS_MENU_MAX_ITEMS (WIFI_SCAN_MAX_NETWORKS + 2)
+
+typedef struct {
+    IPStruct_t staIp;
+    IPStruct_t apIp;
+    char staSsid[WIFI_SSID_MAX_LEN + 1u];
+    uint8_t staIpValid;
+    uint8_t apIpValid;
+} ESPWiFiConnectionInfo_t;
 
 
 // =============================
@@ -148,6 +163,7 @@ extern volatile uint8_t wifiScanSessionActive;
 extern volatile uint8_t wifiScanResultsPending;
 extern volatile IPStruct_t espStaIp;
 extern volatile IPStruct_t espApIp;
+extern ESPWiFiConnectionInfo_t espWifiConnection;
 extern char espFirmwareVersion[33];
 
 /* --- Handlers de librerias --- */

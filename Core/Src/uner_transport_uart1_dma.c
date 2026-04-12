@@ -3,6 +3,36 @@
  */
 #include "uner_transport_uart1_dma.h"
 
+static uint8_t UNER_TransportUart1Dma_QueueFull(const UNER_Core *core)
+{
+    return (core && core->q_count >= core->slot_count) ? 1u : 0u;
+}
+
+static UNER_Status UNER_TransportUart1Dma_FeedRange(
+    UNER_Transport *transport,
+    UNER_Core *core,
+    uint16_t start_pos,
+    uint16_t end_pos)
+{
+    UNER_TransportUart1Dma *uart = (UNER_TransportUart1Dma *)transport->ctx;
+
+    for (uint16_t i = start_pos; i < end_pos; ++i) {
+        if (UNER_TransportUart1Dma_QueueFull(core)) {
+            uart->last_pos = i;
+            return UNER_ERR_BUSY;
+        }
+
+        (void)UNER_Core_PushByte(core, transport->id, transport->max_payload, uart->rx_buf[i]);
+        uart->last_pos = (uint16_t)(i + 1u);
+
+        if (UNER_TransportUart1Dma_QueueFull(core)) {
+            return UNER_ERR_BUSY;
+        }
+    }
+
+    return UNER_OK;
+}
+
 static UNER_Status UNER_TransportUart1Dma_PollRx(UNER_Transport *transport, UNER_Core *core)
 {
     UNER_TransportUart1Dma *uart = (UNER_TransportUart1Dma *)transport->ctx;
@@ -21,21 +51,19 @@ static UNER_Status UNER_TransportUart1Dma_PollRx(UNER_Transport *transport, UNER
         return UNER_OK;
     }
 
-    if (curr_pos > uart->last_pos) {
-        for (uint16_t i = uart->last_pos; i < curr_pos; ++i) {
-            UNER_Core_PushByte(core, transport->id, transport->max_payload, uart->rx_buf[i]);
-        }
-    } else {
-        for (uint16_t i = uart->last_pos; i < uart->rx_len; ++i) {
-            UNER_Core_PushByte(core, transport->id, transport->max_payload, uart->rx_buf[i]);
-        }
-        for (uint16_t i = 0; i < curr_pos; ++i) {
-            UNER_Core_PushByte(core, transport->id, transport->max_payload, uart->rx_buf[i]);
-        }
+    if (UNER_TransportUart1Dma_QueueFull(core)) {
+        return UNER_ERR_BUSY;
     }
 
-    uart->last_pos = curr_pos;
-    return UNER_OK;
+    if (curr_pos > uart->last_pos) {
+        return UNER_TransportUart1Dma_FeedRange(transport, core, uart->last_pos, curr_pos);
+    } else {
+        UNER_Status status = UNER_TransportUart1Dma_FeedRange(transport, core, uart->last_pos, uart->rx_len);
+        if (status != UNER_OK) {
+            return status;
+        }
+        return UNER_TransportUart1Dma_FeedRange(transport, core, 0u, curr_pos);
+    }
 }
 
 static UNER_Status UNER_TransportUart1Dma_TrySend(UNER_Transport *transport, const uint8_t *buf, uint16_t len)

@@ -64,8 +64,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/tcrt5000.h \
  ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
  ../Core/Inc/menusystem.h ../Core/Inc/types/menu_types.h \
- ../Core/Inc/types/userEvent_type.h ../Core/Inc/oled_handle.h \
- ../Core/Inc/mpu6050.h ../Core/Inc/types/IPStruct_t.h ../Core/Inc/utils.h \
+ ../Core/Inc/screen_codes.h ../Core/Inc/types/userEvent_type.h \
+ ../Core/Inc/oled_handle.h ../Core/Inc/mpu6050.h \
+ ../Core/Inc/types/IPStruct_t.h ../Core/Inc/utils.h \
  ../Core/Inc/motor_control.h ../Core/Inc/i2c_manager.h \
  ../Core/Src/fonts.h ../Core/Src/../Inc/fonts.h ../Core/Inc/menusystem.h \
  ../Core/Inc/oled_utils.h ../Core/Inc/encoder.h ../Core/Inc/user_button.h \
@@ -74,7 +75,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Core/Inc/mpu6050.h ../Core/Inc/screenWrappers.h \
  ../Core/Inc/notificationWrappers.h ../Core/Inc/eventManagers.h \
  ../Core/Inc/menu_definitions.h ../Core/Inc/uner_app.h \
- ../Core/Inc/uner_core.h ../Core/Inc/uner_v2.h
+ ../Core/Inc/uner_core.h ../Core/Inc/uner_v2.h ../Core/Inc/permissions.h
 ../Core/Inc/main.h:
 C:/Users/kobac/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HAL\ Libs/TCRT5000/Inc/stm32f1xx_hal_conf.h:
@@ -155,6 +156,7 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HA
 ../Core/Inc/i2c_manager.h:
 ../Core/Inc/menusystem.h:
 ../Core/Inc/types/menu_types.h:
+../Core/Inc/screen_codes.h:
 ../Core/Inc/types/userEvent_type.h:
 ../Core/Inc/oled_handle.h:
 ../Core/Inc/mpu6050.h:
@@ -180,3 +182,4 @@ C:/Users/kobac/OneDrive/Escritorio/Facultad/Microcontroladores/Auto\ Proyecto/HA
 ../Core/Inc/uner_app.h:
 ../Core/Inc/uner_core.h:
 ../Core/Inc/uner_v2.h:
+../Core/Inc/permissions.h:

@@ -50,21 +50,25 @@ static void WiFiResults_BuildMenu(void)
     if (networksFound == 0u) {
         wifiResultsItems[itemIndex].name = "Sin redes";
         wifiResultsItems[itemIndex].icon = Icon_Wifi_bits;
+        wifiResultsItems[itemIndex].screen_code = SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS;
         itemIndex++;
     } else {
         for (uint8_t i = 0u; i < networksFound && i < WIFI_SCAN_MAX_NETWORKS; ++i) {
             wifiResultsItems[itemIndex].name = wifiNetworkSsids[i];
             wifiResultsItems[itemIndex].icon = Icon_Wifi_bits;
+            wifiResultsItems[itemIndex].screen_code = SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS;
             itemIndex++;
         }
     }
 
     wifiResultsItems[itemIndex].name = "Actualizar";
     wifiResultsItems[itemIndex].icon = Icon_Refrescar_bits;
+    wifiResultsItems[itemIndex].screen_code = SCREEN_CODE_CONNECTIVITY_WIFI_SEARCHING;
     itemIndex++;
 
     wifiResultsItems[itemIndex].name = "Volver";
     wifiResultsItems[itemIndex].icon = Icon_Volver_bits;
+    wifiResultsItems[itemIndex].screen_code = SCREEN_CODE_CONNECTIVITY_WIFI_MENU;
     itemIndex++;
 
     wifiResultsMenu.itemCount = itemIndex;
@@ -97,6 +101,9 @@ void OledUtils_DrawItem_Wrapper(const MenuItem *item,
 void OledUtils_RenderDashboard_Wrapper(void)
 {
     __NOP(); // BREAKPOINT: wrapper dashboard
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_CORE_DASHBOARD,
+                                 SCREEN_REPORT_SOURCE_RENDER);
     // 1) Deshabilito el refresco periódico
     OledUtils_DisableContinuousRender();
     menuSystem.userEventManagerFn = dashboardEventManager;
@@ -120,6 +127,9 @@ void OledUtils_RenderDashboard_Wrapper(void)
 void OledUtils_RenderTestScreen_Wrapper(void)
 {
     __NOP(); // BREAKPOINT: wrapper pantalla de prueba
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_SERVICE_TEST_SCREEN,
+                                 SCREEN_REPORT_SOURCE_RENDER);
     OledUtils_DisableContinuousRender();
     menuSystem.userEventManagerFn = dashboardEventManager;
     __NOP();
@@ -186,6 +196,9 @@ void MenuSys_GoBack_Wrapper(){
 }
 
 void OledUtils_RenderMotorTest_Wrapper(void) {
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_MOTOR_TEST,
+                                 SCREEN_REPORT_SOURCE_RENDER);
     OledUtils_DisableContinuousRender();
     menuSystem.userEventManagerFn = motorTestEventManager;
     inside_menu_flag = false;
@@ -202,6 +215,9 @@ void OledUtils_RenderMotorTest_Wrapper(void) {
 }
 
 void OledUtils_RenderRadar_Wrapper(void) {
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_SENSORS_RADAR,
+                                 SCREEN_REPORT_SOURCE_RENDER);
     OledUtils_EnableContinuousRender();
     inside_menu_flag = false;
     encoder.allowEncoderInput = true;  // Cambiar a true
@@ -219,6 +235,11 @@ void OledUtils_RenderRadar_Wrapper(void) {
 
 void OledUtils_About_Wrapper(void)
 {
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 IS_FLAG_SET(systemFlags2, SHOWSECONDSCREEN)
+                                     ? SCREEN_CODE_SETTINGS_ABOUT_REPO
+                                     : SCREEN_CODE_SETTINGS_ABOUT_PROJECT,
+                                 SCREEN_REPORT_SOURCE_RENDER);
     // Estado base de esta pantalla
     OledUtils_DisableContinuousRender();
     inside_menu_flag = false;
@@ -243,6 +264,9 @@ void OledUtils_About_Wrapper(void)
  * @brief  Wrapper para la pantalla de Valores IR.
  */
 void OledUtils_RenderValoresIR_Wrapper(void) {
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_SENSORS_IR_VALUES,
+                                 SCREEN_REPORT_SOURCE_RENDER);
     OledUtils_EnableContinuousRender();
     inside_menu_flag = false;
     encoder.allowEncoderInput = true;  // Cambiar a true para poder salir
@@ -264,6 +288,9 @@ void OledUtils_RenderValoresIR_Wrapper(void) {
  */
 void OledUtils_RenderValoresMPU_Wrapper(void)
 {
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_SENSORS_MPU_VALUES,
+                                 SCREEN_REPORT_SOURCE_RENDER);
     OledUtils_EnableContinuousRender();
     inside_menu_flag = false;
     encoder.allowEncoderInput = true;  // Cambiar a true
@@ -284,6 +311,16 @@ void OledUtils_RenderValoresMPU_Wrapper(void)
  */
 void OledUtils_RenderWiFiSearching_Wrapper(void)
 {
+    if (!wifiScanSessionActive && wifiSearchingTimeout == 0u) {
+        menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
+        menuSystem.renderFlag = true;
+        oled_first_draw = false;
+        return;
+    }
+
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_CONNECTIVITY_WIFI_SEARCHING,
+                                 SCREEN_REPORT_SOURCE_RENDER);
     OledUtils_DisableContinuousRender();
     inside_menu_flag = false;
     encoder.allowEncoderInput = true;
@@ -316,18 +353,31 @@ void OledUtils_RenderWiFiConnectionStatus_Wrapper(){
 	oled_first_draw = true;
 	encoder.allowEncoderInput = true;
 	menuSystem.userEventManagerFn = ReadOnly_UserEventManager;
-	if(!IS_FLAG_SET(systemFlags2, WIFI_ACTIVE)){
-		menuSystem.renderFn = OledUtils_RenderWiFiNotConnected;
-	}else{ //Aca deberia pedir datos de conexion al esp
-		__NOP();
-		(void)UNER_App_SendCommand(UNER_CMD_ID_GET_STATUS, NULL, 0u);
-		menuSystem.renderFn = OledUtils_RenderWiFiStatus;
-	}
+	__NOP();
+	(void)UNER_App_SendCommand(UNER_CMD_ID_GET_STATUS, NULL, 0u);
+	menuSystem.renderFn = OledUtils_RenderWiFiStatus;
+	OledUtils_RenderWiFiStatus();
 	menuSystem.renderFlag = true;
+}
+
+void OledUtils_RenderESPFirmwareScreen_Wrapper(void)
+{
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_CONNECTIVITY_ESP_FIRMWARE_RECEIVED,
+                                 SCREEN_REPORT_SOURCE_RENDER);
+    OledUtils_DisableContinuousRender();
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = true;
+    menuSystem.userEventManagerFn = ReadOnly_UserEventManager;
+    OledUtils_RenderESPFirmwareScreen();
+    oled_first_draw = true;
 }
 
 void OledUtils_RenderWiFiSearchResults_Wrapper(void)
 {
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS,
+                                 SCREEN_REPORT_SOURCE_MENU);
     OledUtils_DisableContinuousRender();
     inside_menu_flag = true;
     encoder.allowEncoderInput = true;
