@@ -353,7 +353,10 @@ static void WiFiResults_RestartScan(void)
 // CALLBACKS PARA BÚSQUEDA WIFI
 // ============================================================================
 
-static void WiFiSearch_OnShortPress(void)
+/**
+ * @brief Cancela la búsqueda WiFi y regresa al dashboard.
+ */
+static void WiFiSearch_Cancel(void)
 {
     (void)UNER_App_SendCommand(UNER_CMD_ID_STOP_SCAN, NULL, 0u);
 
@@ -368,10 +371,17 @@ static void WiFiSearch_OnShortPress(void)
 
     menuSystem.renderFn = menuSystem.dashboardRender ? menuSystem.dashboardRender
                                                       : OledUtils_RenderDashboard_Wrapper;
+
+    menuSystem.clearScreen();
     OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCanceledNotification, 2000u);
 
     menuSystem.renderFlag = true;
     oled_first_draw = true;
+}
+
+static void WiFiSearch_OnShortPress(void)
+{
+    WiFiSearch_Cancel();
 }
 
 static void WiFiSearch_OnLongPress(void)

@@ -22,6 +22,11 @@ const uint8_t bar_x[OLED_BAR_COUNT] = {
     65, 80, 95, 110
 };
 
+static const char *const ir_labels[OLED_BAR_COUNT] = {
+    "IR1", "IR2", "IR3", "IR4",
+    "IR5", "IR6", "IR7", "IR8"
+};
+
 static const FontDef *oled_font = &Font_7x10;
 static uint8_t oled_lock_state = LOCK_STATE_LOCKED;
 static char oled_wifi_connected_ssid[WIFI_SSID_MAX_LEN + 1u] = "WiFi";
@@ -435,13 +440,11 @@ void OledUtils_DrawIRGraph(volatile uint16_t *irValues)
     Oled_SetFont(&Font_7x10);
     const uint8_t fh    = Oled_FontHeight();
     const uint8_t sep_y = fh + 1;
-    char label[5];
     for (int i = 0; i < OLED_BAR_COUNT; i++) {
-        snprintf(label, sizeof(label), "IR%d", i+1);
         int16_t lx = text_bar_x[i] - (Oled_FontWidth() / 2);
         if (lx < 0) lx = 0;
         ssd1306_SetCursor(lx, 0);
-        Oled_DrawStr(label);
+        Oled_DrawStr(ir_labels[i]);
     }
 
     // 3) Separador horizontal
