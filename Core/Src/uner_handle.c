@@ -176,11 +176,13 @@ void UNER_Handle_ProcessPending(UNER_Handle *handle)
     }
 
     UNER_Packet packet;
+    __NOP();
     while (UNER_Core_Dequeue(&handle->core, &packet)) {
         uint8_t valid_cmd = 0u;
         UNER_CommandSpec spec = {0u, 0u, 0u, 0u, 0u, NULL};
 
         if (UNER_Handle_FindCommandSpec(handle->command_table, handle->command_count, packet.cmd, &spec)) {
+            __NOP();
             if (UNER_Handle_IsLengthValid(&spec, &packet)) {
                 valid_cmd = 1u;
             }

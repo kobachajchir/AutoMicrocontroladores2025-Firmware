@@ -22,13 +22,15 @@ extern DMA_HandleTypeDef hdma_usart1_rx;
 static UNER_Handle uner_handle;
 static UNER_TransportUart1Dma uner_uart1;
 static UNER_Packet uner_slots[UNER_QUEUE_SLOTS];
-static uint8_t uner_payload_pool[UNER_QUEUE_SLOTS * 255u];
-static volatile uint8_t uner_uart1_rx_hint = 0;
+static volatile uint8_t uner_payload_pool[UNER_QUEUE_SLOTS * 255u];
 static volatile uint8_t uner_tx_marked = 0;
 static volatile uint8_t uner_waiting_validation = 0;
 static volatile uint8_t uner_wait_cmd_id = 0;
 static volatile uint32_t uner_wait_started_at = 0u;
 static volatile uint16_t uner_wait_timeout_ms = 0u;
+
+static volatile uint8_t lastAckCmd = 0u;
+static volatile uint8_t lastAckStatus = 0u;
 
 typedef enum {
     WIFI_MODE_OFF    = 0x00u, // WIFI_OFF
@@ -136,6 +138,8 @@ static void cmd_reset_mcu_handler(void *ctx, const UNER_Packet *p);
 static void cmd_network_ip_handler(void *ctx, const UNER_Packet *p);
 static void cmd_boot_complete_handler(void *ctx, const UNER_Packet *p);
 static void cmd_get_current_screen_handler(void *ctx, const UNER_Packet *p);
+static void cmd_request_firmware_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_ack_handler(void *ctx, const UNER_Packet *packet);
 
 static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_SET_MODE_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
@@ -151,7 +155,7 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_GET_STATUS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_PING, 0u, 0u, UNER_SPEC_F_RESP, 50u, NULL },
     { UNER_CMD_GET_PREFERENCES, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-    { UNER_CMD_REQUEST_FIRMWARE, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, NULL },
+	{ UNER_CMD_REQUEST_FIRMWARE, 0u, 32u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, cmd_request_firmware_handler },
     { UNER_CMD_SET_ENCODER_FAST, 1u, 1u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_GET_CONNECTED_USERS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_GET_USER_INFO, 1u, 1u, UNER_SPEC_F_RESP, 100u, NULL },
@@ -168,7 +172,7 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_NETWORK_IP, 5u, 5u, UNER_SPEC_F_EVT, 0u, cmd_network_ip_handler },
     { UNER_CMD_AUTH_VALIDATE_PIN, 6u, 6u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 500u, NULL },
     { UNER_CMD_GET_CURRENT_SCREEN, 0u, 0u, UNER_SPEC_F_RESP, 50u, cmd_get_current_screen_handler },
-    { UNER_CMD_ACK, 1u, 2u, 0u, 0u, NULL },
+	{ UNER_CMD_ACK, 1u, 2u, 0u, 0u, cmd_ack_handler },
     { UNER_CMD_NACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_EVT_BOOT, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_boot_handler },
     { UNER_EVT_MODE_CHANGED, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_mode_changed_handler },
@@ -634,6 +638,8 @@ static void evt_boot_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
     (void)p;
+    espBootRebootPendingResponse = 0;
+    SET_FLAG(systemFlags2, ESP_PRESENT);
     OledUtils_DismissNotification();
     OledUtils_ShowNotificationMs(OledUtils_RenderESPBootReceivedNotification, 2000u);
 }
@@ -741,7 +747,7 @@ static void evt_usb_connected_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
     (void)p;
-    SET_FLAG(systemFlags2, USB_ACTIVE);
+    //SET_FLAG(systemFlags2, USB_ACTIVE);
     OledUtils_DismissNotification();
     OledUtils_ShowNotificationMs(OledUtils_RenderESPUsbConnectedNotification, 2000u);
 }
@@ -750,9 +756,9 @@ static void evt_usb_disconnected_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
     (void)p;
-    CLEAR_FLAG(systemFlags2, USB_ACTIVE);
-    OledUtils_DismissNotification();
-    OledUtils_ShowNotificationMs(OledUtils_RenderESPUsbDisconnectedNotification, 2000u);
+    //CLEAR_FLAG(systemFlags2, USB_ACTIVE);
+    //OledUtils_DismissNotification();
+    //OledUtils_ShowNotificationMs(OledUtils_RenderESPUsbDisconnectedNotification, 2000u);
 }
 
 static void evt_wifi_connected_handler(void *ctx, const UNER_Packet *p)
@@ -833,6 +839,57 @@ UNER_Status UNER_App_ReportScreenChanged(uint32_t screen_code, uint8_t source)
                      UNER_EVT_SCREEN_CHANGED,
                      payload,
                      (uint8_t)sizeof(payload));
+}
+
+static void cmd_request_firmware_handler(void *ctx, const UNER_Packet *packet)
+{
+	__NOP();
+    (void)ctx;
+
+    if (!packet || packet->len < 1u) {
+        return;
+    }
+
+    uint8_t status = packet->payload[0];
+
+    if (status != 0u) {
+        espFirmwareVersion[0] = '\0';
+        esp_firmware_received_flag = 1u;
+        return;
+    }
+
+    uint16_t str_len = (uint16_t)(packet->len - 1u);
+    if (str_len >= sizeof(espFirmwareVersion)) {
+        str_len = (uint16_t)(sizeof(espFirmwareVersion) - 1u);
+    }
+
+    memcpy(espFirmwareVersion, &packet->payload[1], str_len);
+    espFirmwareVersion[str_len] = '\0';
+
+    esp_firmware_received_flag = 1u;
+}
+
+static void cmd_ack_handler(void *ctx, const UNER_Packet *packet)
+{
+    (void)ctx;
+
+    if (!packet || packet->len < 1u) {
+        return;
+    }
+
+    uint8_t acked_cmd = packet->payload[0];
+    uint8_t ack_status = (packet->len >= 2u) ? packet->payload[1] : 0u;
+
+    lastAckCmd = acked_cmd;
+    lastAckStatus = ack_status;
+
+    /* 🔹 Integración con sistema de validación */
+    if (uner_waiting_validation && uner_wait_cmd_id == acked_cmd) {
+        uner_waiting_validation = 0u;
+        uner_wait_cmd_id = 0u;
+        uner_wait_started_at = 0u;
+        uner_wait_timeout_ms = 0u;
+    }
 }
 
 static void cmd_get_current_screen_handler(void *ctx, const UNER_Packet *p)
@@ -1000,18 +1057,19 @@ void UNER_App_Init(void)
         (uint8_t)(sizeof(uner_commands) / sizeof(uner_commands[0])),
         UNER_App_ExecuteCommand,
         NULL);
-    usart1_feed_pending = 0;
-    usart1_rx_prev_pos = 0;
     (void)HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
+    __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
+    UNER_App_ResetUart1RxPos();
 }
 
 void UNER_App_Poll(void)
 {
-    if (uner_uart1_rx_hint) {
-        uner_uart1_rx_hint = 0;
-    }
+    /* El hint puede limpiarse aquí; Poll ya corre siempre */
+    uner_uart1_rx_hint = 0u;
+
     UNER_Handle_Poll(&uner_handle);
     UNER_Handle_ProcessPending(&uner_handle);
+
     if (uner_waiting_validation &&
         uner_wait_timeout_ms > 0u &&
         ((uint32_t)(HAL_GetTick() - uner_wait_started_at) >= (uint32_t)uner_wait_timeout_ms)) {
@@ -1020,6 +1078,7 @@ void UNER_App_Poll(void)
         uner_wait_started_at = 0u;
         uner_wait_timeout_ms = 0u;
     }
+
     MenuSys_FlushScreenReport(&menuSystem);
 }
 
@@ -1033,7 +1092,15 @@ void UNER_App_OnUart1TxComplete(void)
 void UNER_App_NotifyUart1Rx(void)
 {
     uner_uart1_rx_hint = 1u;
-    __NOP();
+}
+
+void UNER_App_ResetUart1RxPos(void)
+{
+    /*
+     * Tras rearmar DMA RX, el transporte debe sincronizar su last_pos
+     * con la posición actual del DMA para no reprocesar basura vieja.
+     */
+    uner_uart1.last_pos = UNER_App_Uart1RxGetWritePos();
 }
 
 uint16_t UNER_App_Uart1RxGetWritePos(void)

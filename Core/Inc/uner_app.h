@@ -59,6 +59,7 @@ UNER_Status UNER_App_ReportScreenChanged(uint32_t screen_code, uint8_t source);
 void UNER_App_OnUart1TxComplete(void);
 void UNER_App_NotifyUart1Rx(void);
 uint16_t UNER_App_Uart1RxGetWritePos(void);
+void UNER_App_ResetUart1RxPos(void);
 
 #ifdef __cplusplus
 }

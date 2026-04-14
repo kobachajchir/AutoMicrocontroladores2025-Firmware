@@ -40,14 +40,15 @@ static UNER_Status UNER_TransportUart1Dma_PollRx(UNER_Transport *transport, UNER
         return UNER_ERR_LEN;
     }
 
+    /* Snapshot único del DMA counter */
     uint16_t curr_pos = (uint16_t)(uart->rx_len - __HAL_DMA_GET_COUNTER(uart->hdma_rx));
 
-    if (curr_pos == uart->last_pos) {
+    if (curr_pos > uart->rx_len) {
+        uart->last_pos = 0u;
         return UNER_OK;
     }
 
-    if (curr_pos > uart->rx_len) {
-        uart->last_pos = 0;
+    if (curr_pos == uart->last_pos) {
         return UNER_OK;
     }
 
@@ -58,10 +59,17 @@ static UNER_Status UNER_TransportUart1Dma_PollRx(UNER_Transport *transport, UNER
     if (curr_pos > uart->last_pos) {
         return UNER_TransportUart1Dma_FeedRange(transport, core, uart->last_pos, curr_pos);
     } else {
-        UNER_Status status = UNER_TransportUart1Dma_FeedRange(transport, core, uart->last_pos, uart->rx_len);
+        UNER_Status status = UNER_TransportUart1Dma_FeedRange(
+            transport, core, uart->last_pos, uart->rx_len);
         if (status != UNER_OK) {
             return status;
         }
+
+        if (curr_pos == 0u) {
+            uart->last_pos = 0u;
+            return UNER_OK;
+        }
+
         return UNER_TransportUart1Dma_FeedRange(transport, core, 0u, curr_pos);
     }
 }
@@ -91,8 +99,8 @@ UNER_Status UNER_TransportUart1Dma_Init(
     uint8_t transport_id,
     UART_HandleTypeDef *huart,
     DMA_HandleTypeDef *hdma_rx,
-    uint8_t *rx_buf,
-    uint16_t rx_len,
+    volatile uint8_t *rx_buf,
+    volatile uint16_t rx_len,
     volatile uint8_t *tx_busy_flag)
 {
     if (!transport || !huart || !hdma_rx || !rx_buf || rx_len == 0u || !tx_busy_flag) {
@@ -110,6 +118,7 @@ UNER_Status UNER_TransportUart1Dma_Init(
     transport->rx_buf = rx_buf;
     transport->rx_len = rx_len;
     transport->last_pos = 0;
+    transport->curr_pos = 0;
     transport->tx_busy_flag = tx_busy_flag;
 
     return UNER_OK;

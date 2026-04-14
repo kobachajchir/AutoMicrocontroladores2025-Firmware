@@ -12,6 +12,18 @@
 extern "C" {
 #endif
 
+typedef enum
+{
+    UNER_RESET_NONE = 0u,
+    UNER_RESET_STATE_INVALID,
+    UNER_RESET_LEN_FAIL,
+    UNER_RESET_TOKEN_FAIL,
+    UNER_RESET_VER_FAIL,
+    UNER_RESET_CHK_FAIL,
+    UNER_RESET_FRAME_DONE,
+    UNER_RESET_DEFAULT_CASE
+} UNER_ResetReason;
+
 typedef enum {
     UNER_OK = 0,
     UNER_ERR_BUSY,
@@ -88,6 +100,9 @@ typedef struct {
     uint32_t token_fail;
     uint32_t ver_fail;
     uint32_t queue_overflow;
+
+    UNER_ResetReason last_reset_reason;
+    uint8_t last_reset_state;
 } UNER_Core;
 
 UNER_Status UNER_Core_Init(
@@ -98,7 +113,6 @@ UNER_Status UNER_Core_Init(
     uint8_t *payload_pool_bytes,
     uint16_t payload_pool_size);
 
-void UNER_Core_ResetParser(UNER_Core *core);
 
 UNER_Status UNER_Core_PushByte(
     UNER_Core *core,

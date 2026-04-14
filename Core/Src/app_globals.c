@@ -73,10 +73,14 @@ bool pull_cfg[TCRT5000_NUM_SENSORS] = {
 };
 
 /* USART1 DMA RX */
-uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
-volatile uint16_t usart1_rx_prev_pos = 0;
-volatile uint8_t usart1_feed_pending = 0;
+volatile uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
 volatile uint8_t usart1_tx_busy = 0;
+volatile uint8_t esp_firmware_received_flag = 0u;
+volatile uint8_t uner_uart1_rx_hint = 0;
+volatile uint8_t uner_uart1_rx_last_tick = 0;
+
+volatile uint8_t espBootRebootPending = 1u;
+volatile uint8_t espBootRebootPendingResponse = 1u;
 
 /* --- Handlers de librerias --- */
 USART_Buffer_t usart1Buf;

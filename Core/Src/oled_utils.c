@@ -671,10 +671,9 @@ void OledUtils_RenderDashboard(void)
     if (IS_FLAG_SET(systemFlags2, ESP_PRESENT)) {
         if (IS_FLAG_SET(systemFlags2, WIFI_ACTIVE)) {
             Oled_FormatIp(&espWifiConnection.staIp, ipStr, sizeof(ipStr));
-            Oled_DrawXBM(1, 2, 19, 16, Icon_Wifi_bits);
-            ssd1306_SetCursor(21, 10 - fh);
+            ssd1306_SetCursor(1, 10 - fh);
             Oled_DrawStrMax(espWifiConnection.staSsid, 14u);
-            ssd1306_SetCursor(18, 20 - fh);
+            ssd1306_SetCursor(1, 20 - fh);
             Oled_DrawStrMax(ipStr, 15u);
         } else if (IS_FLAG_SET(systemFlags2, AP_ACTIVE)) {
             Oled_FormatIp(&espWifiConnection.apIp, ipStr, sizeof(ipStr));
@@ -1810,6 +1809,7 @@ void OledUtils_RenderESPFirmwareRequestNotification(void)
 
 void OledUtils_RenderESPFirmwareScreen(void)
 {
+	__NOP();
     const char *fw_text = (espFirmwareVersion[0] != '\0') ? espFirmwareVersion : "Sin datos";
 
     OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_ESP_FIRMWARE_RECEIVED, SCREEN_REPORT_SOURCE_RENDER);
@@ -1820,14 +1820,15 @@ void OledUtils_RenderESPFirmwareScreen(void)
 
     Oled_SetFont(&Font_11x18);
     ssd1306_SetCursor(34, 22 - Oled_FontHeight());
-    Oled_DrawStr("FW ESP");
+    Oled_DrawStr("FW ESP01");
 
     Oled_SetFont(&Font_7x10);
     ssd1306_SetCursor(6, 43 - Oled_FontHeight());
     Oled_DrawStrMax(fw_text, 17u);
 
     ssd1306_SetCursor(33, 62 - Oled_FontHeight());
-    Oled_DrawStr("OK: volver");
+    Oled_DrawStr("Volver");
+    Oled_DrawXBM(33, 44, 16, 16, Icon_Encoder_bits);
 }
 
 void OledUtils_RenderESPFirmwareReceivedNotification(void)

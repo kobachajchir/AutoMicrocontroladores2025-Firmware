@@ -178,10 +178,14 @@ extern ENC_Handle_t encoder;
 extern CarMode_t auxCarMode;
 
 /* DMA RX USART1 */
-extern uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
-extern volatile uint16_t usart1_rx_prev_pos;
-extern volatile uint8_t usart1_feed_pending;
+extern volatile uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
 extern volatile uint8_t usart1_tx_busy;
+extern volatile uint8_t esp_firmware_received_flag;
+extern volatile uint8_t uner_uart1_rx_hint;
+extern volatile uint8_t uner_uart1_rx_last_tick;
+
+extern volatile uint8_t espBootRebootPending;
+extern volatile uint8_t espBootRebootPendingResponse;
 
 /* Menu system */
 extern MenuSystem    menuSystem;
@@ -197,6 +201,8 @@ extern const RenderScreenFunction wifiDataScreen;
 
 /* OLED global handle */
 extern OledHandle    oledHandle;
+
+extern void USART1_DMA_CheckRx(void);
 
 #endif // GLOBALS_H
 

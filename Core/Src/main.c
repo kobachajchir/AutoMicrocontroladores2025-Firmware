@@ -144,18 +144,6 @@ void MPU_Data_Ready(void) {
     SET_FLAG(systemFlags, MPU_GET_DATA); //Setea bandera de data para volver a pedir
 }
 
-void USART1_DMA_CheckRx(void)
-{
-	uint16_t curr_pos = UNER_App_Uart1RxGetWritePos();
-
-    if (curr_pos != usart1_rx_prev_pos) {
-        usart1_rx_prev_pos = curr_pos;
-        usart1_feed_pending = 1;
-        UNER_App_NotifyUart1Rx();
-    }
-}
-
-
 /* USER CODE END 0 */
 
 /**
@@ -237,9 +225,7 @@ int main(void)
 	     if (result == HAL_OK) {
 	         __NOP(); // BREAKPOINT: OLED registrado en I2C Manager
 	         if (ssd1306_Init()) {
-	             __NOP(); // BREAKPOINT: OLED inicializado
-	             OLED_Is_Ready();
-	             __NOP(); // BREAKPOINT: OLED marcado como listo
+	        	 SET_FLAG(systemFlags2, OLED_ACTIVE);
 	         }
 	     } else {
 	         // Falló al registrar
@@ -252,8 +238,19 @@ int main(void)
 	 initCarMode();
 	 initMenuSystemTask();
 	 //Aca debemos poner la inicializacion de la ESP
-	 SET_FLAG(systemFlags2, ESP_PRESENT);
-	 uint8_t espBootRebootPending = 1u;
+	 //SET_FLAG(systemFlags2, ESP_PRESENT);
+	 espBootRebootPending = 1;
+	uner_uart1_rx_last_tick = HAL_GetTick();
+		if (espBootRebootPending && !usart1_tx_busy) {
+			if (UNER_App_SendCommand(UNER_CMD_ID_REBOOT_ESP, NULL, 0u) == UNER_OK) {
+				espBootRebootPending = 0u;
+				espBootRebootPendingResponse = 1;
+			}
+		}
+		if(IS_FLAG_SET(systemFlags2, OLED_ACTIVE)){
+			CLEAR_FLAG(systemFlags2, OLED_ACTIVE);
+			OLED_Is_Ready();
+		}
 
   //Solo llamo initCarMode() una vez, antes del while
   /* USER CODE END 2 */
@@ -261,12 +258,8 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
+		USART1_DMA_CheckHealth();
 		UNER_App_Poll();
-		if (espBootRebootPending && !usart1_tx_busy) {
-			if (UNER_App_SendCommand(UNER_CMD_ID_REBOOT_ESP, NULL, 0u) == UNER_OK) {
-				espBootRebootPending = 0u;
-			}
-		}
 		Permission_Task(HAL_GetTick());
 		TCRT_MainTask();
 		i2cManager_MainTask();
@@ -366,7 +359,6 @@ void initCarMode(){
 	UserButton_Init(&btnUser, User_BTN_GPIO_Port, User_BTN_Pin, USER_BUTTON_ACTIVE_HIGH);
 	ENC_Init(&encoder, &htim4, 1, 4, EncoderSW_GPIO_Port, EncoderSW_Pin);
 	ENC_Start(&encoder);
-	SET_FLAG(systemFlags2, OLED_ACTIVE);
 	// SET_FLAG(systemFlags2, AP_ACTIVE);
 	// SET_FLAG(systemFlags2, USB_ACTIVE);
 	// SET_FLAG(systemFlags2, RF_ACTIVE);
