@@ -23,6 +23,17 @@ typedef struct __attribute__((packed))
     uint8_t source;
 } ScreenReport_t;
 
+typedef struct __attribute__((packed))
+{
+    uint32_t screen_code;
+    uint8_t selected_index;
+    uint8_t item_count;
+    uint8_t source;
+} MenuSelectionReport_t;
+
+#define UNER_SELECTION_INDEX_INVALID          0xFFu
+#define UNER_SELECTION_PAYLOAD_SIZE           7u
+
 #define UNER_CMD_ID_SET_MODE_AP                0x10u
 #define UNER_CMD_ID_SET_MODE_STA               0x11u
 #define UNER_CMD_ID_SET_CREDENTIALS            0x12u
@@ -52,9 +63,15 @@ typedef struct __attribute__((packed))
 #define UNER_CMD_ID_SET_AUTO_RECONNECT         0x4Eu
 #define UNER_CMD_ID_AUTH_VALIDATE_PIN          0x51u
 #define UNER_CMD_ID_GET_CURRENT_SCREEN         0x52u
+
 #define UNER_EVT_ID_SCREEN_CHANGED             0x95u
+#define UNER_EVT_ID_MENU_SELECTION_CHANGED     0x96u
 
 UNER_Status UNER_App_ReportScreenChanged(uint32_t screen_code, uint8_t source);
+UNER_Status UNER_App_ReportMenuSelectionChanged(uint32_t screen_code,
+                                                uint8_t selected_index,
+                                                uint8_t item_count,
+                                                uint8_t source);
 
 void UNER_App_OnUart1TxComplete(void);
 void UNER_App_NotifyUart1Rx(void);

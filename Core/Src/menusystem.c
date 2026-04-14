@@ -34,6 +34,46 @@ void MenuSys_FlushScreenReport(MenuSystem *ms)
     }
 }
 
+void MenuSys_FlushMenuSelectionReport(MenuSystem *ms)
+{
+    if (!ms || !ms->selection_report_pending || !MenuSys_HasNavigableSelection(ms)) {
+        return;
+    }
+
+    if (UNER_App_ReportMenuSelectionChanged((uint32_t)ms->current_screen_code,
+                                            ms->current_selected_index,
+                                            ms->current_item_count,
+                                            ms->current_selection_source) == UNER_OK) {
+        ms->last_reported_selected_index = ms->current_selected_index;
+        ms->last_reported_item_count = ms->current_item_count;
+        ms->selection_report_pending = false;
+    }
+}
+
+void MenuSys_SetCurrentMenuSelection(MenuSystem *ms,
+                                     uint8_t selected_index,
+                                     uint8_t item_count,
+                                     ScreenReportSource_t source)
+{
+    if (!ms || item_count == 0u || selected_index >= item_count ||
+        ms->current_screen_code == SCREEN_CODE_NONE) {
+        return;
+    }
+
+    if (ms->current_selected_index != selected_index ||
+        ms->current_item_count != item_count ||
+        ms->current_selection_source != (uint8_t)source ||
+        ms->last_reported_selected_index != selected_index ||
+        ms->last_reported_item_count != item_count) {
+        ms->current_selected_index = selected_index;
+        ms->current_item_count = item_count;
+        ms->current_selection_source = (uint8_t)source;
+        ms->selection_report_pending = true;
+    }
+
+    MenuSys_FlushMenuSelectionReport(ms);
+}
+
 void MenuSys_SetCurrentScreenCode(MenuSystem *ms, ScreenCode_t screen_code, ScreenReportSource_t source)
 {
     if (!ms || screen_code == SCREEN_CODE_NONE) {
@@ -49,6 +89,7 @@ void MenuSys_SetCurrentScreenCode(MenuSystem *ms, ScreenCode_t screen_code, Scre
     }
 
     MenuSys_FlushScreenReport(ms);
+    MenuSys_UpdateSelectionFromCurrentMenu(ms, source);
 }
 
 void MenuSys_SetCurrentMenuScreenCode(MenuSystem *ms)
@@ -60,6 +101,55 @@ void MenuSys_SetCurrentMenuScreenCode(MenuSystem *ms)
     MenuSys_SetCurrentScreenCode(ms,
                                  ms->currentMenu->screen_code,
                                  SCREEN_REPORT_SOURCE_MENU);
+}
+
+void MenuSys_ClearCurrentMenuSelection(MenuSystem *ms, ScreenReportSource_t source)
+{
+    if (ms == NULL) {
+        return;
+    }
+
+    if (ms->current_selected_index != MENU_SELECTION_INVALID_INDEX ||
+        ms->current_item_count != 0u ||
+        ms->last_reported_selected_index != MENU_SELECTION_INVALID_INDEX ||
+        ms->last_reported_item_count != 0u ||
+        ms->current_selection_source != (uint8_t)source) {
+        ms->current_selected_index = MENU_SELECTION_INVALID_INDEX;
+        ms->current_item_count = 0u;
+        ms->current_selection_source = (uint8_t)source;
+        ms->selection_report_pending = false;
+    }
+}
+
+static bool MenuSys_HasNavigableSelection(const MenuSystem *ms)
+{
+    return (ms != NULL) &&
+           (ms->current_screen_code != SCREEN_CODE_NONE) &&
+           (ms->current_item_count > 0u) &&
+           (ms->current_selected_index < ms->current_item_count);
+}
+
+static void MenuSys_UpdateSelectionFromCurrentMenu(MenuSystem *ms, ScreenReportSource_t source)
+{
+    if (ms == NULL || ms->currentMenu == NULL) {
+        MenuSys_ClearCurrentMenuSelection(ms, source);
+        return;
+    }
+
+    if (ms->currentMenu->itemCount == 0u) {
+        MenuSys_ClearCurrentMenuSelection(ms, source);
+        return;
+    }
+
+    if (ms->currentMenu->currentItemIndex >= ms->currentMenu->itemCount) {
+        MenuSys_ClearCurrentMenuSelection(ms, source);
+        return;
+    }
+
+    MenuSys_SetCurrentMenuSelection(ms,
+                                    (uint8_t)ms->currentMenu->currentItemIndex,
+                                    (uint8_t)ms->currentMenu->itemCount,
+                                    source);
 }
 
 ScreenCode_t MenuSys_GetCurrentScreenCode(const MenuSystem *ms)
@@ -168,21 +258,35 @@ void MenuSys_MoveCursorUp(MenuSystem *ms) {
     if (!ms || !ms->currentMenu) return;
     SubMenu *m = ms->currentMenu;
 
-    int8_t prevVisible = MenuSys_FindNextVisibleIndex(m, m->currentItemIndex, -1);
-    if (prevVisible < 0) return;
+    int8_t nextIndex;
+    uint8_t itemCount;
+
+    nextIndex = MenuSys_FindNextVisibleIndex(m, m->currentItemIndex, -1);
+    if (nextIndex < 0) return;
+    if (nextIndex == m->currentItemIndex) return;
 
     m->lastSelectedItemIndex = m->currentItemIndex;
     m->lastVisibleItem       = m->firstVisibleItem;   // ← guardo bucket viejo
-    m->currentItemIndex      = prevVisible;
+    m->currentItemIndex      = nextIndex;
 
-    int8_t firstVisible = MenuSys_FindFirstVisibleIndexFrom(m, m->firstVisibleItem);
-    if (firstVisible < 0) return;
-    m->firstVisibleItem = firstVisible;
+    {
+        int8_t firstVisible = MenuSys_FindFirstVisibleIndexFrom(m, m->firstVisibleItem);
+        if (firstVisible < 0) return;
+        m->firstVisibleItem = firstVisible;
+    }
 
     while (m->currentItemIndex < m->firstVisibleItem) {
         int8_t prevFirst = MenuSys_FindLastVisibleIndexBefore(m, m->firstVisibleItem - 1);
         if (prevFirst < 0) break;
         m->firstVisibleItem = prevFirst;
+    }
+
+    itemCount = (uint8_t)m->itemCount;
+    if (itemCount > 0u && m->currentItemIndex >= 0 && m->currentItemIndex < m->itemCount) {
+        MenuSys_SetCurrentMenuSelection(ms,
+                                        (uint8_t)m->currentItemIndex,
+                                        itemCount,
+                                        SCREEN_REPORT_SOURCE_MENU);
     }
 }
 
@@ -190,23 +294,39 @@ void MenuSys_MoveCursorDown(MenuSystem *ms) {
     if (!ms || !ms->currentMenu) return;
     SubMenu *m = ms->currentMenu;
 
-    int8_t nextVisible = MenuSys_FindNextVisibleIndex(m, m->currentItemIndex, 1);
-    if (nextVisible < 0) return;
+    int8_t nextIndex;
+    uint8_t itemCount;
+
+    nextIndex = MenuSys_FindNextVisibleIndex(m, m->currentItemIndex, 1);
+    if (nextIndex < 0) return;
+    if (nextIndex == m->currentItemIndex) return;
 
     m->lastSelectedItemIndex = m->currentItemIndex;
     m->lastVisibleItem       = m->firstVisibleItem;   // ← guardo bucket viejo
-    m->currentItemIndex      = nextVisible;
+    m->currentItemIndex      = nextIndex;
 
-    int8_t firstVisible = MenuSys_FindFirstVisibleIndexFrom(m, m->firstVisibleItem);
-    if (firstVisible < 0) return;
-    m->firstVisibleItem = firstVisible;
+    {
+        int8_t firstVisible = MenuSys_FindFirstVisibleIndexFrom(m, m->firstVisibleItem);
+        if (firstVisible < 0) return;
+        m->firstVisibleItem = firstVisible;
+    }
 
-    int8_t lastVisible = MenuSys_ComputeLastVisibleIndex(m, m->firstVisibleItem);
-    while (lastVisible >= 0 && m->currentItemIndex > lastVisible) {
-        int8_t nextFirst = MenuSys_FindFirstVisibleIndexFrom(m, m->firstVisibleItem + 1);
-        if (nextFirst < 0) break;
-        m->firstVisibleItem = nextFirst;
-        lastVisible = MenuSys_ComputeLastVisibleIndex(m, m->firstVisibleItem);
+    {
+        int8_t lastVisible = MenuSys_ComputeLastVisibleIndex(m, m->firstVisibleItem);
+        while (lastVisible >= 0 && m->currentItemIndex > lastVisible) {
+            int8_t nextFirst = MenuSys_FindFirstVisibleIndexFrom(m, m->firstVisibleItem + 1);
+            if (nextFirst < 0) break;
+            m->firstVisibleItem = nextFirst;
+            lastVisible = MenuSys_ComputeLastVisibleIndex(m, m->firstVisibleItem);
+        }
+    }
+
+    itemCount = (uint8_t)m->itemCount;
+    if (itemCount > 0u && m->currentItemIndex >= 0 && m->currentItemIndex < m->itemCount) {
+        MenuSys_SetCurrentMenuSelection(ms,
+                                        (uint8_t)m->currentItemIndex,
+                                        itemCount,
+                                        SCREEN_REPORT_SOURCE_MENU);
     }
 }
 
@@ -240,6 +360,7 @@ void MenuSys_ResetMenu(MenuSystem *ms) {
 	ms->currentMenu->firstVisibleItem  = firstVisible;
 	ms->currentMenu->lastSelectedItemIndex = -1; //Asi renderiza todo nuevamente
 	ms->currentMenu->lastVisibleItem = -1; //Asi renderiza todo nuevamente
+	MenuSys_ClearCurrentMenuSelection(ms, SCREEN_REPORT_SOURCE_MENU);
 }
 
 /**

@@ -809,6 +809,47 @@ static void cmd_boot_complete_handler(void *ctx, const UNER_Packet *p)
     evt_network_ip_handler(ctx, p);
 }
 
+static void UNER_App_WriteMenuSelectionReportPayload(uint8_t *payload,
+                                                     uint32_t screen_code,
+                                                     uint8_t selected_index,
+                                                     uint8_t item_count,
+                                                     uint8_t source)
+{
+    payload[0] = (uint8_t)(screen_code & 0xFFu);
+    payload[1] = (uint8_t)((screen_code >> 8) & 0xFFu);
+    payload[2] = (uint8_t)((screen_code >> 16) & 0xFFu);
+    payload[3] = (uint8_t)((screen_code >> 24) & 0xFFu);
+    payload[4] = selected_index;
+    payload[5] = item_count;
+    payload[6] = source;
+}
+
+UNER_Status UNER_App_ReportMenuSelectionChanged(uint32_t screen_code,
+                                                uint8_t selected_index,
+                                                uint8_t item_count,
+                                                uint8_t source)
+{
+    uint8_t payload[UNER_SELECTION_PAYLOAD_SIZE];
+
+    if (screen_code == SCREEN_CODE_NONE || item_count == 0u || selected_index >= item_count) {
+        return UNER_ERR_LEN;
+    }
+
+    UNER_App_WriteMenuSelectionReportPayload(payload,
+                                             screen_code,
+                                             selected_index,
+                                             item_count,
+                                             source);
+
+    return UNER_Send(&uner_handle,
+                     UNER_TR_UART1_ESP,
+                     UNER_NODE_MCU,
+                     UNER_NODE_BROADCAST,
+                     UNER_EVT_MENU_SELECTION_CHANGED,
+                     payload,
+                     (uint8_t)sizeof(payload));
+}
+
 static void UNER_App_WriteScreenReportPayload(uint8_t *payload, uint32_t screen_code, uint8_t source)
 {
     if (!payload) {
@@ -1064,7 +1105,6 @@ void UNER_App_Init(void)
 
 void UNER_App_Poll(void)
 {
-    /* El hint puede limpiarse aquí; Poll ya corre siempre */
     uner_uart1_rx_hint = 0u;
 
     UNER_Handle_Poll(&uner_handle);
@@ -1080,6 +1120,7 @@ void UNER_App_Poll(void)
     }
 
     MenuSys_FlushScreenReport(&menuSystem);
+    MenuSys_FlushMenuSelectionReport(&menuSystem);
 }
 
 void UNER_App_OnUart1TxComplete(void)
