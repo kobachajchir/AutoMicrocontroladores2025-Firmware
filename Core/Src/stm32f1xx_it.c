@@ -20,12 +20,12 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f1xx_it.h"
-#include "uner_app.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "globals.h"
 #include "utils.h"
 #include "i2c_manager.h"
+#include "uner_app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -246,9 +246,9 @@ void DMA1_Channel5_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Channel5_IRQn 0 */
 
   /* USER CODE END DMA1_Channel5_IRQn 0 */
+  //HAL_DMA_IRQHandler(&hdma_usart1_rx);
   HAL_DMA_IRQHandler(&hdma_usart1_rx);
   /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
-  UNER_App_NotifyUart1Rx();
   /* USER CODE END DMA1_Channel5_IRQn 1 */
 }
 
@@ -342,7 +342,22 @@ void I2C1_ER_IRQHandler(void)
 void USART1_IRQHandler(void)
 {
   /* USER CODE BEGIN USART1_IRQn 0 */
+    /*
+     * STM32F1:
+     * Para limpiar IDLE/ORE/NE/FE/PE hay que leer SR y luego DR.
+     * No llamamos HAL_UART_IRQHandler() porque ante ORE puede desactivar DMAR
+     * y abortar el DMA RX.
+     */
+    uint32_t sr = huart1.Instance->SR;
+    uint32_t dr = huart1.Instance->DR;
+    (void)dr;
 
+    if ((sr & USART_SR_IDLE) != 0u)
+    {
+        UNER_App_NotifyUart1Rx();
+    }
+
+    /* NO llamar HAL_UART_IRQHandler(&huart1); */
   /* USER CODE END USART1_IRQn 0 */
   HAL_UART_IRQHandler(&huart1);
   /* USER CODE BEGIN USART1_IRQn 1 */

@@ -16,6 +16,41 @@ static void UNER_Handle_OnPacketQueued(void *ctx, const UNER_Packet *p)
     __NOP();
 }
 
+
+static uint8_t UNER_Handle_IsRawAsyncPush(const UNER_Packet *packet)
+{
+    if (!packet || packet->len == 0u || !packet->payload) {
+        return 0u;
+    }
+
+    if ((packet->cmd == 0x15u || packet->cmd == 0x48u || packet->cmd == 0x4Bu) && packet->payload[0] == 0xFEu) {
+        return 1u;
+    }
+
+    return 0u;
+}
+
+static uint8_t UNER_Handle_IsLengthValid(const UNER_CommandSpec *spec, const UNER_Packet *packet)
+{
+    if (!spec || !packet) {
+        return 0u;
+    }
+
+    if (packet->len >= spec->min_args && packet->len <= spec->max_args) {
+        return 1u;
+    }
+
+    if ((spec->flags & UNER_SPEC_F_RESP) && packet->len >= 1u) {
+        return 1u;
+    }
+
+    if (UNER_Handle_IsRawAsyncPush(packet)) {
+        return 1u;
+    }
+
+    return 0u;
+}
+
 static uint8_t UNER_Handle_FindCommandSpec(
     const UNER_CommandSpec *table,
     uint8_t count,
@@ -112,24 +147,43 @@ void UNER_Handle_Poll(UNER_Handle *handle)
     for (uint8_t i = 0; i < handle->transport_count; ++i) {
         UNER_Transport *transport = handle->transports[i];
         if (transport && transport->poll_rx) {
-            transport->poll_rx(transport, &handle->core);
+            uint8_t busy_retries = 0u;
+
+            while (transport->poll_rx(transport, &handle->core) == UNER_ERR_BUSY) {
+                if (handle->core.q_count == 0u) {
+                    break;
+                }
+
+                UNER_Handle_ProcessPending(handle);
+
+                busy_retries++;
+                if (busy_retries >= handle->core.slot_count) {
+                    break;
+                }
+            }
         }
     }
 }
 
 void UNER_Handle_ProcessPending(UNER_Handle *handle)
 {
-    if (!handle || !handle->packet_pending) {
+    if (!handle) {
+        return;
+    }
+
+    if (!handle->packet_pending && handle->core.q_count == 0u) {
         return;
     }
 
     UNER_Packet packet;
+    __NOP();
     while (UNER_Core_Dequeue(&handle->core, &packet)) {
         uint8_t valid_cmd = 0u;
         UNER_CommandSpec spec = {0u, 0u, 0u, 0u, 0u, NULL};
 
         if (UNER_Handle_FindCommandSpec(handle->command_table, handle->command_count, packet.cmd, &spec)) {
-            if (packet.len >= spec.min_args && packet.len <= spec.max_args) {
+            __NOP();
+            if (UNER_Handle_IsLengthValid(&spec, &packet)) {
                 valid_cmd = 1u;
             }
         }
@@ -138,6 +192,7 @@ void UNER_Handle_ProcessPending(UNER_Handle *handle)
             if (spec.handler) {
                 spec.handler(handle->execute_ctx, &packet);
             } else if (handle->execute_command) {
+            	__NOP();
                 handle->execute_command(handle->execute_ctx, &packet);
             }
 

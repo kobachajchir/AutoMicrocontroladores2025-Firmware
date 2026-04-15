@@ -17,6 +17,7 @@
 #include "menusystem.h"
 #include "oled_handle.h"
 #include "mpu6050.h"
+#include "types/IPStruct_t.h"
 
 // =============================================
 // LED de Estado (conectado a PC13 a traves de un BJT NPN)
@@ -49,9 +50,16 @@
 #define CHK_ESP_CONN BIT0_MASK
 #define WIFI_SEARCHING BIT1_MASK
 
+/* Estados de pantalla de bloqueo/PIN */
+#define LOCK_STATE_LOCKED           0u
+#define LOCK_STATE_PIN_INCORRECT    1u
+#define LOCK_STATE_PIN_MODIFIED     2u
+#define LOCK_STATE_ENTER_PIN        3u
+
 //Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
-#define USART1_RX_DMA_BUF_LEN 64
+/* Debe cubrir frames UNER largos: payload 255 + overhead 10, con margen para rafagas. */
+#define USART1_RX_DMA_BUF_LEN 512
 
 #define I2C_ADDR_OLED  0x3C
 #define I2C_ADDR_MPU   0x68  // 104 decimal
@@ -86,6 +94,18 @@
 #define ICON_Y_OFFSET         -13
 
 #define WIFIDEFAULTSEARCHTIMEOUT 1000
+#define WIFI_SCAN_MAX_NETWORKS 8
+#define WIFI_SSID_MAX_LEN 32
+#define WIFI_RESULTS_MENU_MAX_ITEMS (WIFI_SCAN_MAX_NETWORKS + 2)
+
+typedef struct {
+    IPStruct_t staIp;
+    IPStruct_t apIp;
+    char staSsid[WIFI_SSID_MAX_LEN + 1u];
+    uint8_t staIpValid;
+    uint8_t apIpValid;
+} ESPWiFiConnectionInfo_t;
+
 
 // =============================
 // Variables globales (extern)
@@ -129,6 +149,7 @@ extern volatile uint32_t tcrt_calib_cnt_phase;  // contador de 10 µs para la fa
 extern volatile uint8_t oled10msCounter;
 
 extern volatile uint8_t inside_menu_flag;
+extern volatile uint8_t encoder_fast_scroll_enabled;
 extern volatile uint16_t encoderValue;
 
 extern volatile uint8_t motorSelected; // 0: izquierdo, 1: derecho, 2: ambos
@@ -137,6 +158,13 @@ extern volatile uint8_t motorDir; // 0: adelante, 1: atrás
 
 extern uint16_t wifiSearchingTimeout;
 extern uint8_t networksFound;
+extern char wifiNetworkSsids[WIFI_SCAN_MAX_NETWORKS][WIFI_SSID_MAX_LEN + 1];
+extern volatile uint8_t wifiScanSessionActive;
+extern volatile uint8_t wifiScanResultsPending;
+extern volatile IPStruct_t espStaIp;
+extern volatile IPStruct_t espApIp;
+extern ESPWiFiConnectionInfo_t espWifiConnection;
+extern char espFirmwareVersion[33];
 
 /* --- Handlers de librerias --- */
 extern USART_Buffer_t usart1Buf;
@@ -150,15 +178,21 @@ extern ENC_Handle_t encoder;
 extern CarMode_t auxCarMode;
 
 /* DMA RX USART1 */
-extern uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
-extern volatile uint16_t usart1_rx_prev_pos;
-extern volatile uint8_t usart1_feed_pending;
+extern volatile uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
 extern volatile uint8_t usart1_tx_busy;
+extern volatile uint8_t esp_firmware_received_flag;
+extern volatile uint8_t uner_uart1_rx_hint;
+extern volatile uint8_t uner_uart1_rx_last_tick;
+
+extern volatile uint8_t espBootRebootPending;
+extern volatile uint8_t espBootRebootPendingResponse;
 
 /* Menu system */
 extern MenuSystem    menuSystem;
 extern SubMenu       mainMenu, submenu1, submenu2, submenu3;
+extern SubMenu       wifiResultsMenu;
 extern MenuItem      mainMenuItems[], submenu1Items[], submenu2Items[], submenu3Items[];
+extern MenuItem      wifiResultsItems[WIFI_RESULTS_MENU_MAX_ITEMS];
 extern const uint8_t* generic_icon;
 extern const RenderScreenFunction mainMenuScreen;
 extern const RenderScreenFunction subMenuScreen;
@@ -167,6 +201,8 @@ extern const RenderScreenFunction wifiDataScreen;
 
 /* OLED global handle */
 extern OledHandle    oledHandle;
+
+extern void USART1_DMA_CheckRx(void);
 
 #endif // GLOBALS_H
 

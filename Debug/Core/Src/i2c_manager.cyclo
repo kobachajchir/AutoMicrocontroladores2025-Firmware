@@ -1,6 +1,6 @@
 ../Core/Src/i2c_manager.c:19:16:find_index	5
 ../Core/Src/i2c_manager.c:46:16:pick_next_pending_index	10
-../Core/Src/i2c_manager.c:75:13:grant_to_index	5
+../Core/Src/i2c_manager.c:75:13:grant_to_index	4
 ../Core/Src/i2c_manager.c:97:19:I2C_Manager_Init	3
 ../Core/Src/i2c_manager.c:121:19:I2C_Manager_RegisterDevice	5
 ../Core/Src/i2c_manager.c:162:19:I2C_Manager_RequestBusPrio	6

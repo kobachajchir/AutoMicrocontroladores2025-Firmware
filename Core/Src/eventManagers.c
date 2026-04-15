@@ -9,12 +9,24 @@
 #include "screenWrappers.h"
 #include "oled_utils.h"
 #include "globals.h"
+#include "permissions.h"
 
 // ============================================================================
 // CALLBACKS PARA DASHBOARD (CAMBIO DE MODO)
 // ============================================================================
 
 static bool dashboardModeCanConfirm = false;
+
+static void Dashboard_ApplyPendingMode(void *ctx)
+{
+    (void)ctx;
+    SET_CAR_MODE(auxCarMode);
+    CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
+    dashboardModeCanConfirm = false;
+    menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
+    menuSystem.clearScreen();
+    menuSystem.renderFlag = true;
+}
 
 static void Dashboard_OnRotateCW(void)
 {
@@ -55,13 +67,15 @@ static void Dashboard_OnRotateCCW(void)
 static void Dashboard_OnShortPress(void)
 {
     if (dashboardModeCanConfirm && IS_FLAG_SET(systemFlags2, MODIFYING_CARMODE)) {
-        // Confirmar el modo
-        SET_CAR_MODE(auxCarMode);
-        CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
-        dashboardModeCanConfirm = false;
-        menuSystem.renderFn = OledUtils_RenderDashboard_Wrapper;
-        menuSystem.clearScreen();
-        menuSystem.renderFlag = true;
+        if (auxCarMode == TEST_MODE && GET_CAR_MODE() != TEST_MODE) {
+            (void)Permission_Request(
+                PERMISSION_CAR_MODE_TEST,
+                Dashboard_ApplyPendingMode,
+                NULL);
+            return;
+        }
+
+        Dashboard_ApplyPendingMode(NULL);
     }
     // Si no estamos modificando modo, no hacer nada
 }
@@ -71,8 +85,8 @@ static void Dashboard_OnUserButton(void)
     dashboardModeCanConfirm = false;
     CLEAR_FLAG(systemFlags2, MODIFYING_CARMODE);
     MenuSys_NavigateToMain(&menuSystem);
-    menuSystem.clearScreen();
     menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
+    menuSystem.clearScreen();
     if (menuSystem.insideMenuFlag) {
         *menuSystem.insideMenuFlag = 1;
     }
@@ -178,6 +192,7 @@ static void About_OnShortPress(void)
 {
     CLEAR_FLAG(systemFlags2, SHOWSECONDSCREEN);
     MenuSys_NavigateToMain(&menuSystem);
+    menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
     menuSystem.clearScreen();
     if (menuSystem.insideMenuFlag) {
         *menuSystem.insideMenuFlag = 1;
@@ -307,6 +322,33 @@ static const EventCallbacks_t motorTestCallbacks = {
     .onEncLongPress = MotorTest_OnEncLongPress
 };
 
+static void WiFiResults_BackToWifiMenu(void)
+{
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 1;
+    }
+
+    MenuSys_NavigateBack(&menuSystem);
+    menuSystem.clearScreen();
+    menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static void WiFiResults_RestartScan(void)
+{
+    wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+    networksFound = 0u;
+    wifiScanSessionActive = 1u;
+    wifiScanResultsPending = 0u;
+    CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+
+    menuSystem.renderFn = OledUtils_RenderWiFiSearching_Wrapper;
+    menuSystem.clearScreen();
+    menuSystem.renderFlag = true;
+    oled_first_draw = false;
+}
+
 // ============================================================================
 // CALLBACKS PARA BÚSQUEDA WIFI
 // ============================================================================
@@ -320,6 +362,8 @@ static void WiFiSearch_Cancel(void)
 
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
     wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+    wifiScanSessionActive = 0u;
+    wifiScanResultsPending = 0u;
 
     if (menuSystem.insideMenuFlag) {
         *menuSystem.insideMenuFlag = 0;
@@ -342,7 +386,21 @@ static void WiFiSearch_OnShortPress(void)
 
 static void WiFiSearch_OnLongPress(void)
 {
-    WiFiSearch_Cancel();
+    // Cancelar y volver al dashboard
+    // TODO: Implementar stopWiFiScan() cuando esté disponible
+    CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+    wifiScanSessionActive = 0u;
+    wifiScanResultsPending = 0u;
+    if (menuSystem.dashboardRender) {
+        menuSystem.renderFn = menuSystem.dashboardRender;
+    }
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 0;
+    }
+    menuSystem.clearScreen();
+    wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
 }
 
 static const EventCallbacks_t wifiSearchCallbacks = {
@@ -352,6 +410,67 @@ static const EventCallbacks_t wifiSearchCallbacks = {
     .onLongPress    = WiFiSearch_OnLongPress,
     .onUserButton   = NULL,
     .onEncLongPress = NULL
+};
+
+// ============================================================================
+// CALLBACKS PARA RESULTADOS WIFI
+// ============================================================================
+
+static void WiFiResults_OnRotateCW(void)
+{
+    MenuSys_MoveCursorUp(&menuSystem);
+    menuSystem.renderFlag = true;
+}
+
+static void WiFiResults_OnRotateCCW(void)
+{
+    MenuSys_MoveCursorDown(&menuSystem);
+    menuSystem.renderFlag = true;
+}
+
+static void WiFiResults_OnShortPress(void)
+{
+    SubMenu *menu = menuSystem.currentMenu;
+    int8_t idx = (menu != NULL) ? menu->currentItemIndex : -1;
+
+    if (!menu || idx < 0 || idx >= menu->itemCount || menu->itemCount < 2) {
+        return;
+    }
+
+    if (idx == (menu->itemCount - 2)) {
+        WiFiResults_RestartScan();
+        return;
+    }
+
+    if (idx == (menu->itemCount - 1)) {
+        WiFiResults_BackToWifiMenu();
+    }
+}
+
+static void WiFiResults_OnEncLongPress(void)
+{
+    WiFiResults_BackToWifiMenu();
+}
+
+static void WiFiResults_OnUserButton(void)
+{
+    if (menuSystem.dashboardRender) {
+        menuSystem.renderFn = menuSystem.dashboardRender;
+    }
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 0;
+    }
+    menuSystem.renderFlag = true;
+    oled_first_draw = true;
+}
+
+static const EventCallbacks_t wifiResultsCallbacks = {
+    .onRotateCW     = WiFiResults_OnRotateCW,
+    .onRotateCCW    = WiFiResults_OnRotateCCW,
+    .onShortPress   = WiFiResults_OnShortPress,
+    .onLongPress    = NULL,
+    .onUserButton   = WiFiResults_OnUserButton,
+    .onEncLongPress = WiFiResults_OnEncLongPress
 };
 
 // ============================================================================
@@ -504,6 +623,11 @@ void WiFiSearch_UserEventManager(UserEvent_t ev)
     GenericEventManager(ev, &wifiSearchCallbacks);
 }
 
+void wifiEventManager(UserEvent_t ev)
+{
+    GenericEventManager(ev, &wifiResultsCallbacks);
+}
+
 void ReadOnly_UserEventManager(UserEvent_t ev)
 {
     GenericEventManager(ev, &readOnlyCallbacks);
@@ -543,6 +667,7 @@ void ItemEventManager(UserEvent_t ev, RenderWrapperFn wrapper)
         case UE_ENC_SHORT_PRESS:
             CLEAR_FLAG(systemFlags2, SHOWSECONDSCREEN);
             MenuSys_NavigateToMain(&menuSystem);
+            menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
             menuSystem.clearScreen();
             if (menuSystem.insideMenuFlag) {
                 *menuSystem.insideMenuFlag = 1;

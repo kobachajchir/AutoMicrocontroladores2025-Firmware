@@ -31,6 +31,7 @@ volatile uint32_t tcrt_calib_cnt_phase = 0;
 
 /* UI / inputs */
 volatile uint8_t  inside_menu_flag = 0;
+volatile uint8_t  encoder_fast_scroll_enabled = 0;
 volatile uint16_t encoderValue = 0;
 volatile uint8_t  oled10msCounter = 0;
 
@@ -45,6 +46,19 @@ TCRT_LightConfig_t tcrtLight;
 /* WiFi */
 uint16_t wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
 uint8_t networksFound = 0;
+char wifiNetworkSsids[WIFI_SCAN_MAX_NETWORKS][WIFI_SSID_MAX_LEN + 1] = {{0}};
+volatile uint8_t wifiScanSessionActive = 0;
+volatile uint8_t wifiScanResultsPending = 0;
+volatile IPStruct_t espStaIp = {0u, 0u, 0u, 0u};
+volatile IPStruct_t espApIp = {0u, 0u, 0u, 0u};
+ESPWiFiConnectionInfo_t espWifiConnection = {
+    .staIp = {0u, 0u, 0u, 0u},
+    .apIp = {0u, 0u, 0u, 0u},
+    .staSsid = "WiFi",
+    .staIpValid = 0u,
+    .apIpValid = 0u,
+};
+char espFirmwareVersion[33] = {0};
 
 /* Pull config */
 bool pull_cfg[TCRT5000_NUM_SENSORS] = {
@@ -59,10 +73,14 @@ bool pull_cfg[TCRT5000_NUM_SENSORS] = {
 };
 
 /* USART1 DMA RX */
-uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
-volatile uint16_t usart1_rx_prev_pos = 0;
-volatile uint8_t usart1_feed_pending = 0;
+volatile uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];
 volatile uint8_t usart1_tx_busy = 0;
+volatile uint8_t esp_firmware_received_flag = 0u;
+volatile uint8_t uner_uart1_rx_hint = 0;
+volatile uint8_t uner_uart1_rx_last_tick = 0;
+
+volatile uint8_t espBootRebootPending = 1u;
+volatile uint8_t espBootRebootPendingResponse = 1u;
 
 /* --- Handlers de librerias --- */
 USART_Buffer_t usart1Buf;
@@ -76,6 +94,20 @@ CarMode_t auxCarMode;
 volatile CarMode_t carMode;
 volatile uint16_t tim3_overflow_count = 0;
 volatile uint32_t contador = 0;
+
+MenuItem wifiResultsItems[WIFI_RESULTS_MENU_MAX_ITEMS] = {0};
+SubMenu wifiResultsMenu = {
+    .name = "Redes WiFi",
+    .items = wifiResultsItems,
+    .itemCount = 0,
+    .currentItemIndex = 0,
+    .lastSelectedItemIndex = -1,
+    .firstVisibleItem = 0,
+    .lastVisibleItem = -1,
+    .parent = &submenu1,
+    .icon = NULL,
+    .screen_code = SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS
+};
 
 volatile bool oled_first_draw = false;
 

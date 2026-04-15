@@ -36,4 +36,6 @@ void Handle_ModeChange_ByButton(volatile ButtonState_t *btn, volatile LedStatus_
 
 void OLED_Task_10ms();
 
+void USART1_DMA_CheckHealth(void);
+
 #endif /* INC_UTILS_H_ */

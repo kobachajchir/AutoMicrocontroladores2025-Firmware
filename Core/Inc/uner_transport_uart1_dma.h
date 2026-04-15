@@ -16,10 +16,11 @@ typedef struct {
     UNER_Transport base;
     UART_HandleTypeDef *huart;
     DMA_HandleTypeDef *hdma_rx;
-    uint8_t *rx_buf;
-    uint16_t rx_len;
-    uint16_t last_pos;
+    volatile uint8_t *rx_buf;
+    volatile uint16_t rx_len;
+    volatile uint16_t last_pos;
     volatile uint8_t *tx_busy_flag;
+    volatile uint16_t curr_pos;
 } UNER_TransportUart1Dma;
 
 UNER_Status UNER_TransportUart1Dma_Init(
@@ -27,9 +28,10 @@ UNER_Status UNER_TransportUart1Dma_Init(
     uint8_t transport_id,
     UART_HandleTypeDef *huart,
     DMA_HandleTypeDef *hdma_rx,
-    uint8_t *rx_buf,
-    uint16_t rx_len,
-    volatile uint8_t *tx_busy_flag);
+    volatile uint8_t *rx_buf,
+    volatile uint16_t rx_len,
+    volatile uint8_t *tx_busy_flag
+);
 
 void UNER_TransportUart1Dma_OnTxComplete(UNER_TransportUart1Dma *transport);
 

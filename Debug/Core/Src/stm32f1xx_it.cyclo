@@ -16,4 +16,4 @@
 ../Core/Src/stm32f1xx_it.c:300:6:TIM3_IRQHandler	1
 ../Core/Src/stm32f1xx_it.c:314:6:I2C1_EV_IRQHandler	1
 ../Core/Src/stm32f1xx_it.c:328:6:I2C1_ER_IRQHandler	1
-../Core/Src/stm32f1xx_it.c:342:6:USART1_IRQHandler	1
+../Core/Src/stm32f1xx_it.c:342:6:USART1_IRQHandler	2

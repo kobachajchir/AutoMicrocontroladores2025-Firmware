@@ -18,19 +18,23 @@ static uint8_t uner_accepts_dst(const UNER_Core *core, uint8_t dst)
     return (core->cfg.accept_dst_mask & (uint16_t)(1u << dst)) != 0u;
 }
 
-static void uner_reset_parser(UNER_Core *core)
+static void uner_reset_parser(UNER_Core *core, uint8_t reset_reason)
 {
-	__NOP();
+    __NOP();
+
+    core->last_reset_reason = reset_reason;
+    core->last_reset_state = (uint8_t)core->state;
+
     core->state = UNER_S_H0;
-    core->len_expected = 0;
-    core->payload_index = 0;
-    core->chk_acc = 0;
-    core->route = 0;
-    core->cmd = 0;
-    core->ver = 0;
-    core->transport_id = 0;
+    core->len_expected = 0u;
+    core->payload_index = 0u;
+    core->chk_acc = 0u;
+    core->route = 0u;
+    core->cmd = 0u;
+    core->ver = 0u;
+    core->transport_id = 0u;
     core->max_payload_transport = core->cfg.default_max_payload;
-    core->drop_frame = 0;
+    core->drop_frame = 0u;
 }
 
 UNER_Status UNER_Core_Init(
@@ -63,16 +67,7 @@ UNER_Status UNER_Core_Init(
     core->ver_fail = 0;
     core->queue_overflow = 0;
 
-    uner_reset_parser(core);
-    return UNER_OK;
-}
-
-void UNER_Core_ResetParser(UNER_Core *core)
-{
-    if (!core) {
-        return;
-    }
-    uner_reset_parser(core);
+    uner_reset_parser(core, UNER_RESET_NONE);
 }
 
 static UNER_Status uner_queue_commit(UNER_Core *core, uint8_t len)
@@ -114,12 +109,13 @@ UNER_Status UNER_Core_PushByte(
     __NOP();
 
     volatile uint8_t byteDebug = byte;
+    (void)byteDebug;
 
     core->transport_id = transport_id;
     core->max_payload_transport = max_payload_for_transport;
 
     if (core->state > UNER_S_CHK) {
-        uner_reset_parser(core);
+        uner_reset_parser(core, UNER_RESET_STATE_INVALID);
     }
 
     switch (core->state) {
@@ -130,6 +126,7 @@ UNER_Status UNER_Core_PushByte(
         }
         __NOP();
         break;
+
     case UNER_S_H1:
         if (byte == (uint8_t)'N') {
             core->chk_acc ^= byte;
@@ -140,6 +137,7 @@ UNER_Status UNER_Core_PushByte(
             core->chk_acc = (byte == (uint8_t)'U') ? byte : 0u;
         }
         break;
+
     case UNER_S_H2:
         if (byte == (uint8_t)'E') {
             core->chk_acc ^= byte;
@@ -150,6 +148,7 @@ UNER_Status UNER_Core_PushByte(
             core->chk_acc = (byte == (uint8_t)'U') ? byte : 0u;
         }
         break;
+
     case UNER_S_H3:
         if (byte == (uint8_t)'R') {
             core->chk_acc ^= byte;
@@ -161,49 +160,60 @@ UNER_Status UNER_Core_PushByte(
         }
         __NOP();
         break;
+
     case UNER_S_LEN:
         core->len_expected = byte;
         core->chk_acc ^= byte;
+
         if (core->len_expected > core->cfg.default_max_payload ||
             core->len_expected > core->max_payload_transport) {
             core->len_fail++;
-            uner_reset_parser(core);
+            uner_reset_parser(core, UNER_RESET_LEN_FAIL);
             return UNER_ERR_LEN;
         }
+
         if (core->q_count >= core->slot_count) {
             core->queue_overflow++;
             core->drop_frame = 1u;
         }
-        core->payload_index = 0;
+
+        core->payload_index = 0u;
         core->state = UNER_S_TOKEN;
         break;
+
     case UNER_S_TOKEN:
         if (byte != UNER_TOKEN) {
             core->token_fail++;
-            uner_reset_parser(core);
+            uner_reset_parser(core, UNER_RESET_TOKEN_FAIL);
             return UNER_ERR_TOKEN;
         }
+
         core->chk_acc ^= byte;
         core->state = UNER_S_VER;
         break;
+
     case UNER_S_VER:
         if (byte != UNER_VERSION) {
             core->ver_fail++;
-            uner_reset_parser(core);
+            uner_reset_parser(core, UNER_RESET_VER_FAIL);
             return UNER_ERR_VER;
         }
+
         core->ver = byte;
         core->chk_acc ^= byte;
         core->state = UNER_S_ROUTE;
         break;
+
     case UNER_S_ROUTE:
         core->route = byte;
         core->chk_acc ^= byte;
         core->state = UNER_S_CMD;
         break;
+
     case UNER_S_CMD:
         core->cmd = byte;
         core->chk_acc ^= byte;
+
         if (core->len_expected == 0u) {
             core->state = UNER_S_CHK;
             __NOP();
@@ -211,52 +221,60 @@ UNER_Status UNER_Core_PushByte(
             core->state = UNER_S_PAYLOAD;
         }
         break;
-    case UNER_S_PAYLOAD: {
+
+    case UNER_S_PAYLOAD:
+    {
         if (!core->drop_frame) {
             uint8_t *payload_base = &core->payload_pool[(uint16_t)core->q_head * core->payload_stride];
             payload_base[core->payload_index++] = byte;
         } else {
             core->payload_index++;
         }
+
         core->chk_acc ^= byte;
+
         if (core->payload_index >= core->len_expected) {
             core->state = UNER_S_CHK;
             __NOP();
         }
         break;
     }
-    case UNER_S_CHK: {
+
+    case UNER_S_CHK:
+    {
         __NOP();
+
         if (byte != core->chk_acc) {
             core->chk_fail++;
             __NOP();
-            uner_reset_parser(core);
+            uner_reset_parser(core, UNER_RESET_CHK_FAIL);
             return UNER_ERR_CHK;
         }
+
         __NOP();
 
         uint8_t src = (uint8_t)(core->route >> 4);
         uint8_t dst = (uint8_t)(core->route & 0x0Fu);
+
         if (!core->drop_frame && uner_accepts_src(core, src) && uner_accepts_dst(core, dst)) {
             if (uner_queue_commit(core, core->len_expected) == UNER_OK) {
                 core->ok_frames++;
             }
         }
-        __NOP();
 
-        uner_reset_parser(core);
+        __NOP();
+        uner_reset_parser(core, UNER_RESET_FRAME_DONE);
         break;
     }
+
     default:
-        uner_reset_parser(core);
+        uner_reset_parser(core, UNER_RESET_DEFAULT_CASE);
         break;
     }
 
     __NOP();
-
     return UNER_OK;
 }
-
 uint8_t UNER_Core_Dequeue(UNER_Core *core, UNER_Packet *out)
 {
     if (!core || !out || core->q_count == 0u) {

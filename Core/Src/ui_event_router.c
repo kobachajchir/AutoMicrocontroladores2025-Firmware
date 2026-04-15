@@ -16,8 +16,16 @@ void UiEventRouter_HandleEvent(UserEvent_t ev)
     }
 
     if (ev == UE_LONG_PRESS) {
+    	//No deberia estar esto aca, hacer chequeo de si esta buscando antes
+    	if(IS_FLAG_SET(systemFlags3, WIFI_SEARCHING)){
+			CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+			wifiScanSessionActive = 0u;
+			wifiScanResultsPending = 0u;
+			wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
+    	}
         MenuSys_ResetMenu(&menuSystem);
         if (menuSystem.dashboardRender) {
+        	//Aca deberia mandar el comando de reporte de modo
             menuSystem.renderFn = menuSystem.dashboardRender;
         }
         if (menuSystem.insideMenuFlag) {

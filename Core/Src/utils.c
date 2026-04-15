@@ -14,8 +14,7 @@
 #include "user_button.h"
 #include "main.h"
 #include "uner_app.h"
-
-void USART1_DMA_CheckRx(void);
+#include "usart.h"
 
 /* Libera busy al completar */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
@@ -25,8 +24,24 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
     }
 }
 
+void USART1_DMA_CheckHealth(void)
+{
+    /*
+     * Si por cualquier motivo DMAR quedó apagado o HAL dejó RxState en READY,
+     * rearmamos recepción DMA.
+     */
+    if (((huart1.Instance->CR3 & USART_CR3_DMAR) == 0u) ||
+        (huart1.RxState == HAL_UART_STATE_READY))
+    {
+        (void)HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
+        __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
 
-void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
+        UNER_App_ResetUart1RxPos();
+    }
+}
+
+
+/*void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART1) {
         USART1_DMA_CheckRx();
@@ -38,7 +53,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     if (huart->Instance == USART1) {
         USART1_DMA_CheckRx();
     }
-}
+}*/
 
 void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
@@ -99,7 +114,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             if (IS_FLAG_SET(systemFlags, OLED_READY)) {
 				OLED_Task_10ms();
 			}
-            if(IS_FLAG_SET(systemFlags3, WIFI_SEARCHING)){
+            if(IS_FLAG_SET(systemFlags3, WIFI_SEARCHING) && wifiScanSessionActive){
 				wifi_search_tick_10ms++;
 				if (wifi_search_tick_10ms >= 100) {
 					wifi_search_tick_10ms = 0;
@@ -112,10 +127,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					}
 					if (wifiSearchingTimeout == 0) {
 						CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
+						wifiScanSessionActive = 0u;
+						wifiScanResultsPending = 1u;
 						menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
 						menuSystem.renderFlag = true;
 						oled_first_draw = false;
-						OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCompleteNotification, 2000);
 					} else {
 						if (!menuSystem.renderFlag) {
 							menuSystem.renderFlag = true;
@@ -123,6 +139,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					}
 				}
 			} else {
+				CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
 				wifi_search_tick_10ms = 0;
             }
         }

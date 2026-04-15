@@ -7,6 +7,8 @@
 
 
 #include "motor_control.h"
+extern void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 
 /**
  * @brief  Initialize the motor PWM timer based on handle configuration

@@ -1,8 +1,7 @@
 ../Core/Src/uner_core.c:21:13:uner_reset_parser	1
-../Core/Src/uner_core.c:36:13:UNER_Core_Init	6
-../Core/Src/uner_core.c:70:6:UNER_Core_ResetParser	2
-../Core/Src/uner_core.c:104:13:UNER_Core_PushByte	34
-../Core/Src/uner_core.c:260:9:UNER_Core_Dequeue	4
-../Core/Src/uner_core.c:272:6:UNER_Core_ReleasePacket	1
-../Core/Src/uner_core.c:278:9:UNER_Core_ComputeChecksum	2
-../Core/Src/uner_core.c:287:13:UNER_BuildFrame	5
+../Core/Src/uner_core.c:40:13:UNER_Core_Init	6
+../Core/Src/uner_core.c:99:13:UNER_Core_PushByte	34
+../Core/Src/uner_core.c:278:9:UNER_Core_Dequeue	4
+../Core/Src/uner_core.c:290:6:UNER_Core_ReleasePacket	1
+../Core/Src/uner_core.c:296:9:UNER_Core_ComputeChecksum	2
+../Core/Src/uner_core.c:305:13:UNER_BuildFrame	5
