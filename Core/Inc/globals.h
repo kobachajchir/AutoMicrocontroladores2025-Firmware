@@ -98,6 +98,12 @@
 #define WIFI_SSID_MAX_LEN 32
 #define WIFI_RESULTS_MENU_MAX_ITEMS (WIFI_SCAN_MAX_NETWORKS + 2)
 
+#define UNER_SCREEN_PAGE_DIR_UP             0x00u
+#define UNER_SCREEN_PAGE_DIR_DOWN           0x01u
+
+#define UNER_PRESS_KIND_SHORT               0x00u
+#define UNER_PRESS_KIND_LONG                0x01u
+
 typedef struct {
     IPStruct_t staIp;
     IPStruct_t apIp;

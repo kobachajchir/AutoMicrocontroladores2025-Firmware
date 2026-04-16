@@ -56,6 +56,9 @@ static void UNER_App_RequestNetworkUiRefresh(void);
 static void UNER_App_WriteScreenReportPayload(uint8_t *payload, uint32_t screen_code, uint8_t source);
 
 typedef enum {
+    UNER_SCREEN_PAGE_DIR_UP = 0x00u,
+    UNER_SCREEN_PAGE_DIR_DOWN = 0x01u,
+
     UNER_CMD_SET_MODE_AP = 0x10u,
     UNER_CMD_SET_MODE_STA = 0x11u,
     UNER_CMD_SET_CREDENTIALS = 0x12u,
@@ -66,8 +69,10 @@ typedef enum {
     UNER_CMD_FACTORY_RESET = 0x17u,
     UNER_CMD_STOP_SCAN = 0x18u,
     UNER_CMD_RESET_MCU = 0x19u,
+
     UNER_CMD_GET_STATUS = 0x30u,
     UNER_CMD_PING = 0x31u,
+
     UNER_CMD_GET_PREFERENCES = 0x40u,
     UNER_CMD_REQUEST_FIRMWARE = 0x41u,
     UNER_CMD_ECHO = 0x42u,
@@ -87,8 +92,17 @@ typedef enum {
     UNER_CMD_NETWORK_IP = 0x50u,
     UNER_CMD_AUTH_VALIDATE_PIN = 0x51u,
     UNER_CMD_GET_CURRENT_SCREEN = 0x52u,
+    UNER_CMD_MENU_ITEM_CLICK = 0x53u,
+    UNER_CMD_TRIGGER_ENCODER_BUTTON = 0x54u,
+    UNER_CMD_TRIGGER_USER_BUTTON = 0x55u,
+    UNER_CMD_REQUEST_SCREEN_PAGE = 0x56u,
+    UNER_CMD_TRIGGER_ENCODER_ROTATE_LEFT = 0x57u,
+    UNER_CMD_TRIGGER_ENCODER_ROTATE_RIGHT = 0x58u,
+    UNER_CMD_AUTH_PIN_GRANTED = 0x59u,
+
     UNER_CMD_ACK = 0xE0u,
     UNER_CMD_NACK = 0xE1u,
+
     UNER_EVT_BOOT = 0x80u,
     UNER_EVT_MODE_CHANGED = 0x81u,
     UNER_EVT_STA_CONNECTED = 0x82u,
@@ -140,6 +154,15 @@ static void cmd_boot_complete_handler(void *ctx, const UNER_Packet *p);
 static void cmd_get_current_screen_handler(void *ctx, const UNER_Packet *p);
 static void cmd_request_firmware_handler(void *ctx, const UNER_Packet *packet);
 static void cmd_ack_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_request_screen_page_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_menu_item_click_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_trigger_encoder_button_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_trigger_user_button_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_menu_item_click_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_trigger_encoder_button_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_trigger_user_button_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_trigger_encoder_rotate_left_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_trigger_encoder_rotate_right_handler(void *ctx, const UNER_Packet *packet);
 
 static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_SET_MODE_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
@@ -155,7 +178,7 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_GET_STATUS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_PING, 0u, 0u, UNER_SPEC_F_RESP, 50u, NULL },
     { UNER_CMD_GET_PREFERENCES, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
-	{ UNER_CMD_REQUEST_FIRMWARE, 0u, 32u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, cmd_request_firmware_handler },
+    { UNER_CMD_REQUEST_FIRMWARE, 0u, 32u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, cmd_request_firmware_handler },
     { UNER_CMD_SET_ENCODER_FAST, 1u, 1u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_GET_CONNECTED_USERS, 0u, 0u, UNER_SPEC_F_RESP, 100u, NULL },
     { UNER_CMD_GET_USER_INFO, 1u, 1u, UNER_SPEC_F_RESP, 100u, NULL },
@@ -171,8 +194,14 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_BOOT_COMPLETE, 5u, 5u, UNER_SPEC_F_EVT, 0u, cmd_boot_complete_handler },
     { UNER_CMD_NETWORK_IP, 5u, 5u, UNER_SPEC_F_EVT, 0u, cmd_network_ip_handler },
     { UNER_CMD_AUTH_VALIDATE_PIN, 6u, 6u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 500u, NULL },
+	{ UNER_CMD_AUTH_PIN_GRANTED, 4u, 4u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, cmd_auth_pin_granted_handler },
     { UNER_CMD_GET_CURRENT_SCREEN, 0u, 0u, UNER_SPEC_F_RESP, 50u, cmd_get_current_screen_handler },
-	{ UNER_CMD_ACK, 1u, 2u, 0u, 0u, cmd_ack_handler },
+	{ UNER_CMD_REQUEST_SCREEN_PAGE, 5u, 5u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, cmd_request_screen_page_handler },
+	{ UNER_CMD_MENU_ITEM_CLICK, 5u, 5u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, cmd_menu_item_click_handler },
+	{ UNER_CMD_TRIGGER_ENCODER_BUTTON, 5u, 5u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, cmd_trigger_encoder_button_handler },
+	{ UNER_CMD_TRIGGER_USER_BUTTON, 5u, 5u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, cmd_trigger_user_button_handler },
+	{ UNER_CMD_TRIGGER_ENCODER_ROTATE_LEFT, 4u, 4u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, cmd_trigger_encoder_rotate_left_handler },
+	{ UNER_CMD_TRIGGER_ENCODER_ROTATE_RIGHT, 4u, 4u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, cmd_trigger_encoder_rotate_right_handler },
     { UNER_CMD_NACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_EVT_BOOT, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_boot_handler },
     { UNER_EVT_MODE_CHANGED, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_mode_changed_handler },
@@ -631,6 +660,20 @@ static void UNER_App_ParseAuthValidatePinResponse(const UNER_Packet *p)
         : 0xFFu;
 
     Permission_OnValidationResult(request_id, permission, granted, ttl_ms, attempts_left);
+}
+
+HAL_StatusTypeDef cmd_auth_pin_granted_handler(const UNERProtocolPck *pck)
+{
+    const AuthPinGranted_t *msg = (const AuthPinGranted_t *)pck->payload;
+
+    if (msg->screen_code != current_screen_code) {
+        return HAL_ERROR;
+    }
+
+    /* avanzar estado interno / llamar callback / conceder permiso */
+    App_OnPinGranted(msg->screen_code);
+
+    return HAL_OK;
 }
 
 

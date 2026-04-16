@@ -20,6 +20,11 @@ uint8_t UNER_App_GetWaitingCommandId(void);
 typedef struct __attribute__((packed))
 {
     uint32_t screen_code;
+} AuthPinGranted_t;
+
+typedef struct __attribute__((packed))
+{
+    uint32_t screen_code;
     uint8_t source;
 } ScreenReport_t;
 
