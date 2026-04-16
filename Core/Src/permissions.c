@@ -612,6 +612,19 @@ void Permission_OnValidationResult(uint8_t request_id,
     }
 }
 
+bool Permission_GrantCurrentRequest(uint32_t ttl_ms)
+{
+    if ((permissionManager.state != AUTH_INPUT_PIN &&
+         permissionManager.state != AUTH_WAITING_ESP) ||
+        permissionManager.requestedPermission <= PERMISSION_NONE ||
+        permissionManager.requestedPermission >= PERMISSION_COUNT) {
+        return false;
+    }
+
+    Permission_Grant(ttl_ms);
+    return true;
+}
+
 void Permission_SetEventCallback(PermissionEventCallback callback)
 {
     permissionManager.eventCallback = callback;

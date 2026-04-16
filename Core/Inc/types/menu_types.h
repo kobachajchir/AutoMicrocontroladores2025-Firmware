@@ -26,6 +26,8 @@ typedef void (*RenderScreenFunction)();
 typedef void (*UserEventManagerFn)(UserEvent_t ev);
 typedef bool (*MenuVisibilityFn)(void);
 
+#define MENU_SELECTION_INVALID_INDEX 0xFFu
+
 typedef struct SubMenu SubMenu;
 
 typedef struct MenuItem {
@@ -68,6 +70,12 @@ typedef struct MenuSystem {
     ScreenCode_t last_reported_screen_code;
     uint8_t current_screen_source;
     bool screen_report_pending;
+    uint8_t current_selected_index;
+    uint8_t last_reported_selected_index;
+    uint8_t current_item_count;
+    uint8_t last_reported_item_count;
+    uint8_t current_selection_source;
+    bool selection_report_pending;
 } MenuSystem;
 
 #ifdef __cplusplus

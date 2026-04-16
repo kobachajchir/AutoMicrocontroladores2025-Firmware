@@ -15,6 +15,10 @@
 #include "menusystem.h"
 #include "uner_app.h"
 
+static bool MenuSys_HasNavigableSelection(const MenuSystem *ms);
+static bool MenuSys_IsCurrentScreenMenu(const MenuSystem *ms);
+static void MenuSys_UpdateSelectionFromCurrentMenu(MenuSystem *ms, ScreenReportSource_t source);
+
 bool MenuSys_IsItemVisible(const MenuItem *item) {
     if (!item) return false;
     if (!item->visibilityFn) return true;
@@ -36,7 +40,8 @@ void MenuSys_FlushScreenReport(MenuSystem *ms)
 
 void MenuSys_FlushMenuSelectionReport(MenuSystem *ms)
 {
-    if (!ms || !ms->selection_report_pending || !MenuSys_HasNavigableSelection(ms)) {
+    if (!ms || ms->screen_report_pending || !ms->selection_report_pending ||
+        !MenuSys_HasNavigableSelection(ms)) {
         return;
     }
 
@@ -89,7 +94,11 @@ void MenuSys_SetCurrentScreenCode(MenuSystem *ms, ScreenCode_t screen_code, Scre
     }
 
     MenuSys_FlushScreenReport(ms);
-    MenuSys_UpdateSelectionFromCurrentMenu(ms, source);
+    if (MenuSys_IsCurrentScreenMenu(ms)) {
+        MenuSys_UpdateSelectionFromCurrentMenu(ms, source);
+    } else {
+        MenuSys_ClearCurrentMenuSelection(ms, source);
+    }
 }
 
 void MenuSys_SetCurrentMenuScreenCode(MenuSystem *ms)
@@ -116,6 +125,8 @@ void MenuSys_ClearCurrentMenuSelection(MenuSystem *ms, ScreenReportSource_t sour
         ms->current_selection_source != (uint8_t)source) {
         ms->current_selected_index = MENU_SELECTION_INVALID_INDEX;
         ms->current_item_count = 0u;
+        ms->last_reported_selected_index = MENU_SELECTION_INVALID_INDEX;
+        ms->last_reported_item_count = 0u;
         ms->current_selection_source = (uint8_t)source;
         ms->selection_report_pending = false;
     }
@@ -127,6 +138,13 @@ static bool MenuSys_HasNavigableSelection(const MenuSystem *ms)
            (ms->current_screen_code != SCREEN_CODE_NONE) &&
            (ms->current_item_count > 0u) &&
            (ms->current_selected_index < ms->current_item_count);
+}
+
+static bool MenuSys_IsCurrentScreenMenu(const MenuSystem *ms)
+{
+    return (ms != NULL) &&
+           (ms->currentMenu != NULL) &&
+           (ms->current_screen_code == ms->currentMenu->screen_code);
 }
 
 static void MenuSys_UpdateSelectionFromCurrentMenu(MenuSystem *ms, ScreenReportSource_t source)
@@ -231,6 +249,12 @@ void MenuSys_Init(MenuSystem *ms) {
     ms->last_reported_screen_code = SCREEN_CODE_NONE;
     ms->current_screen_source = SCREEN_REPORT_SOURCE_SYSTEM;
     ms->screen_report_pending = false;
+    ms->current_selected_index = MENU_SELECTION_INVALID_INDEX;
+    ms->last_reported_selected_index = MENU_SELECTION_INVALID_INDEX;
+    ms->current_item_count = 0u;
+    ms->last_reported_item_count = 0u;
+    ms->current_selection_source = SCREEN_REPORT_SOURCE_UNKNOWN;
+    ms->selection_report_pending = false;
 }
 
 void MenuSys_SetCallbacks(MenuSystem *ms,
@@ -348,6 +372,7 @@ void MenuSys_OpenSubMenu(MenuSystem *ms, SubMenu *submenu) {
     submenu->lastSelectedItemIndex = -1; //Asi renderiza todo nuevamente
     submenu->lastVisibleItem = -1; //Asi renderiza todo nuevamente
     ms->renderFlag             = true;
+    MenuSys_SetCurrentScreenCode(ms, submenu->screen_code, SCREEN_REPORT_SOURCE_MENU);
 }
 
 void MenuSys_ResetMenu(MenuSystem *ms) {

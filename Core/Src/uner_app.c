@@ -54,11 +54,13 @@ static void UNER_App_MarkStaActive(void);
 static void UNER_App_ShowWifiConnectedNotification(uint8_t was_wifi_active);
 static void UNER_App_RequestNetworkUiRefresh(void);
 static void UNER_App_WriteScreenReportPayload(uint8_t *payload, uint32_t screen_code, uint8_t source);
+static uint32_t UNER_App_ReadU32Le(const uint8_t *payload);
+static void UNER_App_SendCommandStatus(const UNER_Packet *packet, uint8_t status);
+static uint8_t UNER_App_PacketScreenMatchesCurrent(const UNER_Packet *packet, uint32_t *screen_code);
+static int8_t UNER_App_FindVisibleMenuItemIndex(const SubMenu *menu, uint8_t visible_item);
+static uint8_t UNER_App_DispatchUserEvent(UserEvent_t event);
 
 typedef enum {
-    UNER_SCREEN_PAGE_DIR_UP = 0x00u,
-    UNER_SCREEN_PAGE_DIR_DOWN = 0x01u,
-
     UNER_CMD_SET_MODE_AP = 0x10u,
     UNER_CMD_SET_MODE_STA = 0x11u,
     UNER_CMD_SET_CREDENTIALS = 0x12u,
@@ -125,6 +127,7 @@ typedef enum {
     UNER_EVT_NETWORK_IP = 0x93u,
     UNER_EVT_BOOT_COMPLETE = 0x94u,
     UNER_EVT_SCREEN_CHANGED = 0x95u,
+    UNER_EVT_MENU_SELECTION_CHANGED = 0x96u,
 } UNER_CommandId;
 
 static void evt_boot_handler(void *ctx, const UNER_Packet *p);
@@ -158,11 +161,9 @@ static void cmd_request_screen_page_handler(void *ctx, const UNER_Packet *packet
 static void cmd_menu_item_click_handler(void *ctx, const UNER_Packet *packet);
 static void cmd_trigger_encoder_button_handler(void *ctx, const UNER_Packet *packet);
 static void cmd_trigger_user_button_handler(void *ctx, const UNER_Packet *packet);
-static void cmd_menu_item_click_handler(void *ctx, const UNER_Packet *packet);
-static void cmd_trigger_encoder_button_handler(void *ctx, const UNER_Packet *packet);
-static void cmd_trigger_user_button_handler(void *ctx, const UNER_Packet *packet);
 static void cmd_trigger_encoder_rotate_left_handler(void *ctx, const UNER_Packet *packet);
 static void cmd_trigger_encoder_rotate_right_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_auth_pin_granted_handler(void *ctx, const UNER_Packet *packet);
 
 static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_SET_MODE_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
@@ -202,6 +203,7 @@ static const UNER_CommandSpec uner_commands[] = {
 	{ UNER_CMD_TRIGGER_USER_BUTTON, 5u, 5u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, cmd_trigger_user_button_handler },
 	{ UNER_CMD_TRIGGER_ENCODER_ROTATE_LEFT, 4u, 4u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, cmd_trigger_encoder_rotate_left_handler },
 	{ UNER_CMD_TRIGGER_ENCODER_ROTATE_RIGHT, 4u, 4u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, cmd_trigger_encoder_rotate_right_handler },
+    { UNER_CMD_ACK, 1u, 2u, 0u, 0u, cmd_ack_handler },
     { UNER_CMD_NACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_EVT_BOOT, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_boot_handler },
     { UNER_EVT_MODE_CHANGED, 0u, 255u, UNER_SPEC_F_EVT | UNER_SPEC_F_ACK, 50u, evt_mode_changed_handler },
@@ -225,6 +227,7 @@ static const UNER_CommandSpec uner_commands[] = {
     { UNER_EVT_NETWORK_IP, 5u, 5u, UNER_SPEC_F_EVT, 0u, evt_network_ip_handler },
     { UNER_EVT_BOOT_COMPLETE, 5u, 5u, UNER_SPEC_F_EVT, 0u, evt_boot_complete_handler },
     { UNER_EVT_SCREEN_CHANGED, 5u, 5u, UNER_SPEC_F_EVT, 0u, NULL },
+    { UNER_EVT_MENU_SELECTION_CHANGED, 7u, 7u, UNER_SPEC_F_EVT, 0u, NULL },
     { UNER_CMD_ECHO, 4u, 4u, 0u, 0u, NULL },
 };
 
@@ -662,18 +665,239 @@ static void UNER_App_ParseAuthValidatePinResponse(const UNER_Packet *p)
     Permission_OnValidationResult(request_id, permission, granted, ttl_ms, attempts_left);
 }
 
-HAL_StatusTypeDef cmd_auth_pin_granted_handler(const UNERProtocolPck *pck)
+static uint32_t UNER_App_ReadU32Le(const uint8_t *payload)
 {
-    const AuthPinGranted_t *msg = (const AuthPinGranted_t *)pck->payload;
-
-    if (msg->screen_code != current_screen_code) {
-        return HAL_ERROR;
+    if (!payload) {
+        return 0u;
     }
 
-    /* avanzar estado interno / llamar callback / conceder permiso */
-    App_OnPinGranted(msg->screen_code);
+    return (uint32_t)payload[0] |
+           ((uint32_t)payload[1] << 8) |
+           ((uint32_t)payload[2] << 16) |
+           ((uint32_t)payload[3] << 24);
+}
 
-    return HAL_OK;
+static void UNER_App_SendCommandStatus(const UNER_Packet *packet, uint8_t status)
+{
+    uint8_t payload[1u] = { status };
+
+    if (!packet) {
+        return;
+    }
+
+    (void)UNER_Send(&uner_handle,
+                    packet->transport_id,
+                    UNER_NODE_MCU,
+                    packet->src,
+                    packet->cmd,
+                    payload,
+                    (uint8_t)sizeof(payload));
+}
+
+static uint8_t UNER_App_PacketScreenMatchesCurrent(const UNER_Packet *packet, uint32_t *screen_code)
+{
+    uint32_t requested_screen;
+
+    if (!packet || !packet->payload || packet->len < 4u) {
+        return 0u;
+    }
+
+    requested_screen = UNER_App_ReadU32Le(packet->payload);
+    if (screen_code) {
+        *screen_code = requested_screen;
+    }
+
+    return requested_screen == (uint32_t)MenuSys_GetCurrentScreenCode(&menuSystem);
+}
+
+static int8_t UNER_App_FindVisibleMenuItemIndex(const SubMenu *menu, uint8_t visible_item)
+{
+    uint8_t visible_count = 0u;
+
+    if (!menu || visible_item == 0u || visible_item > MENU_VISIBLE_ITEMS) {
+        return -1;
+    }
+
+    for (int8_t i = menu->firstVisibleItem; i >= 0 && i < menu->itemCount; ++i) {
+        if (MenuSys_IsItemVisible(&menu->items[i])) {
+            visible_count++;
+            if (visible_count == visible_item) {
+                return i;
+            }
+        }
+    }
+
+    return -1;
+}
+
+static uint8_t UNER_App_DispatchUserEvent(UserEvent_t event)
+{
+    if (!menuSystem.userEventManagerFn) {
+        return 0u;
+    }
+
+    menuSystem.userEventManagerFn(event);
+    return 1u;
+}
+
+static uint8_t UNER_App_IsCurrentMenuScreen(uint32_t screen_code)
+{
+    return (menuSystem.currentMenu != NULL &&
+            screen_code == (uint32_t)menuSystem.currentMenu->screen_code &&
+            screen_code == (uint32_t)MenuSys_GetCurrentScreenCode(&menuSystem));
+}
+
+static void cmd_auth_pin_granted_handler(void *ctx, const UNER_Packet *packet)
+{
+    (void)ctx;
+
+    if (!UNER_App_PacketScreenMatchesCurrent(packet, NULL) ||
+        !Permission_GrantCurrentRequest(0u)) {
+        UNER_App_SendCommandStatus(packet, 1u);
+        return;
+    }
+
+    UNER_App_SendCommandStatus(packet, 0u);
+}
+
+static void cmd_request_screen_page_handler(void *ctx, const UNER_Packet *packet)
+{
+    uint32_t screen_code = SCREEN_CODE_NONE;
+    uint8_t direction;
+    uint8_t steps;
+
+    (void)ctx;
+
+    if (!UNER_App_PacketScreenMatchesCurrent(packet, &screen_code) ||
+        !UNER_App_IsCurrentMenuScreen(screen_code) ||
+        packet->len != 5u) {
+        UNER_App_SendCommandStatus(packet, 1u);
+        return;
+    }
+
+    direction = packet->payload[4];
+    if (direction != UNER_SCREEN_PAGE_DIR_UP &&
+        direction != UNER_SCREEN_PAGE_DIR_DOWN) {
+        UNER_App_SendCommandStatus(packet, 1u);
+        return;
+    }
+
+    for (steps = 0u; steps < MENU_VISIBLE_ITEMS; ++steps) {
+        if (direction == UNER_SCREEN_PAGE_DIR_UP) {
+            MenuSys_MoveCursorUp(&menuSystem);
+        } else {
+            MenuSys_MoveCursorDown(&menuSystem);
+        }
+    }
+
+    menuSystem.renderFlag = true;
+    UNER_App_SendCommandStatus(packet, 0u);
+}
+
+static void cmd_menu_item_click_handler(void *ctx, const UNER_Packet *packet)
+{
+    uint32_t screen_code = SCREEN_CODE_NONE;
+    int8_t item_index;
+    uint8_t visible_item;
+
+    (void)ctx;
+
+    if (!UNER_App_PacketScreenMatchesCurrent(packet, &screen_code) ||
+        !UNER_App_IsCurrentMenuScreen(screen_code) ||
+        packet->len != 5u) {
+        UNER_App_SendCommandStatus(packet, 1u);
+        return;
+    }
+
+    visible_item = packet->payload[4];
+    item_index = UNER_App_FindVisibleMenuItemIndex(menuSystem.currentMenu, visible_item);
+    if (item_index < 0) {
+        UNER_App_SendCommandStatus(packet, 1u);
+        return;
+    }
+
+    menuSystem.currentMenu->lastSelectedItemIndex = menuSystem.currentMenu->currentItemIndex;
+    menuSystem.currentMenu->currentItemIndex = item_index;
+    MenuSys_SetCurrentMenuSelection(&menuSystem,
+                                    (uint8_t)item_index,
+                                    (uint8_t)menuSystem.currentMenu->itemCount,
+                                    SCREEN_REPORT_SOURCE_MENU);
+    MenuSys_HandleClick(&menuSystem);
+    UNER_App_SendCommandStatus(packet, 0u);
+}
+
+static void cmd_trigger_encoder_button_handler(void *ctx, const UNER_Packet *packet)
+{
+    uint8_t press_kind;
+    UserEvent_t event;
+
+    (void)ctx;
+
+    if (!UNER_App_PacketScreenMatchesCurrent(packet, NULL) || packet->len != 5u) {
+        UNER_App_SendCommandStatus(packet, 1u);
+        return;
+    }
+
+    press_kind = packet->payload[4];
+    if (press_kind == UNER_PRESS_KIND_SHORT) {
+        event = UE_ENC_SHORT_PRESS;
+    } else if (press_kind == UNER_PRESS_KIND_LONG) {
+        event = UE_ENC_LONG_PRESS;
+    } else {
+        UNER_App_SendCommandStatus(packet, 1u);
+        return;
+    }
+
+    UNER_App_SendCommandStatus(packet, UNER_App_DispatchUserEvent(event) ? 0u : 1u);
+}
+
+static void cmd_trigger_user_button_handler(void *ctx, const UNER_Packet *packet)
+{
+    uint8_t press_kind;
+    UserEvent_t event;
+
+    (void)ctx;
+
+    if (!UNER_App_PacketScreenMatchesCurrent(packet, NULL) || packet->len != 5u) {
+        UNER_App_SendCommandStatus(packet, 1u);
+        return;
+    }
+
+    press_kind = packet->payload[4];
+    if (press_kind == UNER_PRESS_KIND_SHORT) {
+        event = UE_SHORT_PRESS;
+    } else if (press_kind == UNER_PRESS_KIND_LONG) {
+        event = UE_LONG_PRESS;
+    } else {
+        UNER_App_SendCommandStatus(packet, 1u);
+        return;
+    }
+
+    UNER_App_SendCommandStatus(packet, UNER_App_DispatchUserEvent(event) ? 0u : 1u);
+}
+
+static void cmd_trigger_encoder_rotate_left_handler(void *ctx, const UNER_Packet *packet)
+{
+    (void)ctx;
+
+    if (!UNER_App_PacketScreenMatchesCurrent(packet, NULL) || packet->len != 4u) {
+        UNER_App_SendCommandStatus(packet, 1u);
+        return;
+    }
+
+    UNER_App_SendCommandStatus(packet, UNER_App_DispatchUserEvent(UE_ROTATE_CCW) ? 0u : 1u);
+}
+
+static void cmd_trigger_encoder_rotate_right_handler(void *ctx, const UNER_Packet *packet)
+{
+    (void)ctx;
+
+    if (!UNER_App_PacketScreenMatchesCurrent(packet, NULL) || packet->len != 4u) {
+        UNER_App_SendCommandStatus(packet, 1u);
+        return;
+    }
+
+    UNER_App_SendCommandStatus(packet, UNER_App_DispatchUserEvent(UE_ROTATE_CW) ? 0u : 1u);
 }
 
 

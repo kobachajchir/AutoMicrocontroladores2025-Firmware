@@ -92,6 +92,7 @@ void Permission_OnValidationResult(uint8_t request_id,
                                    bool granted,
                                    uint32_t ttl_ms,
                                    uint8_t attempts_left);
+bool Permission_GrantCurrentRequest(uint32_t ttl_ms);
 
 void Permission_SetEventCallback(PermissionEventCallback callback);
 AuthState_t Permission_GetState(void);

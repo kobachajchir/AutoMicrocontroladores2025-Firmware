@@ -5,6 +5,7 @@
 ../Core/Src/permissions.c:120:13:Permission_ClearPin	0	static
 ../Core/Src/permissions.c:161:13:Permission_ClearPendingRequest	0	static
 ../Core/Src/permissions.c:190:13:Permission_CancelRequest	8	static
+../Core/Src/permissions.c:227:13:Permission_Grant	24	static
 ../Core/Src/permissions.c:309:13:Permission_DrawText	32	static
 ../Core/Src/permissions.c:253:13:Permission_TrySendValidation	16	static
 ../Core/Src/permissions.c:282:13:Permission_SubmitPin	16	static
@@ -18,7 +19,8 @@
 ../Core/Src/permissions.c:412:6:Permission_Request	24	static
 ../Core/Src/permissions.c:449:6:Permission_Revoke	0	static
 ../Core/Src/permissions.c:459:6:Permission_RevokeAll	8	static
-../Core/Src/permissions.c:573:6:Permission_OnValidationResult	24	static
-../Core/Src/permissions.c:615:6:Permission_SetEventCallback	0	static
-../Core/Src/permissions.c:620:13:Permission_GetState	0	static
-../Core/Src/permissions.c:625:16:Permission_GetRequestedPermission	0	static
+../Core/Src/permissions.c:573:6:Permission_OnValidationResult	16	static
+../Core/Src/permissions.c:615:6:Permission_GrantCurrentRequest	8	static
+../Core/Src/permissions.c:628:6:Permission_SetEventCallback	0	static
+../Core/Src/permissions.c:633:13:Permission_GetState	0	static
+../Core/Src/permissions.c:638:16:Permission_GetRequestedPermission	0	static

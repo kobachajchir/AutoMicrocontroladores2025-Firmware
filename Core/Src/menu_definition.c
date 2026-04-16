@@ -38,7 +38,13 @@ MenuSystem menuSystem = {
     .current_screen_code = SCREEN_CODE_CORE_STARTUP,
     .last_reported_screen_code = SCREEN_CODE_NONE,
     .current_screen_source = SCREEN_REPORT_SOURCE_SYSTEM,
-    .screen_report_pending = false
+    .screen_report_pending = false,
+    .current_selected_index = MENU_SELECTION_INVALID_INDEX,
+    .last_reported_selected_index = MENU_SELECTION_INVALID_INDEX,
+    .current_item_count = 0u,
+    .last_reported_item_count = 0u,
+    .current_selection_source = SCREEN_REPORT_SOURCE_UNKNOWN,
+    .selection_report_pending = false
 };
 
 /* ---------- Main menu ---------- */
