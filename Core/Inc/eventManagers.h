@@ -29,6 +29,7 @@ void About_UserEventManager(UserEvent_t ev);
 void motorTestEventManager(UserEvent_t ev);
 void WiFiSearch_UserEventManager(UserEvent_t ev);
 void wifiEventManager(UserEvent_t ev);
+void WiFiDetails_UserEventManager(UserEvent_t ev);
 void ReadOnly_UserEventManager(UserEvent_t ev);
 void NotificationDismiss_OnShortPress(void);
 void NotificationDismiss_OnLongPress(void);

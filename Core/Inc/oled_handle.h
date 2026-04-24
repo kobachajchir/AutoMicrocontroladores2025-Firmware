@@ -17,6 +17,7 @@ typedef void (*OledNotificationHook)(void);
 typedef struct OledNotificationState {
 	bool active;
 	RenderFunction renderFn;
+	uint8_t simpleId;
 	uint16_t timeoutTicks;
 	uint16_t totalTicks;
 	bool needsFullRender;
@@ -28,6 +29,7 @@ typedef struct OledNotificationState {
 	struct {
 		bool valid;
 		RenderFunction renderFn;
+		uint8_t simpleId;
 		uint16_t remainingTicks;
 		OledNotificationHook onShow;
 		OledNotificationHook onHide;

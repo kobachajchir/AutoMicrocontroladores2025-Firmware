@@ -1121,6 +1121,8 @@ void ssd1306_DrawQR_Fixed(uint8_t startX, uint8_t startY, const uint8_t* qrData)
 char ssd1306_WriteChar(char ch, FontDef Font)
 {
   uint32_t i, b, j;
+  uint8_t glyph;
+  uint8_t compact_rows;
 
   if (width() <= (SSD1306.CurrentX + Font.FontWidth) ||
       height() <= (SSD1306.CurrentY + Font.FontHeight))
@@ -1128,12 +1130,26 @@ char ssd1306_WriteChar(char ch, FontDef Font)
     return 0;
   }
 
+  if ((uint8_t)ch < 32u || (uint8_t)ch > 126u) {
+    glyph = (uint8_t)('?' - 32);
+  } else {
+    glyph = (uint8_t)((uint8_t)ch - 32u);
+  }
+
+  compact_rows = (Font.FontWidth <= 8u) ? 1u : 0u;
+
   for (i = 0; i < Font.FontHeight; i++)
   {
-    b = Font.data[(ch - 32) * Font.FontHeight + i];
+    const uint32_t row_index = ((uint32_t)glyph * Font.FontHeight) + i;
+    if (compact_rows) {
+      b = ((uint32_t)((const uint8_t *)Font.data)[row_index]) << 8;
+    } else {
+      b = ((const uint16_t *)Font.data)[row_index];
+    }
+
     for (j = 0; j < Font.FontWidth; j++)
     {
-      if ((b << j) & 0x8000)
+      if ((b << j) & 0x8000u)
       {
         ssd1306_DrawPixel(SSD1306.CurrentX + j, SSD1306.CurrentY + i);
       }

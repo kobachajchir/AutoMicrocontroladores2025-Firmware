@@ -303,6 +303,59 @@ Entonces, el payload completo en wire queda:
 - scan en progreso: `[1, 0]`
 - scan detenido por comando: `[2, 0]`
 
+### 6.7 Screen codes STM32 reportados por UI
+
+Los screen codes son identificadores estables de pantallas visibles. El STM32 los reporta por `EVT_SCREEN_CHANGED (0x95)` y los usa para validar comandos de UI remotos que incluyen pantalla destino.
+
+Definicion:
+
+```c
+SCREEN_CODE(menu, submenu, page) =
+    ((menu & 0xFF) << 16) | ((submenu & 0xFF) << 8) | (page & 0xFF)
+```
+
+En payload UNER viajan little-endian:
+
+```text
+[code0, code1, code2, code3, source]
+```
+
+Fuentes (`ScreenReportSource_t`):
+
+- `0` = unknown
+- `1` = menu
+- `2` = render
+- `3` = notification
+- `4` = permission
+- `5` = system
+
+Screen codes WiFi actuales:
+
+| Macro | Valor | Uso |
+| --- | ---: | --- |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_MENU` | `0x020101` | submenu WiFi |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_STATUS` | `0x020201` | estado WiFi/AP/IP |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_SEARCHING` | `0x020202` | busqueda activa, emite `START_SCAN` al entrar |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS` | `0x020203` | lista de redes encontradas y acciones `Actualizar`/`Volver` |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_NOT_CONNECTED` | `0x020204` | notificacion sin red |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_CONNECTING` | `0x020205` | notificacion conectando |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_CONNECTED` | `0x020206` | notificacion conectado |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_SEARCH_COMPLETE` | `0x020207` | notificacion historica de busqueda completa |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_SEARCH_CANCELED` | `0x020208` | notificacion busqueda cancelada |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_DETAILS` | `0x020209` | detalles de la red seleccionada, permite volver a resultados o pedir credenciales web |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_WEB` | `0x02020A` | notificacion "Ingresar credenciales en web" |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_SUCCEEDED` | `0x02020B` | notificacion de credenciales web aceptadas y WiFi conectado |
+| `SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_FAILED` | `0x02020C` | notificacion de credenciales web rechazadas, timeout o cancelacion |
+
+Semantica UI WiFi STM32:
+
+- entrar a `WIFI_SEARCHING` o pulsar `Actualizar` limpia resultados locales y vuelve a emitir `START_SCAN`;
+- al llegar resultados finales desde ESP, el STM32 renderiza `WIFI_RESULTS` sin esperar rotacion del encoder;
+- al salir del flujo `WIFI_SEARCHING`/`WIFI_RESULTS`/`WIFI_DETAILS`, el STM32 borra SSIDs/encriptaciones locales;
+- volver desde `WIFI_DETAILS` a `WIFI_RESULTS` no borra los resultados;
+- pulsar encoder en `WIFI_DETAILS` envia `SET_CREDENTIALS` con `pass = "connRequest"` y muestra `WIFI_CREDENTIALS_WEB`.
+- el resultado final del flujo web llega por `0x5C WIFI_CREDENTIALS_WEB_RESULT` y dispara `WIFI_CREDENTIALS_SUCCEEDED` o `WIFI_CREDENTIALS_FAILED`.
+
 ## 7. Catalogo completo de comandos
 
 ## 0x10 `SET_MODE_AP`
@@ -361,6 +414,9 @@ Entonces, el payload completo en wire queda:
 - Notas:
   - `target = 0` -> AP
   - `target = 1` -> STA
+  - desde la pantalla STM32 `SCREEN_CODE_CONNECTIVITY_WIFI_DETAILS`, al pulsar encoder sobre "Conectar", el STM32 usa este comando con `target = 1`, el SSID seleccionado y `pass = "connRequest"`;
+  - ese `pass` no es una clave WiFi real: es una senal para que el ESP/Web abra o mantenga el flujo de ingreso de credenciales desde la web;
+  - despues de enviar ese comando, la STM32 muestra `SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_WEB` como notificacion y vuelve a la pantalla de detalles para permitir reintento.
 
 ## 0x13 `CLEAR_CREDENTIALS`
 
@@ -398,8 +454,8 @@ Entonces, el payload completo en wire queda:
   - `payload = [0xFE]`
 - Flujo recomendado:
   1. enviar `0x14`
-  2. esperar finalizador `0x15 + [0xFE]`
-  3. pedir `0x15 GET_SCAN_RESULTS`
+  2. esperar finalizador `0x15 + [0xFE]` o consultar periodicamente `0x15 GET_SCAN_RESULTS`
+  3. pedir/seguir pidiendo `0x15 GET_SCAN_RESULTS` hasta obtener una respuesta final
 
 ## 0x15 `GET_SCAN_RESULTS`
 
@@ -417,8 +473,10 @@ Entonces, el payload completo en wire queda:
   - `2` = scan detenido por `STOP_SCAN`
 - Notas de parseo:
   - cada SSID es `len + bytes`, sin terminador;
-  - el STM32 actual limpia siempre el array local antes de parsear una nueva respuesta;
-  - el STM32 actual guarda solo las primeras `8` redes y recorta cada SSID a `32` chars.
+  - si `status = 1`, el STM32 mantiene la sesion de busqueda activa y vuelve a pedir resultados luego;
+  - si `status = 0` o `status = 2`, el STM32 limpia el array local antes de parsear la respuesta final;
+  - el STM32 actual guarda solo las primeras `8` redes y recorta cada SSID a `32` chars;
+  - el payload actual del ESP no envia tipo de seguridad/encriptacion; el STM32 muestra `"[ENCRYPTION]"` como placeholder en la pantalla de detalles.
 
 ### Ejemplo real observado
 
@@ -868,12 +926,10 @@ payload = [0xFE, ip0, ip1, ip2, ip3]
 
 ### Compatibilidad STM32
 
-El STM32 actual NO tiene `0x4F` en su tabla `uner_commands`. Por lo tanto:
+El STM32 actual lo tiene en tabla y lo procesa con la misma logica que `EVT_NETWORK_IP`:
 
-- el frame llega;
-- no se procesa;
-- no actualiza ningun estado;
-- se ignora en silencio.
+- actualiza IP STA/AP segun `net_if`;
+- si corresponde a STA y la pantalla/notificacion lo requiere, refresca UI de red.
 
 ## 0x50 `CMD_NETWORK_IP`
 
@@ -886,7 +942,7 @@ El STM32 actual NO tiene `0x4F` en su tabla `uner_commands`. Por lo tanto:
 
 ### Compatibilidad STM32
 
-El STM32 actual tampoco tiene `0x50` en su tabla. Se ignora.
+El STM32 actual lo tiene en tabla y lo procesa con la misma logica que `EVT_NETWORK_IP`.
 
 ## 0x51 `AUTH_VALIDATE_PIN`
 
@@ -941,6 +997,210 @@ Ejemplo response ESP -> MCU concedido por `30000 ms`, `attempts_left=3`:
 ```text
 55 4E 45 52 09 3A 02 21 51 00 01 01 01 30 75 00 00 03 0A
 ```
+
+## 0x52 `GET_CURRENT_SCREEN`
+
+- Direccion normal: ESP/Web/PC -> MCU
+- Request payload: vacio
+- ACK automatico: no
+- Response payload:
+
+```text
+[screen_code0, screen_code1, screen_code2, screen_code3, source]
+```
+
+- `screen_code` viaja little-endian.
+- `source` usa `ScreenReportSource_t`.
+
+## 0x53 `MENU_ITEM_CLICK`
+
+- Direccion normal: ESP/Web/PC -> MCU
+- Request payload:
+
+```text
+[screen_code0, screen_code1, screen_code2, screen_code3, visible_item]
+```
+
+- ACK/response de estado manual: `[0]` si se acepto, `[1]` si se rechazo.
+- Reglas STM32:
+  - `screen_code` debe coincidir con la pantalla actual;
+  - la pantalla actual debe ser un menu;
+  - `visible_item` es indice visible, no necesariamente indice absoluto interno;
+  - en `SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS`, click sobre una red abre `SCREEN_CODE_CONNECTIVITY_WIFI_DETAILS`; click sobre `Actualizar` reinicia scan.
+
+## 0x54 `TRIGGER_ENCODER_BUTTON`
+
+- Direccion normal: ESP/Web/PC -> MCU
+- Request payload:
+
+```text
+[screen_code0, screen_code1, screen_code2, screen_code3, press_kind]
+```
+
+- `press_kind = 0` -> short press
+- `press_kind = 1` -> long press
+- En `SCREEN_CODE_CONNECTIVITY_WIFI_DETAILS`, short press envia `SET_CREDENTIALS` con `"connRequest"` y long press vuelve a resultados.
+
+## 0x55 `TRIGGER_USER_BUTTON`
+
+- Direccion normal: ESP/Web/PC -> MCU
+- Request payload:
+
+```text
+[screen_code0, screen_code1, screen_code2, screen_code3, press_kind]
+```
+
+- `press_kind = 0` -> short press
+- `press_kind = 1` -> long press
+- En `SCREEN_CODE_CONNECTIVITY_WIFI_DETAILS`, short press vuelve a resultados sin borrar redes.
+
+## 0x56 `REQUEST_SCREEN_PAGE`
+
+- Direccion normal: ESP/Web/PC -> MCU
+- Request payload:
+
+```text
+[screen_code0, screen_code1, screen_code2, screen_code3, direction]
+```
+
+- `direction = 0` -> page up
+- `direction = 1` -> page down
+- STM32 mueve `MENU_VISIBLE_ITEMS` pasos y re-renderiza.
+
+## 0x57 `TRIGGER_ENCODER_ROTATE_LEFT`
+
+- Direccion normal: ESP/Web/PC -> MCU
+- Request payload:
+
+```text
+[screen_code0, screen_code1, screen_code2, screen_code3]
+```
+
+- Genera `UE_ROTATE_CCW` si la pantalla coincide.
+
+## 0x58 `TRIGGER_ENCODER_ROTATE_RIGHT`
+
+- Direccion normal: ESP/Web/PC -> MCU
+- Request payload:
+
+```text
+[screen_code0, screen_code1, screen_code2, screen_code3]
+```
+
+- Genera `UE_ROTATE_CW` si la pantalla coincide.
+
+## 0x59 `AUTH_PIN_GRANTED`
+
+- Direccion normal: ESP/Web/PC -> MCU
+- Request payload:
+
+```text
+[screen_code0, screen_code1, screen_code2, screen_code3]
+```
+
+- ACK/response de estado manual:
+  - `0` = OK
+  - `1` = payload invalido
+  - `2` = screen mismatch
+  - `3` = la pantalla no requiere grant
+  - `4` = no hay permiso pendiente
+- Solo aplica a pantallas de PIN/permiso que el STM32 marque como grantables.
+- Este comando sigue siendo `grant only`:
+  - concede la solicitud pendiente;
+  - no permite forzar `denied`, `timeout` ni `blocked`.
+
+## 0x5D `AUTH_REMOTE_RESULT`
+
+- Direccion normal: ESP/Web/PC -> MCU
+- Request payload:
+
+```text
+[screen_code0, screen_code1, screen_code2, screen_code3, result_code, attempts_left]
+```
+
+- `screen_code`:
+  - viaja little-endian;
+  - debe coincidir con la pantalla actual del STM32.
+- `result_code`:
+  - `0x00` = denied
+  - `0x01` = timeout
+  - `0x02` = blocked
+- `attempts_left`:
+  - para `denied`, si vale `0xFF`, el STM32 descuenta localmente;
+  - para `blocked`, el STM32 fuerza `0` y muestra/ejecuta la semantica de bloqueo;
+  - para `timeout`, el STM32 no necesita usarlo.
+- ACK/response de estado manual:
+  - `0` = OK
+  - `1` = payload invalido
+  - `2` = screen mismatch
+  - `3` = la pantalla actual no pertenece al flujo de PIN/permiso
+  - `4` = no hay permiso pendiente aplicable
+- Reglas STM32:
+  - solo se acepta si la pantalla actual coincide con `screen_code`;
+  - solo se acepta en `SCREEN_CODE_WARNING_PIN_ENTRY` o `SCREEN_CODE_WARNING_PIN_WAITING`;
+  - solo se acepta si hay una solicitud de permiso activa;
+  - reutiliza la misma logica interna de errores que la validacion local de permisos.
+- Efecto STM32:
+  - `denied`:
+    - actualiza `attempts_left`;
+    - si quedan intentos, pasa a `AUTH_DENIED` y reporta `SCREEN_CODE_WARNING_PIN_DENIED`;
+    - si no quedan, pasa a `AUTH_LOCKED` y reporta `SCREEN_CODE_WARNING_PIN_BLOCKED`;
+  - `timeout`:
+    - pasa a `AUTH_TIMEOUT` y reporta `SCREEN_CODE_WARNING_PIN_TIMEOUT`;
+  - `blocked`:
+    - fuerza `attempts_left = 0`;
+    - pasa a `AUTH_LOCKED` y reporta `SCREEN_CODE_WARNING_PIN_BLOCKED`.
+- Compatibilidad:
+  - no rompe el flujo local `0x51 AUTH_VALIDATE_PIN`;
+  - no reemplaza `0x59 AUTH_PIN_GRANTED`;
+  - existe para que el bridge ESP/Web pueda disparar las pantallas reales STM de error de permiso.
+
+## 0x5A `BINARY_ASSET_STREAM`
+
+- Direccion normal: MCU -> ESP
+- Request payload:
+
+```text
+[asset_id]
+```
+
+- Response payload por chunks:
+
+```text
+[status, asset_id, width, height, total_len0, total_len1, offset0, offset1, data_len, data...]
+```
+
+- Uso actual:
+  - `asset_id = 1` -> QR del repositorio GitHub;
+  - se consume desde `SCREEN_CODE_SETTINGS_ABOUT_REPO`.
+
+## 0x5C `WIFI_CREDENTIALS_WEB_RESULT`
+
+- Direccion normal: ESP -> MCU
+- Uso: resultado final de credenciales ingresadas desde la web luego de una solicitud STM con `SET_CREDENTIALS` y `pass = "connRequest"`.
+- Request payload:
+
+```text
+[status, ssid_len, ssid..., ip0, ip1, ip2, ip3]
+```
+
+- Los 4 bytes de IP son obligatorios cuando `status = 0`.
+- Para `status = 1`, `status = 2` o `status = 3`, el payload termina despues del SSID y no debe incluir IP.
+- `status`:
+  - `0` = conexion exitosa con credenciales web
+  - `1` = credenciales rechazadas / conexion fallida
+  - `2` = timeout de conexion
+  - `3` = cancelado desde web
+- ACK/response de estado manual STM32:
+  - `0` = OK
+  - `1` = payload invalido
+  - `5` = argumento invalido, por ejemplo `status` desconocido
+- Efecto STM32:
+  - si `status = 0`, guarda SSID/IP, marca `WIFI_ACTIVE` y muestra `SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_SUCCEEDED`;
+  - si `status = 1`, limpia `WIFI_ACTIVE`, limpia IP STA y muestra `SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_FAILED` con motivo de falla;
+  - si `status = 2`, limpia `WIFI_ACTIVE`, limpia IP STA y muestra `SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_FAILED` con motivo timeout;
+  - si `status = 3`, limpia `WIFI_ACTIVE`, limpia IP STA y muestra `SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_FAILED` con texto de cancelacion desde web;
+  - en todos los casos validos refresca dashboard/status WiFi si corresponde.
 
 ## 0xE0 `ACK`
 
@@ -1205,9 +1465,9 @@ Ejemplo response ESP -> MCU concedido por `30000 ms`, `attempts_left=3`:
 - `net_if = 0x02` AP
 - Cuando se emite:
   - al obtener o actualizar IP
-- Compatibilidad STM32 hoy:
-  - no existe en la tabla local;
-  - se ignora.
+- Consumo STM32 hoy:
+  - actualiza IP STA/AP segun `net_if`;
+  - refresca UI/notificaciones de red cuando aplica.
 
 ## 0x94 `EVT_BOOT_COMPLETE`
 
@@ -1219,9 +1479,52 @@ Ejemplo response ESP -> MCU concedido por `30000 ms`, `attempts_left=3`:
 ```
 
 - Se emite una sola vez por boot logico
-- Compatibilidad STM32 hoy:
-  - no existe en la tabla local;
-  - se ignora.
+- Consumo STM32 hoy:
+  - se procesa igual que `EVT_NETWORK_IP`.
+
+## 0x95 `EVT_SCREEN_CHANGED`
+
+- Emisor actual: STM32
+- Payload:
+
+```text
+[screen_code0, screen_code1, screen_code2, screen_code3, source]
+```
+
+- `screen_code` viaja little-endian y usa la macro `SCREEN_CODE(menu, submenu, page)`.
+- `source` usa `ScreenReportSource_t`.
+- Se emite cuando cambia la pantalla visible.
+- `GET_CURRENT_SCREEN (0x52)` devuelve el mismo formato de payload como response directa, no como evento.
+- Para WiFi, ver tabla de `SCREEN_CODE_CONNECTIVITY_WIFI_*` en la seccion 6.7.
+
+## 0x96 `EVT_MENU_SELECTION_CHANGED`
+
+- Emisor actual: STM32
+- Payload:
+
+```text
+[screen_code0, screen_code1, screen_code2, screen_code3, selected_index, item_count, source]
+```
+
+- `selected_index` es el indice visible seleccionado dentro del menu actual.
+- `item_count` es la cantidad de items visibles/navegables reportados.
+- En `SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS`, los primeros indices son redes encontradas, luego `Actualizar` y `Volver`.
+- Al seleccionar una red, el STM32 cambia a `SCREEN_CODE_CONNECTIVITY_WIFI_DETAILS`.
+
+## 0x97 `EVT_CAR_MODE_CHANGED`
+
+- Emisor actual: STM32
+- Payload:
+
+```text
+[mode]
+```
+
+- `mode`:
+  - `0` = `IDLE_MODE`
+  - `1` = `FOLLOW_MODE`
+  - `2` = `TEST_MODE`
+- Se emite cuando el dashboard confirma un cambio de modo local.
 
 ## 9. Flujos operativos importantes
 
@@ -1247,16 +1550,118 @@ Secuencia tipica al boot:
 
 ### 9.2 Scan WiFi
 
-1. MCU envia `0x14 START_SCAN`
-2. ESP devuelve ACK y response `[0]`
-3. ESP hace scan asincrono hasta 10 s
-4. al terminar o ser detenido envia `0x15 + [0xFE]`
-5. MCU pide `0x15 GET_SCAN_RESULTS`
-6. ESP responde:
+1. MCU entra a `SCREEN_CODE_CONNECTIVITY_WIFI_SEARCHING`.
+2. MCU limpia resultados locales (`SSID`, encriptacion y seleccion).
+3. MCU envia `0x14 START_SCAN`.
+4. ESP devuelve ACK y response `[0]`.
+5. ESP hace scan asincrono hasta 10 s.
+6. al terminar o ser detenido envia `0x15 + [0xFE]`.
+7. MCU tambien consulta `0x15 GET_SCAN_RESULTS` periodicamente mientras la busqueda sigue activa, para no depender solo del finalizador ni del redibujado del OLED.
+8. ESP responde:
    - `[1,0]` si sigue corriendo
    - `[2,0]` si se detuvo por comando
    - `[0,0]` si no hay redes
    - `[0,count,len,ssid...]` si hay redes
+9. con respuesta final, MCU renderiza `SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS` y muestra la notificacion breve "Resultados WiFi".
+
+Acciones locales:
+
+- `Actualizar` desde resultados vuelve a `SCREEN_CODE_CONNECTIVITY_WIFI_SEARCHING` y repite desde el paso 2;
+- `Volver`, boton usuario o salida global desde busqueda/resultados/detalles limpia los resultados de memoria;
+- una respuesta final vieja de un scan ya cancelado se ignora si la sesion local ya no esta activa.
+
+### 9.2.1 Seleccionar red y pedir credenciales por web
+
+1. Usuario selecciona un SSID desde `SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS`.
+2. MCU renderiza `SCREEN_CODE_CONNECTIVITY_WIFI_DETAILS`.
+3. Boton usuario o encoder long press vuelve a `SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS` sin borrar resultados.
+4. Encoder short press en "Conectar" envia:
+
+```text
+CMD = 0x12 SET_CREDENTIALS
+payload = [1, ssid_len, ssid..., 11, "connRequest"]
+```
+
+5. MCU muestra `SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_WEB` con "Ingresar credenciales en web".
+6. ESP debe emitir a la web un evento de solicitud de credenciales para ese SSID.
+7. La web debe devolver al ESP el SSID y password ingresados.
+8. ESP guarda esas credenciales reales, intenta conectar y emite el estado final:
+   - hacia web: evento de resultado con `success`/`failed`/`timeout`/`canceled`;
+   - hacia STM32: `0x5C WIFI_CREDENTIALS_WEB_RESULT`.
+9. STM32 muestra `SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_SUCCEEDED` o `SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_FAILED`.
+10. Al cerrar/restaurar la notificacion inicial, queda de nuevo en detalles para reintentar si hace falta.
+
+El ESP debe tratar `"connRequest"` como solicitud de captura de credenciales desde la interfaz web, no como password WiFi definitiva.
+
+### 9.2.2 Contrato ESP-Web para credenciales
+
+Cuando ESP recibe `SET_CREDENTIALS` con `pass = "connRequest"`:
+
+1. No debe persistir `"connRequest"` ni intentar conectar con esa password.
+2. Debe guardar una solicitud pendiente con el SSID.
+3. Debe emitir a la web un evento, siguiendo el estilo JSON actual del bridge:
+
+```json
+{
+  "type": "device.event",
+  "event": "wifi.credentials.requested",
+  "ssid": "NombreRed"
+}
+```
+
+La web debe responder con un comando JSON al ESP:
+
+```json
+{
+  "type": "device.command",
+  "command": "wifi.credentials.submit",
+  "ssid": "NombreRed",
+  "password": "clave_ingresada"
+}
+```
+
+La web tambien puede cancelar el modal con:
+
+```json
+{
+  "type": "device.command",
+  "command": "wifi.credentials.cancel",
+  "ssid": "NombreRed"
+}
+```
+
+El ESP debe validar que el `ssid` coincida con la solicitud pendiente, guardar las credenciales reales, intentar `WiFi.begin(ssid, password)` y luego emitir:
+
+```json
+{
+  "type": "device.event",
+  "event": "wifi.credentials.result",
+  "ssid": "NombreRed",
+  "status": "success",
+  "ip": "192.168.1.40"
+}
+```
+
+o, ante error:
+
+```json
+{
+  "type": "device.event",
+  "event": "wifi.credentials.result",
+  "ssid": "NombreRed",
+  "status": "failed",
+  "reason": "auth_failed"
+}
+```
+
+Ademas, el ESP debe notificar a STM32 con `0x5C WIFI_CREDENTIALS_WEB_RESULT`:
+
+- exito: `[0, ssid_len, ssid..., ip0, ip1, ip2, ip3]`
+- falla: `[1, ssid_len, ssid...]`
+- timeout: `[2, ssid_len, ssid...]`
+- cancelado: `[3, ssid_len, ssid...]`
+
+La cancelacion desde web nace solo en Web -> ESP con `wifi.credentials.cancel`; STM32 no envia un comando de cancelacion. STM32 se entera unicamente por `0x5C` con `status = 3`.
 
 ### 9.3 Conectar WiFi STA
 
@@ -1295,6 +1700,8 @@ El STM32 hoy parsea y usa de verdad:
 - finalizador raw de scan
 - `RESET_MCU`
 - `AUTH_VALIDATE_PIN`
+- `AUTH_PIN_GRANTED`
+- `AUTH_REMOTE_RESULT`
 - `EVT_MODE_CHANGED`
 - `EVT_STA_CONNECTED`
 - `EVT_STA_DISCONNECTED`
@@ -1304,6 +1711,10 @@ El STM32 hoy parsea y usa de verdad:
 - `EVT_USB_CONNECTED`
 - `EVT_USB_DISCONNECTED`
 - `EVT_WIFI_CONNECTED`
+- `CMD_BOOT_COMPLETE`
+- `CMD_NETWORK_IP`
+- `EVT_NETWORK_IP`
+- `EVT_BOOT_COMPLETE`
 
 ### 10.2 Definido pero stub del lado STM32
 
@@ -1321,10 +1732,7 @@ Hoy el STM32 recibe pero no explota funcionalmente:
 
 ### 10.3 Mensajes del ESP que hoy el STM32 ignora por no existir en su tabla
 
-- `CMD_BOOT_COMPLETE (0x4F)`
-- `CMD_NETWORK_IP (0x50)`
-- `EVT_NETWORK_IP (0x93)`
-- `EVT_BOOT_COMPLETE (0x94)`
+Actualmente no hay mensajes de conectividad ESP documentados en esta guia que el STM32 ignore por falta de entrada en `uner_commands`. Los mensajes legacy `0x4F`, `0x50`, `0x93` y `0x94` ya estan contemplados.
 
 ## 11. Funcionalidades del auto que existen hoy en STM32 pero NO tienen contrato UNER cerrado
 
@@ -1349,8 +1757,8 @@ Comportamiento actual:
 Estado actual respecto a ESP:
 
 - no hay `CMD` UNER para setear `CarMode_t`;
-- no hay `EVT` UNER que anuncie cambio de `CarMode_t`;
-- si el ESP necesita reflejar o comandar este estado, primero hay que definir IDs y payloads nuevos.
+- si hay `EVT_CAR_MODE_CHANGED (0x97)` para anunciar el modo confirmado localmente;
+- si el ESP necesita comandar este estado remotamente, primero hay que definir un `CMD` nuevo y su politica de permisos.
 
 ## 11.2 Motores
 
@@ -1478,7 +1886,7 @@ El STM32 actual depende de eso.
 
 ## 12.3 `0x4F/0x50/0x93/0x94`
 
-El ESP actual los emite, pero el STM32 actual no los consume. No hay problema en seguir emitiendolos, pero no deben ser la unica fuente de verdad para estados que el MCU necesite.
+El ESP actual puede emitirlos y el STM32 actual los consume para refrescar IP/estado de red. Mantenerlos con payload `[net_if, ip0, ip1, ip2, ip3]` para no romper compatibilidad.
 
 ## 12.4 Eventos marcados con ACK
 

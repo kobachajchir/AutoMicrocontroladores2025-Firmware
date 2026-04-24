@@ -9,27 +9,42 @@
 #include "globals.h"
 #include "mpu6050.h"
 #include "ssd1306.h"
-#include <inttypes.h>
-#include <stdio.h>
+#include "uner_app.h"
 #include <string.h>
 
-const uint8_t text_bar_x[OLED_BAR_COUNT] = {
-    4, 19, 34, 49,
-    64, 79, 94, 109
-};
-const uint8_t bar_x[OLED_BAR_COUNT] = {
-    5, 20, 35, 50,
-    65, 80, 95, 110
-};
-
-static const char *const ir_labels[OLED_BAR_COUNT] = {
-    "IR1", "IR2", "IR3", "IR4",
-    "IR5", "IR6", "IR7", "IR8"
-};
-
 static const FontDef *oled_font = &Font_7x10;
-static uint8_t oled_lock_state = LOCK_STATE_LOCKED;
 static char oled_wifi_connected_ssid[WIFI_SSID_MAX_LEN + 1u] = "WiFi";
+static uint8_t oled_wifi_credentials_result_status = UNER_WIFI_WEB_CREDENTIALS_STATUS_FAILED;
+
+typedef enum {
+    OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2 = 0u,
+    OLED_SIMPLE_LAYOUT_NO_ICON_LARGE_2,
+    OLED_SIMPLE_LAYOUT_CENTER_ICON_LARGE_2,
+    OLED_SIMPLE_LAYOUT_CENTER_ICON_SMALL_2,
+} OledSimpleNotificationLayout;
+
+enum {
+    OLED_SIMPLE_ICON_FLAG_NONE = 0u,
+    OLED_SIMPLE_ICON_FLAG_MSB = 1u << 0,
+    OLED_SIMPLE_ICON_FLAG_INVERSE = 1u << 1,
+};
+
+typedef struct {
+    ScreenCode_t screenCode;
+    const uint8_t *icon;
+    const char *line1;
+    const char *line2;
+    uint8_t iconW;
+    uint8_t iconH;
+    uint8_t layout;
+    uint8_t iconFlags;
+    uint8_t strikeCount;
+} OledSimpleNotificationDef;
+
+static void OledUtils_RenderSimpleNotification(void);
+static uint8_t Oled_TextPixelWidth(const char *text);
+static uint8_t Oled_CenterTextX(const char *text, uint8_t areaX, uint8_t areaW);
+static void Oled_DrawCenteredLine(const char *text, uint8_t areaX, uint8_t areaW, uint8_t baselineY);
 
 static void OledUtils_SetScreenCode(ScreenCode_t screen_code, ScreenReportSource_t source)
 {
@@ -82,7 +97,81 @@ static void Oled_ClearBox(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
     ssd1306_SetColor(White);
 }
 
-static uint8_t Oled_IpIsValid(const IPStruct_t *ip)
+static const OledSimpleNotificationDef oled_simple_notifications[] = {
+    [OLED_SIMPLE_NOTIFICATION_NONE] = { 0 },
+    [OLED_SIMPLE_NOTIFICATION_WIFI_SEARCH_CANCELED] = {
+        SCREEN_CODE_CONNECTIVITY_WIFI_SEARCH_CANCELED,
+        Icon_Wifi_NotConnected_bits, "Busqueda", "cancelada",
+        19u, 16u, OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_COMMAND_RECEIVED] = {
+        SCREEN_CODE_DIAG_COMMAND_RECEIVED,
+        Icon_Wifi_100_bits, "ECHO", "recibido",
+        19u, 16u, OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_PING_RECEIVED] = {
+        SCREEN_CODE_DIAG_PING_RECEIVED,
+        Icon_Info_bits, "PING", "recibido",
+        16u, 16u, OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_ESP_BOOT_RECEIVED] = {
+        SCREEN_CODE_CONNECTIVITY_ESP_BOOT_RECEIVED,
+        Icon_Info_bits, "ESP", "iniciada",
+        19u, 16u, OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_MSB, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_ESP_MODE_CHANGED] = {
+        SCREEN_CODE_CONNECTIVITY_ESP_MODE_CHANGED,
+        Icon_Info_bits, "Modo", "actualizado",
+        16u, 16u, OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_ESP_USB_CONNECTED] = {
+        SCREEN_CODE_CONNECTIVITY_USB_CONNECTED,
+        Icon_Info_bits, "USB", "conectado",
+        16u, 16u, OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_ESP_WEB_SERVER_UP] = {
+        SCREEN_CODE_CONNECTIVITY_WEB_SERVER_UP,
+        Icon_Info_bits, "WEB", "lista",
+        16u, 16u, OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_ESP_WEB_CLIENT_CONNECTED] = {
+        SCREEN_CODE_CONNECTIVITY_WEB_CLIENT_CONNECTED,
+        Icon_Link_bits, "Web", "conectado",
+        16u, 16u, OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_ESP_WEB_CLIENT_DISCONNECTED] = {
+        SCREEN_CODE_CONNECTIVITY_WEB_CLIENT_DISCONNECTED,
+        Icon_Link_bits, "Web", "desconect",
+        16u, 16u, OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 2u
+    },
+    [OLED_SIMPLE_NOTIFICATION_ESP_CHECKING_CONNECTION] = {
+        SCREEN_CODE_CONNECTIVITY_ESP_CHECKING,
+        NULL, "Chequeando", "conexion",
+        0u, 0u, OLED_SIMPLE_LAYOUT_NO_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_ESP_CHECK_CONNECTION_REQUIRED] = {
+        SCREEN_CODE_CONNECTIVITY_ESP_CHECK_REQUIRED,
+        NULL, "Chequee", "conexion",
+        0u, 0u, OLED_SIMPLE_LAYOUT_NO_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_PERMISSION_DENIED] = {
+        SCREEN_CODE_WARNING_PERMISSION_DENIED,
+        Icon_Lock_bits, "PIN no verificado", "Accion restringida",
+        LOCK_ICON_W, LOCK_ICON_H, OLED_SIMPLE_LAYOUT_CENTER_ICON_SMALL_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_CONTROLLER_CONNECTED] = {
+        SCREEN_CODE_DIAG_CONTROLLER_CONNECTED,
+        Icon_Controller_bits, "Control", "conectado",
+        37u, 27u, OLED_SIMPLE_LAYOUT_CENTER_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_CONTROLLER_DISCONNECTED] = {
+        SCREEN_CODE_DIAG_CONTROLLER_DISCONNECTED,
+        Icon_Controller_bits, "Control", "desconectado",
+        37u, 27u, OLED_SIMPLE_LAYOUT_CENTER_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_INVERSE, 3u
+    },
+};
+
+static uint8_t Oled_IpIsValid(const volatile IPStruct_t *ip)
 {
     return ip &&
            (ip->block1 != 0u ||
@@ -91,22 +180,171 @@ static uint8_t Oled_IpIsValid(const IPStruct_t *ip)
             ip->block4 != 0u);
 }
 
-static void Oled_FormatIp(const IPStruct_t *ip, char *buf, size_t len)
+static void Oled_Terminate(char *buf, size_t len, size_t pos)
 {
     if (!buf || len == 0u) {
         return;
     }
 
-    if (!Oled_IpIsValid(ip)) {
-        snprintf(buf, len, "Sin IP");
+    buf[(pos < len) ? pos : (len - 1u)] = '\0';
+}
+
+static size_t Oled_AppendChar(char *buf, size_t len, size_t pos, char ch)
+{
+    if (buf && pos + 1u < len) {
+        buf[pos] = ch;
+    }
+
+    return pos + 1u;
+}
+
+static size_t Oled_AppendText(char *buf, size_t len, size_t pos, const char *text)
+{
+    if (!text) {
+        return pos;
+    }
+
+    while (*text != '\0') {
+        pos = Oled_AppendChar(buf, len, pos, *text);
+        text++;
+    }
+
+    return pos;
+}
+
+static size_t Oled_AppendUnsigned(char *buf, size_t len, size_t pos, uint32_t value)
+{
+    char tmp[10];
+    uint8_t count = 0u;
+
+    do {
+        tmp[count++] = (char)('0' + (value % 10u));
+        value /= 10u;
+    } while (value != 0u && count < (uint8_t)sizeof(tmp));
+
+    while (count > 0u) {
+        pos = Oled_AppendChar(buf, len, pos, tmp[--count]);
+    }
+
+    return pos;
+}
+
+static void Oled_CopyText(char *buf, size_t len, const char *text)
+{
+    size_t pos = Oled_AppendText(buf, len, 0u, text);
+    Oled_Terminate(buf, len, pos);
+}
+
+static void Oled_FormatUnsigned(char *buf, size_t len, uint32_t value)
+{
+    size_t pos = Oled_AppendUnsigned(buf, len, 0u, value);
+    Oled_Terminate(buf, len, pos);
+}
+
+static void Oled_FormatSigned(char *buf, size_t len, int32_t value)
+{
+    size_t pos = 0u;
+    uint32_t magnitude;
+
+    if (value < 0) {
+        pos = Oled_AppendChar(buf, len, pos, '-');
+        magnitude = (uint32_t)(-(value + 1)) + 1u;
+    } else {
+        magnitude = (uint32_t)value;
+    }
+
+    pos = Oled_AppendUnsigned(buf, len, pos, magnitude);
+    Oled_Terminate(buf, len, pos);
+}
+
+static void Oled_FormatWiFiSignal(char *buf, size_t len, int8_t signal_strength, uint8_t detail_valid)
+{
+    size_t pos = 0u;
+
+    if (!buf || len == 0u) {
         return;
     }
 
-    snprintf(buf, len, "%u.%u.%u.%u",
-             (unsigned)ip->block1,
-             (unsigned)ip->block2,
-             (unsigned)ip->block3,
-             (unsigned)ip->block4);
+    if (!detail_valid) {
+        Oled_CopyText(buf, len, "Pidiendo detalle");
+        return;
+    }
+
+    pos = Oled_AppendText(buf, len, pos, "RSSI ");
+    if (signal_strength < 0) {
+        pos = Oled_AppendChar(buf, len, pos, '-');
+        pos = Oled_AppendUnsigned(buf, len, pos, (uint32_t)(-(int32_t)signal_strength));
+    } else {
+        pos = Oled_AppendUnsigned(buf, len, pos, (uint32_t)signal_strength);
+    }
+    pos = Oled_AppendText(buf, len, pos, " dBm");
+    Oled_Terminate(buf, len, pos);
+}
+
+static void Oled_FormatWiFiMeta(char *buf, size_t len, const char *encryption, uint8_t channel, uint8_t detail_valid)
+{
+    size_t pos = 0u;
+
+    if (!buf || len == 0u) {
+        return;
+    }
+
+    if (!detail_valid) {
+        Oled_CopyText(buf, len, "Sin detalle");
+        return;
+    }
+
+    if (encryption && encryption[0] != '\0') {
+        pos = Oled_AppendText(buf, len, pos, encryption);
+    } else {
+        pos = Oled_AppendText(buf, len, pos, "ENC?");
+    }
+
+    if (channel != 0u) {
+        pos = Oled_AppendText(buf, len, pos, "  ch ");
+        pos = Oled_AppendUnsigned(buf, len, pos, channel);
+    }
+
+    Oled_Terminate(buf, len, pos);
+}
+
+static void Oled_FormatPercent3(char *buf, size_t len, uint8_t value)
+{
+    size_t pos = 0u;
+
+    if (value < 100u) {
+        pos = Oled_AppendChar(buf, len, pos, ' ');
+    }
+    if (value < 10u) {
+        pos = Oled_AppendChar(buf, len, pos, ' ');
+    }
+
+    pos = Oled_AppendUnsigned(buf, len, pos, value);
+    pos = Oled_AppendChar(buf, len, pos, '%');
+    Oled_Terminate(buf, len, pos);
+}
+
+static void Oled_FormatIp(const volatile IPStruct_t *ip, char *buf, size_t len)
+{
+    size_t pos;
+
+    if (!buf || len == 0u) {
+        return;
+    }
+
+    if (!Oled_IpIsValid(ip)) {
+        Oled_CopyText(buf, len, "Sin IP");
+        return;
+    }
+
+    pos = Oled_AppendUnsigned(buf, len, 0u, ip->block1);
+    pos = Oled_AppendChar(buf, len, pos, '.');
+    pos = Oled_AppendUnsigned(buf, len, pos, ip->block2);
+    pos = Oled_AppendChar(buf, len, pos, '.');
+    pos = Oled_AppendUnsigned(buf, len, pos, ip->block3);
+    pos = Oled_AppendChar(buf, len, pos, '.');
+    pos = Oled_AppendUnsigned(buf, len, pos, ip->block4);
+    Oled_Terminate(buf, len, pos);
 }
 
 static void Oled_DrawBox(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
@@ -139,16 +377,6 @@ static void Oled_DrawXBM_MSB(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const u
 // Wrappers de render
 // ============================================================================
 
-// wrapper
-void OledUtils_PrintMainBuffer_Wrapper(void) {
-    ssd1306_UpdateScreen();
-}
-
-void OledUtils_PrintOverlayBuffer_Wrapper(void)
-{
-    ssd1306_UpdateScreen();
-}
-
 // Activa refresco continuo: permitimos que el MainTask siga solicitando render
 void OledUtils_EnableContinuousRender(void) {
     menuSystem.allowPeriodicRefresh = true;
@@ -157,17 +385,6 @@ void OledUtils_EnableContinuousRender(void) {
 // Desactiva refresco continuo: bloquea el periodic
 void OledUtils_DisableContinuousRender(void) {
     menuSystem.allowPeriodicRefresh = false;
-}
-
-void OledUtils_RenderLockState(uint8_t lockState)
-{
-    if (lockState > LOCK_STATE_ENTER_PIN) {
-        lockState = LOCK_STATE_LOCKED;
-    }
-
-    oled_lock_state = lockState;
-    menuSystem.renderFn = OledUtils_RenderLockScreen;
-    menuSystem.renderFlag = true;
 }
 
 static void OledUtils_RenderNotificationProgress(const OledNotificationState *notif)
@@ -193,7 +410,103 @@ static void OledUtils_ExecuteNotificationHook(OledNotificationHook hook)
     }
 }
 
-void OledUtils_RenderNotification_Wrapper(void)
+static const OledSimpleNotificationDef *OledUtils_GetSimpleNotificationDef(uint8_t simpleId)
+{
+    if (simpleId == 0u || simpleId >= (uint8_t)(sizeof(oled_simple_notifications) / sizeof(oled_simple_notifications[0]))) {
+        return NULL;
+    }
+
+    return &oled_simple_notifications[simpleId];
+}
+
+static void OledUtils_DrawSimpleNotificationIcon(const OledSimpleNotificationDef *def, uint8_t x, uint8_t y)
+{
+    if (!def || !def->icon) {
+        return;
+    }
+
+    if ((def->iconFlags & OLED_SIMPLE_ICON_FLAG_INVERSE) != 0u) {
+        ssd1306_SetColor(Inverse);
+    }
+
+    if ((def->iconFlags & OLED_SIMPLE_ICON_FLAG_MSB) != 0u) {
+        Oled_DrawXBM_MSB(x, y, def->iconW, def->iconH, def->icon);
+    } else {
+        Oled_DrawXBM(x, y, def->iconW, def->iconH, def->icon);
+    }
+
+    ssd1306_SetColor(White);
+}
+
+static void OledUtils_DrawSimpleNotificationStrike(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t strikeCount)
+{
+    for (uint8_t i = 0u; i < strikeCount; ++i) {
+        ssd1306_DrawLine((int16_t)(x + i),
+                         (int16_t)y,
+                         (int16_t)(x + w + i),
+                         (int16_t)(y + h));
+    }
+}
+
+static void OledUtils_RenderSimpleNotification(void)
+{
+    const OledSimpleNotificationDef *def = OledUtils_GetSimpleNotificationDef(oledHandle.notification.simpleId);
+    uint8_t iconX;
+    uint8_t iconY;
+
+    if (!def) {
+        return;
+    }
+
+    OledUtils_SetScreenCode(def->screenCode, SCREEN_REPORT_SOURCE_NOTIFICATION);
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    switch ((OledSimpleNotificationLayout)def->layout) {
+        case OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2:
+            OledUtils_DrawSimpleNotificationIcon(def, 2u, 12u);
+            if (def->strikeCount != 0u) {
+                OledUtils_DrawSimpleNotificationStrike(2u, 12u, def->iconW, def->iconH, def->strikeCount);
+            }
+            Oled_SetFont(&OLED_LARGE_FONT);
+            Oled_DrawCenteredLine(def->line1, 24u, (uint8_t)(SSD1306_WIDTH - 24u), 30u);
+            Oled_DrawCenteredLine(def->line2, 24u, (uint8_t)(SSD1306_WIDTH - 24u), 50u);
+            break;
+
+        case OLED_SIMPLE_LAYOUT_NO_ICON_LARGE_2:
+            Oled_SetFont(&OLED_LARGE_FONT);
+            Oled_DrawCenteredLine(def->line1, 0u, SSD1306_WIDTH, 30u);
+            Oled_DrawCenteredLine(def->line2, 0u, SSD1306_WIDTH, 50u);
+            break;
+
+        case OLED_SIMPLE_LAYOUT_CENTER_ICON_SMALL_2:
+            iconX = (uint8_t)((SSD1306_WIDTH - def->iconW) / 2u);
+            iconY = 3u;
+            OledUtils_DrawSimpleNotificationIcon(def, iconX, iconY);
+            if (def->strikeCount != 0u) {
+                OledUtils_DrawSimpleNotificationStrike(iconX, iconY, def->iconW, def->iconH, def->strikeCount);
+            }
+            Oled_SetFont(&Font_7x10);
+            Oled_DrawCenteredLine(def->line1, 0u, SSD1306_WIDTH, 34u);
+            Oled_DrawCenteredLine(def->line2, 0u, SSD1306_WIDTH, 52u);
+            break;
+
+        case OLED_SIMPLE_LAYOUT_CENTER_ICON_LARGE_2:
+        default:
+            iconX = (uint8_t)((SSD1306_WIDTH - def->iconW) / 2u);
+            iconY = 4u;
+            OledUtils_DrawSimpleNotificationIcon(def, iconX, iconY);
+            if (def->strikeCount != 0u) {
+                OledUtils_DrawSimpleNotificationStrike(iconX, iconY, def->iconW, def->iconH, def->strikeCount);
+            }
+            Oled_SetFont(&OLED_LARGE_FONT);
+            Oled_DrawCenteredLine(def->line1, 0u, SSD1306_WIDTH, 48u);
+            Oled_DrawCenteredLine(def->line2, 0u, SSD1306_WIDTH, 63u);
+            break;
+    }
+}
+
+static void OledUtils_RenderNotification_Wrapper(void)
 {
     OledNotificationState *notif = &oledHandle.notification;
 
@@ -217,12 +530,14 @@ void OledUtils_NotificationRestore(void)
         }
         notif->active = true;
         notif->renderFn = notif->suspended.renderFn;
+        notif->simpleId = notif->suspended.simpleId;
         notif->timeoutTicks = notif->suspended.remainingTicks;
         notif->totalTicks = notif->suspended.remainingTicks;
         notif->needsFullRender = true;
         notif->onShow = notif->suspended.onShow;
         notif->onHide = notif->suspended.onHide;
         notif->suspended.valid = false;
+        notif->suspended.simpleId = 0u;
 
         menuSystem.renderFn = OledUtils_RenderNotification_Wrapper;
         menuSystem.allowPeriodicRefresh = false;
@@ -232,6 +547,7 @@ void OledUtils_NotificationRestore(void)
 
     notif->active = false;
     notif->renderFn = NULL;
+    notif->simpleId = 0u;
     notif->timeoutTicks = 0;
     notif->totalTicks = 0;
     notif->needsFullRender = false;
@@ -246,10 +562,11 @@ void OledUtils_NotificationRestore(void)
     menuSystem.renderFlag = true;
 }
 
-void OledUtils_ShowNotificationTicks10msEx(RenderFunction renderFn,
-                                          uint16_t timeout_ticks,
-                                          OledNotificationHook onShow,
-                                          OledNotificationHook onHide)
+static void OledUtils_ShowNotificationTicks10msInternal(RenderFunction renderFn,
+                                                        uint8_t simpleId,
+                                                        uint16_t timeout_ticks,
+                                                        OledNotificationHook onShow,
+                                                        OledNotificationHook onHide)
 {
     OledNotificationState *notif = &oledHandle.notification;
 
@@ -264,6 +581,7 @@ void OledUtils_ShowNotificationTicks10msEx(RenderFunction renderFn,
     if (notif->active) {
         notif->suspended.valid = true;
         notif->suspended.renderFn = notif->renderFn;
+        notif->suspended.simpleId = notif->simpleId;
         notif->suspended.remainingTicks = notif->timeoutTicks;
         notif->suspended.onShow = notif->onShow;
         notif->suspended.onHide = notif->onHide;
@@ -275,6 +593,7 @@ void OledUtils_ShowNotificationTicks10msEx(RenderFunction renderFn,
 
     notif->active = true;
     notif->renderFn = renderFn;
+    notif->simpleId = simpleId;
     notif->timeoutTicks = timeout_ticks;
     notif->totalTicks = timeout_ticks;
     notif->needsFullRender = true;
@@ -288,18 +607,13 @@ void OledUtils_ShowNotificationTicks10msEx(RenderFunction renderFn,
     menuSystem.renderFlag = true;
 }
 
-void OledUtils_ShowNotificationTicks10ms(RenderFunction renderFn, uint16_t timeout_ticks)
-{
-    OledUtils_ShowNotificationTicks10msEx(renderFn, timeout_ticks, NULL, NULL);
-}
-
 void OledUtils_ShowNotificationMsEx(RenderFunction renderFn,
                                     uint16_t timeout_ms,
                                     OledNotificationHook onShow,
                                     OledNotificationHook onHide)
 {
     uint16_t ticks = (uint16_t)((timeout_ms + 9U) / 10U);
-    OledUtils_ShowNotificationTicks10msEx(renderFn, ticks, onShow, onHide);
+    OledUtils_ShowNotificationTicks10msInternal(renderFn, 0u, ticks, onShow, onHide);
 }
 
 void OledUtils_ShowNotificationMs(RenderFunction renderFn, uint16_t timeout_ms)
@@ -313,6 +627,65 @@ bool OledUtils_IsNotificationShowing(RenderFunction renderFn)
            oledHandle.notification.renderFn == renderFn;
 }
 
+void OledUtils_ShowSimpleNotificationMs(OledSimpleNotificationId notificationId, uint16_t timeout_ms)
+{
+    uint16_t ticks;
+
+    if (OledUtils_GetSimpleNotificationDef((uint8_t)notificationId) == NULL) {
+        return;
+    }
+
+    ticks = (uint16_t)((timeout_ms + 9U) / 10U);
+    OledUtils_ShowNotificationTicks10msInternal(OledUtils_RenderSimpleNotification,
+                                                (uint8_t)notificationId,
+                                                ticks,
+                                                NULL,
+                                                NULL);
+}
+
+bool OledUtils_IsSimpleNotificationShowing(OledSimpleNotificationId notificationId)
+{
+    return oledHandle.notification.active &&
+           oledHandle.notification.simpleId == (uint8_t)notificationId;
+}
+
+static void OledUtils_ResetNotificationState(OledNotificationState *notif,
+                                             RenderFunction *previousRenderFn,
+                                             bool *previousAllowPeriodicRefresh,
+                                             bool *previousRenderFlag)
+{
+    if (!notif || !previousRenderFn || !previousAllowPeriodicRefresh || !previousRenderFlag) {
+        return;
+    }
+
+    if (!(notif->active || notif->suspended.valid)) {
+        return;
+    }
+
+    *previousRenderFn = notif->previousRenderFn ? notif->previousRenderFn : *previousRenderFn;
+    *previousAllowPeriodicRefresh = notif->previousAllowPeriodicRefresh;
+    *previousRenderFlag = notif->previousRenderFlag;
+
+    notif->active = false;
+    notif->renderFn = NULL;
+    notif->simpleId = 0u;
+    notif->timeoutTicks = 0u;
+    notif->totalTicks = 0u;
+    notif->needsFullRender = false;
+    notif->onShow = NULL;
+    notif->onHide = NULL;
+    notif->suspended.valid = false;
+    notif->suspended.renderFn = NULL;
+    notif->suspended.simpleId = 0u;
+    notif->suspended.remainingTicks = 0u;
+    notif->suspended.onShow = NULL;
+    notif->suspended.onHide = NULL;
+
+    menuSystem.renderFn = *previousRenderFn;
+    menuSystem.allowPeriodicRefresh = *previousAllowPeriodicRefresh;
+    menuSystem.renderFlag = *previousRenderFlag;
+}
+
 void OledUtils_ReplaceNotificationMs(RenderFunction renderFn, uint16_t timeout_ms)
 {
     OledNotificationState *notif = &oledHandle.notification;
@@ -324,30 +697,31 @@ void OledUtils_ReplaceNotificationMs(RenderFunction renderFn, uint16_t timeout_m
         return;
     }
 
-    if (notif->active || notif->suspended.valid) {
-        previousRenderFn = notif->previousRenderFn ? notif->previousRenderFn : previousRenderFn;
-        previousAllowPeriodicRefresh = notif->previousAllowPeriodicRefresh;
-        previousRenderFlag = notif->previousRenderFlag;
-
-        notif->active = false;
-        notif->renderFn = NULL;
-        notif->timeoutTicks = 0u;
-        notif->totalTicks = 0u;
-        notif->needsFullRender = false;
-        notif->onShow = NULL;
-        notif->onHide = NULL;
-        notif->suspended.valid = false;
-        notif->suspended.renderFn = NULL;
-        notif->suspended.remainingTicks = 0u;
-        notif->suspended.onShow = NULL;
-        notif->suspended.onHide = NULL;
-
-        menuSystem.renderFn = previousRenderFn;
-        menuSystem.allowPeriodicRefresh = previousAllowPeriodicRefresh;
-        menuSystem.renderFlag = previousRenderFlag;
-    }
+    OledUtils_ResetNotificationState(notif,
+                                     &previousRenderFn,
+                                     &previousAllowPeriodicRefresh,
+                                     &previousRenderFlag);
 
     OledUtils_ShowNotificationMs(renderFn, timeout_ms);
+}
+
+void OledUtils_ReplaceSimpleNotificationMs(OledSimpleNotificationId notificationId, uint16_t timeout_ms)
+{
+    OledNotificationState *notif = &oledHandle.notification;
+    RenderFunction previousRenderFn = menuSystem.renderFn;
+    bool previousAllowPeriodicRefresh = menuSystem.allowPeriodicRefresh;
+    bool previousRenderFlag = menuSystem.renderFlag;
+
+    if (OledUtils_GetSimpleNotificationDef((uint8_t)notificationId) == NULL) {
+        return;
+    }
+
+    OledUtils_ResetNotificationState(notif,
+                                     &previousRenderFn,
+                                     &previousAllowPeriodicRefresh,
+                                     &previousRenderFlag);
+
+    OledUtils_ShowSimpleNotificationMs(notificationId, timeout_ms);
 }
 
 void OledUtils_DismissNotification(void)
@@ -377,81 +751,6 @@ void OledUtils_NotificationTick10ms(void)
     } else {
         menuSystem.renderFlag = true;
     }
-}
-
-/**
- * @brief  Dibuja las barras del gráfico IR.
- *         Limpia la región de las barras y las redibuja.
- * @param  irValues  Array de OLED_BAR_COUNT valores (0…4095)
- */
-void OledUtils_DrawIRBars(volatile uint16_t *irValues)
-{
-    // Cálculo de la zona de barras
-    const uint8_t fh     = Oled_FontHeight();
-    const uint8_t sep_y  = fh + 2;
-    const uint8_t bar_y0 = sep_y + 1;
-    const uint8_t maxH   = SSD1306_HEIGHT - bar_y0;
-
-    // Dibujar cada barra IR
-    for (uint8_t i = 0; i < OLED_BAR_COUNT; i++) {
-        uint16_t v = irValues[i] > 4095 ? 4095 : irValues[i];
-        uint8_t  h = (uint32_t)v * maxH / 4095;
-        uint8_t  y0 = bar_y0 + (maxH - h);
-        Oled_ClearBox(
-            bar_x[i],  // posición X de la barra
-            bar_y0,    // siempre desde el inicio de las barras
-            BAR_WIDTH, // ancho fijo
-            maxH       // altura máxima de la zona de barras
-        );
-        Oled_DrawBox(
-            bar_x[i],  // posición X de la barra
-            y0,        // posición Y calculada
-            BAR_WIDTH, // ancho fijo
-            h          // altura mapeada
-        );
-    }
-    __NOP();
-}
-
-void OledUtils_RenderRadarGraph(volatile uint16_t *irValues)
-{
-    (void)irValues;
-    ssd1306_SetColor(White);
-    ssd1306_DrawCircle(63, 60, 60);
-    ssd1306_DrawCircle(63, 60, 40);
-    Oled_DrawXBM(40, 48, 48, 13, Icon_Car_bits);
-}
-
-void OledUtils_RenderRadarGraph_Objs(volatile uint16_t *irValues)
-{
-    (void)irValues;
-}
-
-/**
- * @brief  Dibuja todo el gráfico IR (leyenda + separador + barras) y arranca el envío.
- * @param  irValues  Array de OLED_BAR_COUNT valores (0…4095)
- */
-void OledUtils_DrawIRGraph(volatile uint16_t *irValues)
-{
-    // 1) Limpiar toda la pantalla
-    OledUtils_Clear();
-
-    // 2) Leyenda "IR1"… "IR8" con fuente 8×10
-    Oled_SetFont(&Font_7x10);
-    const uint8_t fh    = Oled_FontHeight();
-    const uint8_t sep_y = fh + 1;
-    for (int i = 0; i < OLED_BAR_COUNT; i++) {
-        int16_t lx = text_bar_x[i] - (Oled_FontWidth() / 2);
-        if (lx < 0) lx = 0;
-        ssd1306_SetCursor(lx, 0);
-        Oled_DrawStr(ir_labels[i]);
-    }
-
-    // 3) Separador horizontal
-    ssd1306_DrawLine(0, sep_y, SSD1306_WIDTH - 1, sep_y);
-
-    // 4) Dibujar barras IR
-    OledUtils_DrawIRBars(irValues);
 }
 
 void OledUtils_MotorTest_Complete(void) {
@@ -506,9 +805,9 @@ void OledUtils_MotorTest_Complete(void) {
         Oled_DrawBox(5, 34, barWidth, 11);
 
         uint8_t speedPct = (uint16_t)speed * 100 / 255;
-        snprintf(speedStr, sizeof(speedStr), "%3u%%", speedPct);
+        Oled_FormatPercent3(speedStr, sizeof(speedStr), speedPct);
     } else {
-        snprintf(speedStr, sizeof(speedStr), "PARADO");
+        Oled_CopyText(speedStr, sizeof(speedStr), "PARADO");
     }
 
     // Línea 5: porcentaje o texto
@@ -554,66 +853,15 @@ void OledUtils_MotorTest_Changes(void) {
         Oled_DrawBox(5, 34, barW, 11);
 
         uint8_t pct = (uint16_t)speed * 100 / 255;
-        snprintf(speedStr, sizeof(speedStr), "%3u%%", pct);
+        Oled_FormatPercent3(speedStr, sizeof(speedStr), pct);
     } else {
-        snprintf(speedStr, sizeof(speedStr), "PARADO");
+        Oled_CopyText(speedStr, sizeof(speedStr), "PARADO");
     }
 
     // Línea 5: porcentaje o estado
     Oled_ClearBox(0, 57 - Oled_FontHeight(), 128, Oled_FontHeight());
     ssd1306_SetCursor(50, 57 - Oled_FontHeight());
     Oled_DrawStr(speedStr);
-}
-
-void OledUtils_RenderVerticalMenu(MenuSystem *ms) {
-    MenuSys_SetCurrentMenuScreenCode(ms);
-    SubMenu *menu = ms->currentMenu;
-    uint8_t idx        = menu->currentItemIndex;
-    uint8_t page       = idx / MENU_VISIBLE_ITEMS;
-    uint8_t first      = page * MENU_VISIBLE_ITEMS;
-    uint8_t last       = first + MENU_VISIBLE_ITEMS;
-    if (last > menu->itemCount) last = menu->itemCount;
-
-    // 1) Limpiar pantalla
-    OledUtils_Clear();
-    Oled_SetFont(&Font_7x10);
-
-    // 2) Dibujar los items visibles
-    for (uint8_t i = first; i < last; i++) {
-        uint8_t local    = i - first;          // 0..2
-        int     y        = MENU_ITEM_Y0 + local * MENU_ITEM_SPACING;
-        bool    selected = (i == idx);
-
-        // 2.1) Icono
-        if (menu->items[i].icon) {
-            Oled_DrawXBM(
-                ICON_X,
-                y + ICON_Y_OFFSET,
-                ICON_WIDTH,
-                ICON_HEIGHT,
-                menu->items[i].icon
-            );
-        }
-
-        // 2.2) Texto
-        ssd1306_SetCursor(
-            ICON_X + ICON_WIDTH + 8,
-            y
-        );
-        Oled_DrawStr(menu->items[i].name);
-
-        // opcional: dibujar un recuadro si está seleccionado
-        if (selected) {
-            Oled_DrawFrame(0, y - 3, SSD1306_WIDTH, 20);
-        }
-    }
-
-    // 3) Dibujar cursor junto al item seleccionado
-    {
-        uint8_t cursorPos = idx % MENU_VISIBLE_ITEMS;  // 0..2
-        int     cy        = MENU_ITEM_Y0 + cursorPos * MENU_ITEM_SPACING;
-        Oled_DrawXBM(CURSOR_X, cy, CURSOR_WIDTH, CURSOR_HEIGHT, Icon_Cursor_bits);
-    }
 }
 
 void OledUtils_Clear(void) {
@@ -652,18 +900,6 @@ void OledUtils_DrawItem(const MenuItem *item, uint8_t y, bool selected)
         Oled_ClearBox(CUR_X, CUR_Y, CUR_W, CUR_H);
     }
 }
-
-
-
-/**
- * @brief  Dibuja el menú en pantalla.
- */
-void displayMenuCustom(MenuSystem *system)
-{
-    (void)system;
-}
-
-
 void OledUtils_RenderDashboard(void)
 {
     OledUtils_SetScreenCode(SCREEN_CODE_CORE_DASHBOARD, SCREEN_REPORT_SOURCE_RENDER);
@@ -701,7 +937,7 @@ void OledUtils_RenderDashboard(void)
     }
     ssd1306_DrawHorizontalLine(1, 20, 125);
 
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     ssd1306_SetCursor(2, 42 - Oled_FontHeight());
     Oled_DrawStr("Inicio");
 
@@ -734,23 +970,6 @@ void OledUtils_RenderDashboard(void)
     Oled_DrawXBM(111, 48, 13, 13, Icon_Encoder_bits);
 }
 
-void OledUtils_RenderTestScreen(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_SERVICE_TEST_SCREEN, SCREEN_REPORT_SOURCE_RENDER);
-
-}
-
-void OledUtils_RenderStartupNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CORE_STARTUP, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_SetFont(&Font_11x18);
-
-    Oled_DrawXBM_MSB(0, 0, 128, 64, Icon_Auto_bits);
-}
-
 /**
  * @brief Pantalla principal de información del proyecto
  */
@@ -760,7 +979,7 @@ void OledUtils_RenderProyectScreen(void)
     ssd1306_SetColor(White);
 
     // Texto principal "Proyecto Auto" con fuente grande
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     const uint8_t fh_grande = Oled_FontHeight();
     ssd1306_SetCursor(40, 19 - fh_grande);
     Oled_DrawStr("Auto");
@@ -785,7 +1004,7 @@ void OledUtils_RenderProyectScreen(void)
     ssd1306_SetCursor(20, 42 - fh_pequena);
     Oled_DrawStr("Koba Chajchir");
 
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     ssd1306_SetCursor(4, 62 - fh_grande);
     Oled_DrawStr("2026");
 }
@@ -795,6 +1014,9 @@ void OledUtils_RenderProyectScreen(void)
  */
 void OledUtils_RenderProyectInfoScreen(void)
 {
+    BinaryAssetView_t qr_asset;
+    uint8_t qr_ready;
+
     OledUtils_SetScreenCode(SCREEN_CODE_SETTINGS_ABOUT_REPO, SCREEN_REPORT_SOURCE_RENDER);
     ssd1306_SetColor(White);
 
@@ -811,16 +1033,34 @@ void OledUtils_RenderProyectInfoScreen(void)
     ssd1306_SetCursor(2, 37 - fh);
     Oled_DrawStr("STM32");
 
+    /*
+     * El QR ya no vive en flash STM. Al renderizar esta pantalla se pide a ESP
+     * por UNER_CMD_ID_BINARY_ASSET_STREAM y se dibuja cuando llega completo.
+     */
+    (void)UNER_App_RequestBinaryAsset(UNER_BINARY_ASSET_ID_GITHUB_QR);
+    qr_ready = UNER_App_GetBinaryAsset(UNER_BINARY_ASSET_ID_GITHUB_QR, &qr_asset);
+
     // QR Code del repositorio (64x64 píxeles)
     ssd1306_SetColor(White);
-    ssd1306_DrawQR_Fixed(64, 0, QRCode_Github_bits);  // Centrado en 128x64
+    if (qr_ready && qr_asset.width <= 64u && qr_asset.height <= 64u) {
+        const uint8_t qr_x = (uint8_t)(64u + ((64u - qr_asset.width) / 2u));
+        const uint8_t qr_y = (uint8_t)((64u - qr_asset.height) / 2u);
+        Oled_DrawXBM_MSB(qr_x, qr_y, qr_asset.width, qr_asset.height, qr_asset.data);
+    } else {
+        ssd1306_SetCursor(72, 20 - fh);
+        Oled_DrawStr("QR");
+        ssd1306_SetCursor(68, 34 - fh);
+        Oled_DrawStr("remoto");
+        ssd1306_SetCursor(68, 48 - fh);
+        Oled_DrawStr("ESP");
+    }
 }
 
 void OledUtils_RenderModeChange_Full(void)
 {
     OledUtils_SetScreenCode(SCREEN_CODE_CORE_MODE_CHANGE, SCREEN_REPORT_SOURCE_RENDER);
     // Título "Modo" con fuente grande
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     const uint8_t fh_grande = Oled_FontHeight();
     const uint8_t fw_grande = Oled_FontWidth();
 
@@ -868,7 +1108,7 @@ void OledUtils_RenderModeChange_ModeOnly(void)
 {
     OledUtils_SetScreenCode(SCREEN_CODE_CORE_MODE_CHANGE, SCREEN_REPORT_SOURCE_RENDER);
     // Fuente grande para el modo
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     const uint8_t fh_grande = Oled_FontHeight();
     const uint8_t fw_grande = Oled_FontWidth();
 
@@ -911,186 +1151,6 @@ void OledUtils_RenderModeChange_ModeOnly(void)
     uint8_t modo_x = (SSD1306_WIDTH - (modo_len * fw_grande)) / 2;
     ssd1306_SetCursor(modo_x, modo_y);
     Oled_DrawStr(modo_texto);
-}
-
-/**
- * @brief  Dibuja todos los valores del MPU (raw y ángulos) alineados en 3 filas.
- */
-void OledUtils_RenderValoresMPUScreen(MPU6050_Handle_t *mpu)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_SENSORS_MPU_VALUES, SCREEN_REPORT_SOURCE_RENDER);
-    char buf[8];
-    Oled_SetFont(&Font_7x10);
-    const uint8_t fw = Oled_FontWidth();
-    const uint8_t fh = Oled_FontHeight();
-    const uint8_t val_width  = fw * 5;  // espacio para “-16384” o “-180”
-    const uint8_t val_height = fh;
-    const uint8_t colA = 20;
-    const uint8_t colG = 50;
-    const uint8_t colD = 100;
-    const uint8_t total_width = (colD + val_width) - colA;
-
-    // 1) Título “Sensor MPU”
-    ssd1306_SetCursor(5, 14 - fh);
-    Oled_DrawStr("Sensor MPU");
-
-    // 2) Estado de calibración
-    Oled_ClearBox(70, 14 - fh, 57, fh);
-    ssd1306_SetCursor(70, 14 - fh);
-    Oled_DrawStr(IS_FLAG_SET(mpu->flags, CALIBRATED)
-            ? "Calib."
-            : "No calib.");
-
-    // 3) Cabeceras de columna: A (acel), G (gyro), DEG (ángulo)
-    ssd1306_SetCursor(colA, 28 - fh); Oled_DrawStr("A");
-    ssd1306_SetCursor(colG, 28 - fh); Oled_DrawStr("G");
-    ssd1306_SetCursor(colD, 28 - fh); Oled_DrawStr("DEG");
-
-    // 4) Etiquetas de fila X/Y/Z (columna etiquetas)
-    ssd1306_SetCursor(5,  38 - fh); Oled_DrawStr("X");
-    ssd1306_SetCursor(5,  48 - fh); Oled_DrawStr("Y");
-    ssd1306_SetCursor(5,  58 - fh); Oled_DrawStr("Z");
-
-    // fila X
-    Oled_ClearBox(colA, 38 - fh, total_width, val_height);
-    ssd1306_SetCursor(colA, 38 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.accel_x_mg);
-    Oled_DrawStr(buf);
-    ssd1306_SetCursor(colG, 38 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_x_mdps);
-    Oled_DrawStr(buf);
-    {
-      int32_t ang = (mpu->angle_x_md/1000) % 360;
-      if (ang > 180) ang -= 360;
-      if (ang < -180) ang += 360;
-      ssd1306_SetCursor(colD, 38 - fh);
-      snprintf(buf, sizeof(buf), "%" PRId32, ang);
-      Oled_DrawStr(buf);
-    }
-
-    // fila Y
-    Oled_ClearBox(colA, 48 - fh, total_width, val_height);
-    ssd1306_SetCursor(colA, 48 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.accel_y_mg);
-    Oled_DrawStr(buf);
-    ssd1306_SetCursor(colG, 48 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_y_mdps);
-    Oled_DrawStr(buf);
-    {
-      int32_t ang = (mpu->angle_y_md/1000) % 360;
-      if (ang > 180) ang -= 360;
-      if (ang < -180) ang += 360;
-      ssd1306_SetCursor(colD, 48 - fh);
-      snprintf(buf, sizeof(buf), "%" PRId32, ang);
-      Oled_DrawStr(buf);
-    }
-
-    // fila Z
-    Oled_ClearBox(colA, 58 - fh, total_width, val_height);
-    ssd1306_SetCursor(colA, 58 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.accel_z_mg);
-    Oled_DrawStr(buf);
-    ssd1306_SetCursor(colG, 58 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_z_mdps);
-    Oled_DrawStr(buf);
-    {
-      int32_t ang = (mpu->angle_z_md/1000) % 360;
-      if (ang > 180) ang -= 360;
-      if (ang < -180) ang += 360;
-      ssd1306_SetCursor(colD, 58 - fh);
-      snprintf(buf, sizeof(buf), "%" PRId32, ang);
-      Oled_DrawStr(buf);
-    }
-}
-
-void OledUtils_RenderLockScreen(void)
-{
-    ScreenCode_t screen_code = SCREEN_CODE_WARNING_LOCKED;
-    const char *message = "Pantalla bloqueada";
-    uint8_t posX = 10u;
-
-    switch (oled_lock_state) {
-        case LOCK_STATE_PIN_INCORRECT:
-            screen_code = SCREEN_CODE_WARNING_PIN_INCORRECT;
-            message = "PIN incorrecto";
-            posX = 22u;
-            break;
-
-        case LOCK_STATE_PIN_MODIFIED:
-            screen_code = SCREEN_CODE_WARNING_PIN_MODIFIED;
-            message = "PIN modificado";
-            posX = 22u;
-            break;
-
-        case LOCK_STATE_ENTER_PIN:
-            screen_code = SCREEN_CODE_WARNING_PIN_ENTRY;
-            message = "Ingrese PIN";
-            posX = 28u;
-            break;
-
-        case LOCK_STATE_LOCKED:
-        default:
-            break;
-    }
-
-    OledUtils_SetScreenCode(screen_code, SCREEN_REPORT_SOURCE_RENDER);
-    OledUtils_Clear();
-    ssd1306_SetColor(White);
-    Oled_DrawXBM(57, 17, LOCK_ICON_W, LOCK_ICON_H, Icon_Lock_bits);
-
-    Oled_SetFont(&Font_7x10);
-    ssd1306_SetCursor(posX, 48 - Oled_FontHeight());
-    Oled_DrawStr(message);
-}
-
-/**
- * @brief Pantalla de conexión ESP exitosa
- */
-void OledUtils_ESPConnSucceeded(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_DIAG_ESP_CONN_SUCCEEDED, SCREEN_REPORT_SOURCE_RENDER);
-    ssd1306_SetColor(White);
-
-    // Texto "Conexion" con fuente grande
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 36 - fh_grande);
-    Oled_DrawStr("Conexion");
-
-    // Texto "exitosa"
-    ssd1306_SetCursor(32, 49 - fh_grande);
-    Oled_DrawStr("exitosa");
-
-    // Botón OK (13x13 píxeles)
-    Oled_DrawXBM(111, 47, 13, 13, Icon_Encoder_bits);
-
-    // Icono de check/tilde (14x16 píxeles)
-    Oled_DrawXBM(57, 6, 14, 16, Icon_Checked_bits);
-}
-
-/**
- * @brief Pantalla de conexión ESP fallida
- */
-void OledUtils_ESPConnFailed(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_DIAG_ESP_CONN_FAILED, SCREEN_REPORT_SOURCE_RENDER);
-    ssd1306_SetColor(White);
-
-    // Texto "Conexion" con fuente grande
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 36 - fh_grande);
-    Oled_DrawStr("Conexion");
-
-    // Texto "fallida"
-    ssd1306_SetCursor(32, 49 - fh_grande);
-    Oled_DrawStr("fallida");
-
-    // Botón OK (13x13 píxeles)
-    Oled_DrawXBM(111, 47, 13, 13, Icon_Encoder_bits);
-
-    // Icono de cruz/X (11x16 píxeles) - centrado igual que el check
-    Oled_DrawXBM(58, 9, 11, 16, Icon_Crossed_bits);
 }
 
 /**
@@ -1177,7 +1237,7 @@ void OledUtils_RenderMPUScene(void)
     ssd1306_SetColor(White);
 
     // Título "Sensor MPU" con fuente grande
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     const uint8_t fh_grande = Oled_FontHeight();
     ssd1306_SetCursor(5, 16 - fh_grande);
     Oled_DrawStr("Sensor MPU");
@@ -1228,69 +1288,70 @@ void OledUtils_UpdateMPUValues(MPU6050_Handle_t *mpu)
     // Limpiar y actualizar AX
     Oled_ClearBox(axValueX, 32 - fh, valueWidth, fh);
     ssd1306_SetCursor(axValueX, 32 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.accel_x_mg);
+    Oled_FormatSigned(buf, sizeof(buf), mpu->data.accel_x_mg);
     Oled_DrawStr(buf);
 
     // Limpiar y actualizar AY
     Oled_ClearBox(axValueX, 42 - fh, valueWidth, fh);
     ssd1306_SetCursor(axValueX, 42 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.accel_y_mg);
+    Oled_FormatSigned(buf, sizeof(buf), mpu->data.accel_y_mg);
     Oled_DrawStr(buf);
 
     // Limpiar y actualizar AZ
     Oled_ClearBox(axValueX, 52 - fh, valueWidth, fh);
     ssd1306_SetCursor(axValueX, 52 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.accel_z_mg);
+    Oled_FormatSigned(buf, sizeof(buf), mpu->data.accel_z_mg);
     Oled_DrawStr(buf);
 
     // Limpiar y actualizar GX
     Oled_ClearBox(gxValueX, 33 - fh, valueWidth, fh);
     ssd1306_SetCursor(gxValueX, 33 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_x_mdps);
+    Oled_FormatSigned(buf, sizeof(buf), mpu->data.gyro_x_mdps);
     Oled_DrawStr(buf);
 
     // Limpiar y actualizar GY
     Oled_ClearBox(gxValueX, 43 - fh, valueWidth, fh);
     ssd1306_SetCursor(gxValueX, 43 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_y_mdps);
+    Oled_FormatSigned(buf, sizeof(buf), mpu->data.gyro_y_mdps);
     Oled_DrawStr(buf);
 
     // Limpiar y actualizar GZ
     Oled_ClearBox(gxValueX, 53 - fh, valueWidth, fh);
     ssd1306_SetCursor(gxValueX, 53 - fh);
-    snprintf(buf, sizeof(buf), "%d", mpu->data.gyro_z_mdps);
+    Oled_FormatSigned(buf, sizeof(buf), mpu->data.gyro_z_mdps);
     Oled_DrawStr(buf);
 }
 
-/**
- * @brief Pantalla de configuración de tiempo de avisos
- * @param seconds Tiempo en segundos a mostrar
- */
-void OledUtils_RenderWarningTimeConfig(uint8_t seconds)
+static uint8_t Oled_TextPixelWidth(const char *text)
 {
-    OledUtils_SetScreenCode(SCREEN_CODE_SETTINGS_WARNING_TIME, SCREEN_REPORT_SOURCE_RENDER);
-    ssd1306_SetColor(White);
+    size_t len;
+    uint16_t width;
 
-    // Fuente grande para el contenido
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh = Oled_FontHeight();
+    if (!text) {
+        return 0u;
+    }
 
-    // Texto "Tiempo de"
-    ssd1306_SetCursor(21, 17 - fh);
-    Oled_DrawStr("Tiempo de");
+    len = strlen(text);
+    width = (uint16_t)len * (uint16_t)Oled_FontWidth();
+    return width > 255u ? 255u : (uint8_t)width;
+}
 
-    // Texto "avisos"
-    ssd1306_SetCursor(36, 33 - fh);
-    Oled_DrawStr("avisos");
+static uint8_t Oled_CenterTextX(const char *text, uint8_t areaX, uint8_t areaW)
+{
+    uint8_t textWidth = Oled_TextPixelWidth(text);
 
-    // Texto con el valor de segundos (ejemplo: "10 segs.")
-    char timeStr[12];
-    snprintf(timeStr, sizeof(timeStr), "%u segs.", seconds);
-    ssd1306_SetCursor(27, 53 - fh);
-    Oled_DrawStr(timeStr);
+    if (textWidth >= areaW) {
+        return areaX;
+    }
 
-    // Botón OK (13x13 píxeles)
-    Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
+    return (uint8_t)(areaX + ((areaW - textWidth) / 2u));
+}
+
+static void Oled_DrawCenteredLine(const char *text, uint8_t areaX, uint8_t areaW, uint8_t baselineY)
+{
+    ssd1306_SetCursor(Oled_CenterTextX(text, areaX, areaW),
+                      (uint8_t)(baselineY - Oled_FontHeight()));
+    Oled_DrawStr(text);
 }
 
 /**
@@ -1302,7 +1363,7 @@ void OledUtils_RenderWiFiSearchScene(void)
     ssd1306_SetColor(White);
 
     // Texto "Buscando" con fuente grande
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     const uint8_t fh_grande = Oled_FontHeight();
     ssd1306_SetCursor(27, 20 - fh_grande);
     Oled_DrawStr("Buscando");
@@ -1313,9 +1374,8 @@ void OledUtils_RenderWiFiSearchScene(void)
 
     // Texto "Cancelar" con fuente pequeña
     Oled_SetFont(&Font_7x10);
-    const uint8_t fh_pequena = Oled_FontHeight();
-    ssd1306_SetCursor(50, 60 - fh_pequena);
-    Oled_DrawStr("Cancelar");
+    ssd1306_SetCursor(34, 60 - Oled_FontHeight());
+    Oled_DrawStr("ESP");
 
     // Botón OK/Encoder (13x13 píxeles)
     Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
@@ -1330,7 +1390,7 @@ void OledUtils_RenderWiFiSearchScene(void)
  */
 void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining)
 {
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     const uint8_t fh = Oled_FontHeight();
     const uint8_t fw = Oled_FontWidth();
 
@@ -1340,9 +1400,24 @@ void OledUtils_UpdateWiFiSearchTimer(uint8_t secondsRemaining)
 
     // Dibujar nuevo valor
     char timeStr[4];
-    snprintf(timeStr, sizeof(timeStr), "%u", secondsRemaining);
+    Oled_FormatUnsigned(timeStr, sizeof(timeStr), secondsRemaining);
     ssd1306_SetCursor(4, 62 - fh);
     Oled_DrawStr(timeStr);
+}
+
+void OledUtils_ShowWifiResults(void)
+{
+    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS, SCREEN_REPORT_SOURCE_NOTIFICATION);
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(2, 12, 19, 16, Icon_Wifi_100_bits);
+
+    Oled_SetFont(&OLED_LARGE_FONT);
+    ssd1306_SetCursor(14, 30 - Oled_FontHeight());
+    Oled_DrawStr("Resultados");
+    ssd1306_SetCursor(36, 50 - Oled_FontHeight());
+    Oled_DrawStr("WiFi");
 }
 
 /**
@@ -1354,7 +1429,7 @@ void OledUtils_RenderWiFiNotConnected(void)
     ssd1306_SetColor(White);
 
     // Texto "No hay red" con fuente grande
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     const uint8_t fh = Oled_FontHeight();
     ssd1306_SetCursor(7, 40 - fh);
     Oled_DrawStr("No hay red");
@@ -1365,6 +1440,120 @@ void OledUtils_RenderWiFiNotConnected(void)
     // Texto "conectada"
     ssd1306_SetCursor(16, 55 - fh);
     Oled_DrawStr("conectada");
+}
+
+void OledUtils_RenderWiFiDetails(const char *ssid,
+                                 const char *encryption,
+                                 int8_t signal_strength,
+                                 uint8_t channel,
+                                 uint8_t detail_valid)
+{
+    const char *ssid_text = (ssid && ssid[0] != '\0') ? ssid : "[SSID RED]";
+    char signal_text[18];
+    char meta_text[18];
+
+    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WIFI_DETAILS, SCREEN_REPORT_SOURCE_RENDER);
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(3, 2, 19, 16, Icon_Wifi_100_bits);
+
+    Oled_SetFont(&Font_7x10);
+    ssd1306_SetCursor(25, 13 - Oled_FontHeight());
+    Oled_DrawStr("Detalles");
+
+    Oled_FormatWiFiSignal(signal_text, sizeof(signal_text), signal_strength, detail_valid);
+    Oled_FormatWiFiMeta(meta_text, sizeof(meta_text), encryption, channel, detail_valid);
+
+    ssd1306_SetCursor(2, 27 - Oled_FontHeight());
+    Oled_DrawStrMax(ssid_text, 17u);
+
+    ssd1306_SetCursor(2, 39 - Oled_FontHeight());
+    Oled_DrawStrMax(signal_text, 17u);
+
+    ssd1306_SetCursor(2, 51 - Oled_FontHeight());
+    Oled_DrawStrMax(meta_text, 17u);
+
+    Oled_DrawXBM(2, 48, 15, 16, Icon_UserBtn_bits);
+    Oled_DrawXBM(20, 53, 4, 7, Arrow_Left_bits);
+
+    ssd1306_SetCursor(53, 59 - Oled_FontHeight());
+    Oled_DrawStr("Conectar");
+    Oled_DrawXBM(112, 49, 13, 13, Icon_Encoder_bits);
+}
+
+void OledUtils_RenderWiFiCredentialsWebNotification(void)
+{
+    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_WEB,
+                            SCREEN_REPORT_SOURCE_NOTIFICATION);
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(4, 4, 19, 16, Icon_Wifi_100_bits);
+
+    Oled_SetFont(&Font_7x10);
+    ssd1306_SetCursor(28, 18 - Oled_FontHeight());
+    Oled_DrawStr("Ingresar");
+
+    ssd1306_SetCursor(8, 36 - Oled_FontHeight());
+    Oled_DrawStr("credenciales");
+
+    ssd1306_SetCursor(42, 54 - Oled_FontHeight());
+    Oled_DrawStr("en web");
+}
+
+void OledUtils_SetWiFiCredentialsWebResultStatus(uint8_t status)
+{
+    oled_wifi_credentials_result_status = status;
+}
+
+void OledUtils_RenderWiFiCredentialsSucceededNotification(void)
+{
+    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_SUCCEEDED,
+                            SCREEN_REPORT_SOURCE_NOTIFICATION);
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(54, 4, 19, 16, Icon_Wifi_100_bits);
+    Oled_DrawXBM(57, 24, 14, 16, Icon_Checked_bits);
+
+    Oled_SetFont(&Font_7x10);
+    ssd1306_SetCursor(24, 49 - Oled_FontHeight());
+    Oled_DrawStr("WiFi conectado");
+}
+
+void OledUtils_RenderWiFiCredentialsFailedNotification(void)
+{
+    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WIFI_CREDENTIALS_FAILED,
+                            SCREEN_REPORT_SOURCE_NOTIFICATION);
+    const char *line1 = "Conexion";
+    const char *line2 = "fallida";
+    uint8_t line1_x = 38u;
+    uint8_t line2_x = 42u;
+
+    if (oled_wifi_credentials_result_status == UNER_WIFI_WEB_CREDENTIALS_STATUS_TIMEOUT) {
+        line1 = "Tiempo";
+        line2 = "agotado";
+        line1_x = 43u;
+        line2_x = 39u;
+    } else if (oled_wifi_credentials_result_status == UNER_WIFI_WEB_CREDENTIALS_STATUS_CANCELED) {
+        line1 = "Cancelada";
+        line2 = "desde web";
+        line1_x = 32u;
+        line2_x = 32u;
+    }
+
+    ssd1306_Clear();
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(54, 4, 19, 16, Icon_Wifi_NotConnected_bits);
+    Oled_DrawXBM(58, 25, 11, 16, Icon_Crossed_bits);
+
+    Oled_SetFont(&Font_7x10);
+    ssd1306_SetCursor(line1_x, 48 - Oled_FontHeight());
+    Oled_DrawStr(line1);
+    ssd1306_SetCursor(line2_x, 61 - Oled_FontHeight());
+    Oled_DrawStr(line2);
 }
 
 void OledUtils_SetWiFiConnectedSsid(const char *ssid)
@@ -1382,7 +1571,7 @@ void OledUtils_SetWiFiConnectedSsid(const char *ssid)
     espWifiConnection.staSsid[sizeof(espWifiConnection.staSsid) - 1u] = '\0';
 }
 
-void OledUtils_RenderWiFiConnecting(const char *ssid)
+static void OledUtils_RenderWiFiConnecting(const char *ssid)
 {
     OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WIFI_CONNECTING, SCREEN_REPORT_SOURCE_NOTIFICATION);
     ssd1306_Clear();
@@ -1398,7 +1587,7 @@ void OledUtils_RenderWiFiConnecting(const char *ssid)
     Oled_DrawStrMax(ssid, 14u);
 }
 
-void OledUtils_RenderWiFiConnected(const char *ssid, const char *ipAddress)
+static void OledUtils_RenderWiFiConnected(const char *ssid, const char *ipAddress)
 {
     OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WIFI_CONNECTED, SCREEN_REPORT_SOURCE_NOTIFICATION);
     ssd1306_Clear();
@@ -1423,100 +1612,6 @@ void OledUtils_RenderWiFiConnected(const char *ssid, const char *ipAddress)
 void OledUtils_RenderESPWifiConnectingNotification(void)
 {
     OledUtils_RenderWiFiConnecting(oled_wifi_connected_ssid);
-}
-
-void OledUtils_RenderWiFiSearchCompleteNotification()
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WIFI_SEARCH_COMPLETE, SCREEN_REPORT_SOURCE_NOTIFICATION);
-	ssd1306_Clear();
-    ssd1306_SetColor(White);
-    // Icono WiFi (19x16 píxeles) - misma posición que en búsqueda
-    Oled_DrawXBM(2, 12, 19, 16, Icon_Wifi_100_bits);
-
-    // Texto "Busqueda" con fuente grande
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 30 - fh_grande);
-    Oled_DrawStr("Busqueda");
-
-    // Texto "completada"
-    ssd1306_SetCursor(2, 50 - fh_grande);
-    Oled_DrawStr("completada");
-}
-
-
-void OledUtils_RenderWiFiSearchCanceledNotification()
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WIFI_SEARCH_CANCELED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(2, 12, 19, 16, Icon_Wifi_NotConnected_bits);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 30 - fh_grande);
-    Oled_DrawStr("Busqueda");
-
-    ssd1306_SetCursor(10, 50 - fh_grande);
-    Oled_DrawStr("cancelada");
-}
-
-void OledUtils_RenderControllerConnected(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_DIAG_CONTROLLER_CONNECTED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(46, 4, 37, 27, Icon_Controller_bits);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(28, 48 - fh_grande);
-    Oled_DrawStr("Control");
-
-    ssd1306_SetCursor(16, 63 - fh_grande);
-    Oled_DrawStr("conectado");
-}
-
-void OledUtils_RenderControllerDisconnected(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_DIAG_CONTROLLER_DISCONNECTED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(28, 48 - fh_grande);
-    Oled_DrawStr("Control");
-
-    ssd1306_SetCursor(8, 63 - fh_grande);
-    Oled_DrawStr("desconectado");
-
-    ssd1306_DrawLine(46, 2, 84, 30);
-    ssd1306_DrawLine(47, 2, 85, 30);
-    ssd1306_DrawLine(47, 1, 85, 29);
-
-    ssd1306_SetColor(Inverse);
-    Oled_DrawXBM(46, 4, 37, 27, Icon_Controller_bits);
-    ssd1306_SetColor(White);
-}
-
-void OledUtils_RenderCommandReceivedNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_DIAG_COMMAND_RECEIVED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(2, 12, 19, 16, Icon_Wifi_100_bits);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 30 - fh_grande);
-    Oled_DrawStr("ECHO");
-
-    ssd1306_SetCursor(2, 50 - fh_grande);
-    Oled_DrawStr("recibido");
 }
 
 void OledUtils_RenderWiFiStatus(void)
@@ -1549,7 +1644,7 @@ void OledUtils_RenderWiFiStatus(void)
         Oled_DrawStrMax(ipStr, 16u);
     } else {
         Oled_DrawXBM(54, 3, 19, 16, Icon_Wifi_NotConnected_bits);
-        Oled_SetFont(&Font_11x18);
+        Oled_SetFont(&OLED_LARGE_FONT);
         ssd1306_SetCursor(7, 40 - Oled_FontHeight());
         Oled_DrawStr("No hay red");
         ssd1306_SetCursor(16, 55 - Oled_FontHeight());
@@ -1558,7 +1653,7 @@ void OledUtils_RenderWiFiStatus(void)
     return;
 #if 0
 	    // Texto "No hay red" con fuente grande
-	    Oled_SetFont(&Font_11x18);
+	    Oled_SetFont(&OLED_LARGE_FONT);
 	    const uint8_t fh = Oled_FontHeight();
 	    ssd1306_SetCursor(19, 38 - fh);
 	    Oled_DrawStr("Red");
@@ -1570,7 +1665,7 @@ void OledUtils_RenderWiFiStatus(void)
 
 		char ipStr[20];
 
-		Oled_SetFont(&Font_11x18);
+		Oled_SetFont(&OLED_LARGE_FONT);
 		const uint8_t fh = Oled_FontHeight();
 		ssd1306_SetCursor(19, 20 - fh);
 		Oled_DrawStr("Red");
@@ -1578,11 +1673,7 @@ void OledUtils_RenderWiFiStatus(void)
 		Oled_DrawXBM(54, 4, 19, 16, Icon_Wifi_100_bits);
 
 		Oled_SetFont(&Font_7x10);
-		snprintf(ipStr, sizeof(ipStr), "%u.%u.%u.%u",
-				 (unsigned)espStaIp.block1,
-				 (unsigned)espStaIp.block2,
-				 (unsigned)espStaIp.block3,
-				 (unsigned)espStaIp.block4);
+		Oled_FormatIp(&espStaIp, ipStr, sizeof(ipStr));
 		ssd1306_SetCursor(8, 40 - Oled_FontHeight());
 		Oled_DrawStr(ipStr);
 
@@ -1593,134 +1684,11 @@ void OledUtils_RenderWiFiStatus(void)
 #endif
 }
 
-void OledUtils_RenderESPBootReceivedNotification(void){
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_ESP_BOOT_RECEIVED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-	ssd1306_Clear();
-	ssd1306_SetColor(White);
-
-	Oled_DrawXBM_MSB(2, 12, 19, 16, Icon_Info_bits);
-
-	Oled_SetFont(&Font_11x18);
-	const uint8_t fh_grande = Oled_FontHeight();
-	ssd1306_SetCursor(27, 30 - fh_grande);
-	Oled_DrawStr("ESP");
-
-	ssd1306_SetCursor(2, 50 - fh_grande);
-	Oled_DrawStr("iniciada");
-}
-
-
 void OledUtils_RenderESPWifiConnectedNotification(void){
 	char ipStr[20];
 
 	Oled_FormatIp(&espWifiConnection.staIp, ipStr, sizeof(ipStr));
     OledUtils_RenderWiFiConnected(oled_wifi_connected_ssid, ipStr);
-}
-
-
-
-void OledUtils_RenderESPModeChangedNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_ESP_MODE_CHANGED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(2, 12, 16, 16, Icon_Info_bits);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 30 - fh_grande);
-    Oled_DrawStr("Modo");
-
-    ssd1306_SetCursor(8, 50 - fh_grande);
-    Oled_DrawStr("actualizado");
-}
-
-void OledUtils_RenderESPUsbConnectedNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_USB_CONNECTED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(2, 12, 16, 16, Icon_Info_bits);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 30 - fh_grande);
-    Oled_DrawStr("USB");
-
-    ssd1306_SetCursor(2, 50 - fh_grande);
-    Oled_DrawStr("conectado");
-}
-
-void OledUtils_RenderESPUsbDisconnectedNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_USB_DISCONNECTED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(2, 12, 16, 16, Icon_Info_bits);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 30 - fh_grande);
-    Oled_DrawStr("USB");
-
-    ssd1306_SetCursor(8, 50 - fh_grande);
-    Oled_DrawStr("desconect");
-}
-
-void OledUtils_RenderESPWebServerUpNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WEB_SERVER_UP, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(2, 12, 16, 16, Icon_Info_bits);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 30 - fh_grande);
-    Oled_DrawStr("WEB");
-
-    ssd1306_SetCursor(2, 50 - fh_grande);
-    Oled_DrawStr("lista");
-}
-
-void OledUtils_RenderESPWebClientConnectedNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WEB_CLIENT_CONNECTED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(2, 12, 16, 16, Icon_Link_bits);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(37, 30 - fh_grande);
-    Oled_DrawStr("Web");
-
-    ssd1306_SetCursor(20, 50 - fh_grande);
-    Oled_DrawStr("conectado");
-}
-
-void OledUtils_RenderESPWebClientDisconnectedNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WEB_CLIENT_DISCONNECTED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(2, 12, 16, 16, Icon_Link_bits);
-    ssd1306_DrawLine(2, 12, 18, 28);
-    ssd1306_DrawLine(3, 12, 19, 28);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(37, 30 - fh_grande);
-    Oled_DrawStr("Web");
-
-    ssd1306_SetCursor(20, 50 - fh_grande);
-    Oled_DrawStr("desconect");
 }
 
 void OledUtils_RenderESPAPStartedNotification(void)
@@ -1733,51 +1701,14 @@ void OledUtils_RenderESPAPStartedNotification(void)
 
     Oled_DrawXBM(2, 12, 19, 16, Icon_Wifi_100_bits);
 
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     ssd1306_SetCursor(27, 30 - Oled_FontHeight());
     Oled_DrawStr("AP OK");
 
     Oled_SetFont(&Font_7x10);
-    snprintf(ipStr, sizeof(ipStr), "%u.%u.%u.%u",
-    (unsigned)espApIp.block1,
-    (unsigned)espApIp.block2,
-    (unsigned)espApIp.block3,
-    (unsigned)espApIp.block4);
+    Oled_FormatIp(&espApIp, ipStr, sizeof(ipStr));
     ssd1306_SetCursor(8, 60 - Oled_FontHeight());
     Oled_DrawStr(ipStr);
-}
-
-void OledUtils_RenderPingReceivedNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_DIAG_PING_RECEIVED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(2, 12, 16, 16, Icon_Info_bits);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(27, 30 - fh_grande);
-    Oled_DrawStr("PING");
-
-    ssd1306_SetCursor(2, 50 - fh_grande);
-    Oled_DrawStr("recibido");
-}
-
-void OledUtils_RenderESPCheckingConnectionNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_ESP_CHECKING, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-
-    ssd1306_SetCursor(2, 30 - fh_grande);
-    Oled_DrawStr("Chequeando");
-
-    ssd1306_SetCursor(10, 50 - fh_grande);
-    Oled_DrawStr("conexion");
 }
 
 void OledUtils_RenderESPFirmwareRequestNotification(void)
@@ -1787,7 +1718,7 @@ void OledUtils_RenderESPFirmwareRequestNotification(void)
     ssd1306_SetColor(White);
 
     // Texto "Solicitando" con fuente grande
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     const uint8_t fh_grande = Oled_FontHeight();
 
     ssd1306_SetCursor(32, 24 - fh_grande);
@@ -1799,9 +1730,8 @@ void OledUtils_RenderESPFirmwareRequestNotification(void)
 
     // Texto "Cancelar" con fuente pequeña
     Oled_SetFont(&Font_7x10);
-    const uint8_t fh_pequena = Oled_FontHeight();
-    ssd1306_SetCursor(50, 60 - fh_pequena);
-    Oled_DrawStr("Cancelar");
+    ssd1306_SetCursor(34, 60 - Oled_FontHeight());
+    Oled_DrawStr("ESP");
 
     // Botón OK / Encoder (13x13 px)
     Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
@@ -1821,7 +1751,7 @@ void OledUtils_RenderESPFirmwareScreen(void)
 
     Oled_DrawXBM(8, 5, 16, 16, Icon_Info_bits);
 
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     ssd1306_SetCursor(34, 22 - Oled_FontHeight());
     Oled_DrawStr("FW ESP01");
 
@@ -1834,39 +1764,6 @@ void OledUtils_RenderESPFirmwareScreen(void)
     Oled_DrawXBM(33, 44, 16, 16, Icon_Encoder_bits);
 }
 
-void OledUtils_RenderESPFirmwareReceivedNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_ESP_FIRMWARE_RECEIVED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(8, 16, 16, 16, Icon_Info_bits);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-    ssd1306_SetCursor(34, 24 - fh_grande);
-    Oled_DrawStr("FW ESP");
-
-    Oled_SetFont(&Font_7x10);
-    ssd1306_SetCursor(6, 48 - Oled_FontHeight());
-    Oled_DrawStrMax(espFirmwareVersion, 17u);
-}
-
-void OledUtils_RenderPermissionDeniedNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_WARNING_PERMISSION_DENIED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_DrawXBM(57, 3, LOCK_ICON_W, LOCK_ICON_H, Icon_Lock_bits);
-
-    Oled_SetFont(&Font_7x10);
-    ssd1306_SetCursor(13, 34 - Oled_FontHeight());
-    Oled_DrawStr("PIN no verificado");
-    ssd1306_SetCursor(4, 52 - Oled_FontHeight());
-    Oled_DrawStr("Accion restringida");
-}
-
 void OledUtils_RenderESPResetSentNotification(void)
 {
     OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_ESP_RESET_SENT, SCREEN_REPORT_SOURCE_NOTIFICATION);
@@ -1874,62 +1771,23 @@ void OledUtils_RenderESPResetSentNotification(void)
     ssd1306_SetColor(White);
 
     // Texto "Reset" con fuente grande
-    Oled_SetFont(&Font_11x18);
+    Oled_SetFont(&OLED_LARGE_FONT);
     const uint8_t fh_grande = Oled_FontHeight();
 
-    ssd1306_SetCursor(32, 24 - fh_grande);
-    Oled_DrawStr("Enviar");
+    ssd1306_SetCursor(23, 24 - fh_grande);
+    Oled_DrawStr("Reset");
 
     // Texto "enviado"
-    ssd1306_SetCursor(32, 44 - fh_grande);
-    Oled_DrawStr("reset");
+    ssd1306_SetCursor(14, 44 - fh_grande);
+    Oled_DrawStr("enviado");
 
     // Texto "Cancelar" con fuente pequeña
     Oled_SetFont(&Font_7x10);
     const uint8_t fh_pequena = Oled_FontHeight();
-    ssd1306_SetCursor(50, 60 - fh_pequena);
-    Oled_DrawStr("Cancelar");
+    ssd1306_SetCursor(34, 60 - fh_pequena);
+    Oled_DrawStr("ESP");
 
     // Botón OK / Encoder (13x13 px)
-    Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
-
     // Icono Refrescar (esquina superior izquierda)
     Oled_DrawXBM(8, 16, 16, 16, Icon_Refrescar_bits);
-}
-
-
-void OledUtils_RenderESPCheckConnectionRequiredNotification(void)
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_ESP_CHECK_REQUIRED, SCREEN_REPORT_SOURCE_NOTIFICATION);
-    ssd1306_Clear();
-    ssd1306_SetColor(White);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh_grande = Oled_FontHeight();
-
-    ssd1306_SetCursor(16, 30 - fh_grande);
-    Oled_DrawStr("Chequee");
-
-    ssd1306_SetCursor(10, 50 - fh_grande);
-    Oled_DrawStr("conexion");
-}
-
-void OledUtils_ShowWifiResults()
-{
-    OledUtils_SetScreenCode(SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS, SCREEN_REPORT_SOURCE_RENDER);
-    ssd1306_SetColor(White);
-
-    Oled_SetFont(&Font_11x18);
-    const uint8_t fh = Oled_FontHeight();
-    ssd1306_SetCursor(14, 20 - fh);
-    Oled_DrawStr("Resultados");
-    ssd1306_SetCursor(36, 38 - fh);
-    Oled_DrawStr("WiFi");
-
-    Oled_SetFont(&Font_7x10);
-    const uint8_t fh_small = Oled_FontHeight();
-    ssd1306_SetCursor(4, 60 - fh_small);
-    Oled_DrawStr("OK: volver");
-
-    Oled_DrawXBM(112, 48, 13, 13, Icon_Encoder_bits);
 }

@@ -17,6 +17,9 @@
 
 static bool MenuSys_HasNavigableSelection(const MenuSystem *ms);
 static bool MenuSys_IsCurrentScreenMenu(const MenuSystem *ms);
+static bool MenuSys_GetVisibleSelection(const SubMenu *menu,
+                                        uint8_t *selected_index,
+                                        uint8_t *item_count);
 static void MenuSys_UpdateSelectionFromCurrentMenu(MenuSystem *ms, ScreenReportSource_t source);
 
 bool MenuSys_IsItemVisible(const MenuItem *item) {
@@ -77,6 +80,11 @@ void MenuSys_SetCurrentMenuSelection(MenuSystem *ms,
     }
 
     MenuSys_FlushMenuSelectionReport(ms);
+}
+
+void MenuSys_ReportCurrentMenuSelection(MenuSystem *ms, ScreenReportSource_t source)
+{
+    MenuSys_UpdateSelectionFromCurrentMenu(ms, source);
 }
 
 void MenuSys_SetCurrentScreenCode(MenuSystem *ms, ScreenCode_t screen_code, ScreenReportSource_t source)
@@ -147,8 +155,40 @@ static bool MenuSys_IsCurrentScreenMenu(const MenuSystem *ms)
            (ms->current_screen_code == ms->currentMenu->screen_code);
 }
 
+static bool MenuSys_GetVisibleSelection(const SubMenu *menu,
+                                        uint8_t *selected_index,
+                                        uint8_t *item_count)
+{
+    uint8_t visible_count = 0u;
+    uint8_t visible_selected = MENU_SELECTION_INVALID_INDEX;
+
+    if (!menu || !selected_index || !item_count) {
+        return false;
+    }
+
+    for (int8_t i = 0; i < menu->itemCount; i++) {
+        if (MenuSys_IsItemVisible(&menu->items[i])) {
+            if (i == menu->currentItemIndex) {
+                visible_selected = visible_count;
+            }
+            visible_count++;
+        }
+    }
+
+    if (visible_count == 0u || visible_selected == MENU_SELECTION_INVALID_INDEX) {
+        return false;
+    }
+
+    *selected_index = visible_selected;
+    *item_count = visible_count;
+    return true;
+}
+
 static void MenuSys_UpdateSelectionFromCurrentMenu(MenuSystem *ms, ScreenReportSource_t source)
 {
+    uint8_t selected_index;
+    uint8_t item_count;
+
     if (ms == NULL || ms->currentMenu == NULL) {
         MenuSys_ClearCurrentMenuSelection(ms, source);
         return;
@@ -164,9 +204,14 @@ static void MenuSys_UpdateSelectionFromCurrentMenu(MenuSystem *ms, ScreenReportS
         return;
     }
 
+    if (!MenuSys_GetVisibleSelection(ms->currentMenu, &selected_index, &item_count)) {
+        MenuSys_ClearCurrentMenuSelection(ms, source);
+        return;
+    }
+
     MenuSys_SetCurrentMenuSelection(ms,
-                                    (uint8_t)ms->currentMenu->currentItemIndex,
-                                    (uint8_t)ms->currentMenu->itemCount,
+                                    selected_index,
+                                    item_count,
                                     source);
 }
 
@@ -283,7 +328,6 @@ void MenuSys_MoveCursorUp(MenuSystem *ms) {
     SubMenu *m = ms->currentMenu;
 
     int8_t nextIndex;
-    uint8_t itemCount;
 
     nextIndex = MenuSys_FindNextVisibleIndex(m, m->currentItemIndex, -1);
     if (nextIndex < 0) return;
@@ -305,13 +349,7 @@ void MenuSys_MoveCursorUp(MenuSystem *ms) {
         m->firstVisibleItem = prevFirst;
     }
 
-    itemCount = (uint8_t)m->itemCount;
-    if (itemCount > 0u && m->currentItemIndex >= 0 && m->currentItemIndex < m->itemCount) {
-        MenuSys_SetCurrentMenuSelection(ms,
-                                        (uint8_t)m->currentItemIndex,
-                                        itemCount,
-                                        SCREEN_REPORT_SOURCE_MENU);
-    }
+    MenuSys_ReportCurrentMenuSelection(ms, SCREEN_REPORT_SOURCE_MENU);
 }
 
 void MenuSys_MoveCursorDown(MenuSystem *ms) {
@@ -319,7 +357,6 @@ void MenuSys_MoveCursorDown(MenuSystem *ms) {
     SubMenu *m = ms->currentMenu;
 
     int8_t nextIndex;
-    uint8_t itemCount;
 
     nextIndex = MenuSys_FindNextVisibleIndex(m, m->currentItemIndex, 1);
     if (nextIndex < 0) return;
@@ -345,13 +382,7 @@ void MenuSys_MoveCursorDown(MenuSystem *ms) {
         }
     }
 
-    itemCount = (uint8_t)m->itemCount;
-    if (itemCount > 0u && m->currentItemIndex >= 0 && m->currentItemIndex < m->itemCount) {
-        MenuSys_SetCurrentMenuSelection(ms,
-                                        (uint8_t)m->currentItemIndex,
-                                        itemCount,
-                                        SCREEN_REPORT_SOURCE_MENU);
-    }
+    MenuSys_ReportCurrentMenuSelection(ms, SCREEN_REPORT_SOURCE_MENU);
 }
 
 /**

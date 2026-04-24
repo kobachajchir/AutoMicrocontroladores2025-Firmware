@@ -13,6 +13,33 @@
 #include "encoder.h"
 #include "eventManagers.h"
 #include "globals.h"
+#include <string.h>
+
+static bool dashboardModeReportPending = false;
+
+static void WiFiResults_ResetMenuState(void)
+{
+    memset(wifiResultsItems, 0, sizeof(wifiResultsItems));
+    wifiResultsMenu.parent = &submenu1;
+    wifiResultsMenu.itemCount = 0u;
+    wifiResultsMenu.currentItemIndex = 0;
+    wifiResultsMenu.firstVisibleItem = 0;
+    wifiResultsMenu.lastSelectedItemIndex = -1;
+    wifiResultsMenu.lastVisibleItem = -1;
+}
+
+void WiFiScan_ClearResults(void)
+{
+    networksFound = 0u;
+    wifiSelectedNetworkIndex = WIFI_SELECTED_NETWORK_INVALID;
+    memset(wifiNetworkSsids, 0, sizeof(wifiNetworkSsids));
+    memset(wifiNetworkEncryptions, 0, sizeof(wifiNetworkEncryptions));
+    memset(wifiNetworkSignalStrengths, 0, sizeof(wifiNetworkSignalStrengths));
+    memset(wifiNetworkChannels, 0, sizeof(wifiNetworkChannels));
+    memset(wifiNetworkEncryptionTypes, 0, sizeof(wifiNetworkEncryptionTypes));
+    memset(wifiNetworkDetailValid, 0, sizeof(wifiNetworkDetailValid));
+    WiFiResults_ResetMenuState();
+}
 
 static void WiFiResults_SetDefaultSelection(SubMenu *menu)
 {
@@ -56,7 +83,7 @@ static void WiFiResults_BuildMenu(void)
         for (uint8_t i = 0u; i < networksFound && i < WIFI_SCAN_MAX_NETWORKS; ++i) {
             wifiResultsItems[itemIndex].name = wifiNetworkSsids[i];
             wifiResultsItems[itemIndex].icon = Icon_Wifi_bits;
-            wifiResultsItems[itemIndex].screen_code = SCREEN_CODE_CONNECTIVITY_WIFI_RESULTS;
+            wifiResultsItems[itemIndex].screen_code = SCREEN_CODE_CONNECTIVITY_WIFI_DETAILS;
             itemIndex++;
         }
     }
@@ -120,27 +147,9 @@ void OledUtils_RenderDashboard_Wrapper(void)
     // 4) Llamo a la función que pinta TODO en el buffer
     OledUtils_Clear();
     OledUtils_RenderDashboard();
+    dashboardModeReportPending = true;
 
     // ¡no vuelvo a tocar menuSystem.renderFlag!
-}
-
-void OledUtils_RenderTestScreen_Wrapper(void)
-{
-    __NOP(); // BREAKPOINT: wrapper pantalla de prueba
-    MenuSys_SetCurrentScreenCode(&menuSystem,
-                                 SCREEN_CODE_SERVICE_TEST_SCREEN,
-                                 SCREEN_REPORT_SOURCE_RENDER);
-    OledUtils_DisableContinuousRender();
-    menuSystem.userEventManagerFn = dashboardEventManager;
-    __NOP();
-    inside_menu_flag = false;
-
-    oled_first_draw = true;
-
-    encoder.allowEncoderInput = IS_FLAG_SET(systemFlags2, OLED_ACTIVE);
-
-    OledUtils_Clear();
-    OledUtils_RenderTestScreen();
 }
 
 /**
@@ -211,25 +220,6 @@ void OledUtils_RenderMotorTest_Wrapper(void) {
     }else{
         __NOP();
         OledUtils_MotorTest_Changes();
-    }
-}
-
-void OledUtils_RenderRadar_Wrapper(void) {
-    MenuSys_SetCurrentScreenCode(&menuSystem,
-                                 SCREEN_CODE_SENSORS_RADAR,
-                                 SCREEN_REPORT_SOURCE_RENDER);
-    OledUtils_EnableContinuousRender();
-    inside_menu_flag = false;
-    encoder.allowEncoderInput = true;  // Cambiar a true
-    menuSystem.userEventManagerFn = ReadOnly_UserEventManager;  // AGREGADO
-    menuSystem.renderFlag = true;
-
-    if(!oled_first_draw){
-        OledUtils_Clear();
-        OledUtils_RenderRadarGraph(sensor_raw_data);
-        oled_first_draw = true;
-    }else{
-        OledUtils_RenderRadarGraph_Objs(sensor_raw_data);
     }
 }
 
@@ -311,13 +301,6 @@ void OledUtils_RenderValoresMPU_Wrapper(void)
  */
 void OledUtils_RenderWiFiSearching_Wrapper(void)
 {
-    if (!wifiScanSessionActive && wifiSearchingTimeout == 0u) {
-        menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
-        menuSystem.renderFlag = true;
-        oled_first_draw = false;
-        return;
-    }
-
     MenuSys_SetCurrentScreenCode(&menuSystem,
                                  SCREEN_CODE_CONNECTIVITY_WIFI_SEARCHING,
                                  SCREEN_REPORT_SOURCE_RENDER);
@@ -329,15 +312,9 @@ void OledUtils_RenderWiFiSearching_Wrapper(void)
 
     if (!oled_first_draw) {
         wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
-        networksFound = 0u;
+        WiFiScan_ClearResults();
         wifiScanSessionActive = 1u;
         wifiScanResultsPending = 0u;
-        memset(wifiNetworkSsids, 0, sizeof(wifiNetworkSsids));
-        wifiResultsMenu.itemCount = 0u;
-        wifiResultsMenu.currentItemIndex = 0;
-        wifiResultsMenu.firstVisibleItem = 0;
-        wifiResultsMenu.lastSelectedItemIndex = -1;
-        wifiResultsMenu.lastVisibleItem = -1;
         __NOP();
         (void)UNER_App_SendCommand(UNER_CMD_ID_START_SCAN, NULL, 0u);
         OledUtils_Clear();
@@ -384,19 +361,37 @@ void OledUtils_RenderWiFiSearchResults_Wrapper(void)
     menuSystem.userEventManagerFn = wifiEventManager;
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
 
-    if (wifiScanResultsPending &&
-        !(UNER_App_IsWaitingValidation() && UNER_App_GetWaitingCommandId() == UNER_CMD_ID_GET_SCAN_RESULTS)) {
-        if (UNER_App_SendCommand(UNER_CMD_ID_GET_SCAN_RESULTS, NULL, 0u) == UNER_OK) {
-            wifiScanResultsPending = 0u;
-        }
-    } else {
-        __NOP();
-    }
-
     WiFiResults_BuildMenu();
     menuSystem.currentMenu = &wifiResultsMenu;
     MenuSys_RenderMenu(&menuSystem);
     oled_first_draw = false;
+}
+
+void OledUtils_RenderWiFiDetails_Wrapper(void)
+{
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_CONNECTIVITY_WIFI_DETAILS,
+                                 SCREEN_REPORT_SOURCE_RENDER);
+    OledUtils_DisableContinuousRender();
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = true;
+    menuSystem.userEventManagerFn = WiFiDetails_UserEventManager;
+
+    if (wifiSelectedNetworkIndex >= networksFound ||
+        wifiSelectedNetworkIndex >= WIFI_SCAN_MAX_NETWORKS) {
+        wifiSelectedNetworkIndex = WIFI_SELECTED_NETWORK_INVALID;
+        menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
+        menuSystem.renderFlag = true;
+        oled_first_draw = false;
+        return;
+    }
+
+    OledUtils_RenderWiFiDetails(wifiNetworkSsids[wifiSelectedNetworkIndex],
+                                wifiNetworkEncryptions[wifiSelectedNetworkIndex],
+                                wifiNetworkSignalStrengths[wifiSelectedNetworkIndex],
+                                wifiNetworkChannels[wifiSelectedNetworkIndex],
+                                wifiNetworkDetailValid[wifiSelectedNetworkIndex]);
+    oled_first_draw = true;
 }
 
 void onRenderComplete(void) {
@@ -404,5 +399,10 @@ void onRenderComplete(void) {
     if(IS_FLAG_SET(systemFlags, OLED_READY)){
         menuSystem.allowPeriodicRefresh = false;
         __NOP();
+    }
+
+    if (dashboardModeReportPending) {
+        dashboardModeReportPending = false;
+        (void)UNER_App_ReportCarModeChanged((uint8_t)GET_CAR_MODE());
     }
 }

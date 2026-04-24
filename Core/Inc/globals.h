@@ -50,12 +50,6 @@
 #define CHK_ESP_CONN BIT0_MASK
 #define WIFI_SEARCHING BIT1_MASK
 
-/* Estados de pantalla de bloqueo/PIN */
-#define LOCK_STATE_LOCKED           0u
-#define LOCK_STATE_PIN_INCORRECT    1u
-#define LOCK_STATE_PIN_MODIFIED     2u
-#define LOCK_STATE_ENTER_PIN        3u
-
 //Definicion de tamanios
 #define USART1_BUFFER_SIZE 64
 /* Debe cubrir frames UNER largos: payload 255 + overhead 10, con margen para rafagas. */
@@ -73,8 +67,6 @@
 
 #define OLED_ACTIVE_TIME 500
 
-#define OLED_BAR_COUNT 8
-#define BAR_WIDTH 12
 #define Y_OFFSET    5    // margen superior
 #define Y_SPACING   22   // separación vertical entre ítems
 #define ITEM_HEIGHT 21   // altura del recuadro de selección
@@ -96,6 +88,8 @@
 #define WIFIDEFAULTSEARCHTIMEOUT 1000
 #define WIFI_SCAN_MAX_NETWORKS 8
 #define WIFI_SSID_MAX_LEN 32
+#define WIFI_ENCRYPTION_MAX_LEN 16
+#define WIFI_SELECTED_NETWORK_INVALID 0xFFu
 #define WIFI_RESULTS_MENU_MAX_ITEMS (WIFI_SCAN_MAX_NETWORKS + 2)
 
 #define UNER_SCREEN_PAGE_DIR_UP             0x00u
@@ -142,11 +136,6 @@ extern volatile Byte_Flag_Struct carModeFlags;
 
 extern volatile uint16_t sensor_raw_data[TCRT5000_NUM_SENSORS];
 
-/* FIX: myLight -> tcrtLight (unificar nombre real) */
-extern TCRT_LightConfig_t tcrtLight;
-
-extern bool pull_cfg[TCRT5000_NUM_SENSORS];
-
 extern volatile uint8_t cnt_adc_trigger;
 extern volatile uint16_t cnt_250us_MPU;
 extern volatile uint16_t cnt_10ms;
@@ -165,6 +154,12 @@ extern volatile uint8_t motorDir; // 0: adelante, 1: atrás
 extern uint16_t wifiSearchingTimeout;
 extern uint8_t networksFound;
 extern char wifiNetworkSsids[WIFI_SCAN_MAX_NETWORKS][WIFI_SSID_MAX_LEN + 1];
+extern char wifiNetworkEncryptions[WIFI_SCAN_MAX_NETWORKS][WIFI_ENCRYPTION_MAX_LEN + 1];
+extern int8_t wifiNetworkSignalStrengths[WIFI_SCAN_MAX_NETWORKS];
+extern uint8_t wifiNetworkChannels[WIFI_SCAN_MAX_NETWORKS];
+extern uint8_t wifiNetworkEncryptionTypes[WIFI_SCAN_MAX_NETWORKS];
+extern uint8_t wifiNetworkDetailValid[WIFI_SCAN_MAX_NETWORKS];
+extern uint8_t wifiSelectedNetworkIndex;
 extern volatile uint8_t wifiScanSessionActive;
 extern volatile uint8_t wifiScanResultsPending;
 extern volatile IPStruct_t espStaIp;

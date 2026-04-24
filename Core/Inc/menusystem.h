@@ -57,6 +57,7 @@ void MenuSys_SetCurrentMenuSelection(MenuSystem *ms,
                                      uint8_t selected_index,
                                      uint8_t item_count,
                                      ScreenReportSource_t source);
+void MenuSys_ReportCurrentMenuSelection(MenuSystem *ms, ScreenReportSource_t source);
 void MenuSys_ClearCurrentMenuSelection(MenuSystem *ms, ScreenReportSource_t source);
 void MenuSys_FlushMenuSelectionReport(MenuSystem *ms);
 

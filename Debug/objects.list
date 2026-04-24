@@ -24,6 +24,7 @@
 "./Core/Src/syscalls.o"
 "./Core/Src/sysmem.o"
 "./Core/Src/system_stm32f1xx.o"
+"./Core/Src/tcrt5000.o"
 "./Core/Src/tim.o"
 "./Core/Src/ui_event_router.o"
 "./Core/Src/uner_app.o"

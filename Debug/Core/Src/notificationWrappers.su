@@ -1,8 +1,9 @@
-../Core/Src/notificationWrappers.c:25:13:OledUtils_SendFirmwareRequest	0	static
-../Core/Src/notificationWrappers.c:30:13:OledUtils_OnHide_SendESPReset	0	static
-../Core/Src/notificationWrappers.c:44:13:OledUtils_ShowESPNotification.constprop	16	static
-../Core/Src/notificationWrappers.c:35:13:OledUtils_ShowESPResetAfterPermission	0	static
-../Core/Src/notificationWrappers.c:68:6:OledUtils_RenderStartupNotification_Wrapper	8	static
-../Core/Src/notificationWrappers.c:83:6:OledUtils_RenderESPCheckConnection_Wrapper	8	static,ignoring_inline_asm
-../Core/Src/notificationWrappers.c:90:6:OledUtils_RenderESPFirmwareRequest_Wrapper	8	static
-../Core/Src/notificationWrappers.c:109:6:OledUtils_RenderESPResetSent_Wrapper	0	static
+../Core/Src/notificationWrappers.c:107:13:OledUtils_ShowESPResetModeAfterPermission	0	static
+../Core/Src/notificationWrappers.c:49:13:OledUtils_SendFirmwareRequest	0	static
+../Core/Src/notificationWrappers.c:67:13:OledUtils_SendESPResetWithMode	8	static
+../Core/Src/notificationWrappers.c:82:13:OledUtils_SendESPResetApMode	0	static
+../Core/Src/notificationWrappers.c:77:13:OledUtils_SendESPResetNormal	0	static
+../Core/Src/notificationWrappers.c:127:6:OledUtils_RenderStartupNotification_Wrapper	8	static
+../Core/Src/notificationWrappers.c:141:6:OledUtils_RenderESPCheckConnection_Wrapper	8	static,ignoring_inline_asm
+../Core/Src/notificationWrappers.c:153:6:OledUtils_RenderESPFirmwareRequest_Wrapper	24	static
+../Core/Src/notificationWrappers.c:175:6:OledUtils_RenderESPResetMode_Wrapper	8	static

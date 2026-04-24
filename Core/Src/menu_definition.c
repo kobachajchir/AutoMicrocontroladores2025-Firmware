@@ -11,7 +11,7 @@
 MenuItem submenuESPItems[] = {
     {"Chk Conexion", NULL, NULL, Icon_Link_bits, OledUtils_RenderESPCheckConnection_Wrapper, menuEventManager, NULL, SCREEN_CODE_CONNECTIVITY_ESP_CHECKING},
     {"Firmware",    NULL, NULL, Icon_Info_bits,  OledUtils_RenderESPFirmwareRequest_Wrapper, menuEventManager, NULL, SCREEN_CODE_CONNECTIVITY_ESP_FIRMWARE_REQUEST},
-    {"Reset ESP",   NULL, NULL, Icon_Refrescar_bits, OledUtils_RenderESPResetSent_Wrapper, menuEventManager, NULL, SCREEN_CODE_CONNECTIVITY_ESP_RESET_SENT},
+    {"Reset ESP",   NULL, NULL, Icon_Refrescar_bits, OledUtils_RenderESPResetMode_Wrapper, menuEventManager, NULL, SCREEN_CODE_CONNECTIVITY_ESP_REBOOT_MODE},
     {"Volver", MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager, NULL, SCREEN_CODE_CORE_MAIN_MENU}
 };
 

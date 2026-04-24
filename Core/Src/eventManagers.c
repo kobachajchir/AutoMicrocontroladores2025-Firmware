@@ -329,6 +329,7 @@ static void WiFiResults_BackToWifiMenu(void)
     }
 
     MenuSys_NavigateBack(&menuSystem);
+    WiFiScan_ClearResults();
     menuSystem.clearScreen();
     menuSystem.renderFn = MenuSys_RenderMenu_Wrapper;
     menuSystem.renderFlag = true;
@@ -338,7 +339,7 @@ static void WiFiResults_BackToWifiMenu(void)
 static void WiFiResults_RestartScan(void)
 {
     wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
-    networksFound = 0u;
+    WiFiScan_ClearResults();
     wifiScanSessionActive = 1u;
     wifiScanResultsPending = 0u;
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
@@ -364,6 +365,7 @@ static void WiFiSearch_Cancel(void)
     wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
     wifiScanSessionActive = 0u;
     wifiScanResultsPending = 0u;
+    WiFiScan_ClearResults();
 
     if (menuSystem.insideMenuFlag) {
         *menuSystem.insideMenuFlag = 0;
@@ -373,7 +375,7 @@ static void WiFiSearch_Cancel(void)
                                                       : OledUtils_RenderDashboard_Wrapper;
 
     menuSystem.clearScreen();
-    OledUtils_ShowNotificationMs(OledUtils_RenderWiFiSearchCanceledNotification, 2000u);
+    OledUtils_ShowSimpleNotificationMs(OLED_SIMPLE_NOTIFICATION_WIFI_SEARCH_CANCELED, 2000u);
 
     menuSystem.renderFlag = true;
     oled_first_draw = true;
@@ -386,11 +388,11 @@ static void WiFiSearch_OnShortPress(void)
 
 static void WiFiSearch_OnLongPress(void)
 {
-    // Cancelar y volver al dashboard
-    // TODO: Implementar stopWiFiScan() cuando esté disponible
+    (void)UNER_App_SendCommand(UNER_CMD_ID_STOP_SCAN, NULL, 0u);
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
     wifiScanSessionActive = 0u;
     wifiScanResultsPending = 0u;
+    WiFiScan_ClearResults();
     if (menuSystem.dashboardRender) {
         menuSystem.renderFn = menuSystem.dashboardRender;
     }
@@ -444,6 +446,20 @@ static void WiFiResults_OnShortPress(void)
 
     if (idx == (menu->itemCount - 1)) {
         WiFiResults_BackToWifiMenu();
+        return;
+    }
+
+    if (networksFound > 0u && idx < networksFound) {
+        wifiSelectedNetworkIndex = (uint8_t)idx;
+        wifiNetworkDetailValid[wifiSelectedNetworkIndex] = 0u;
+        wifiNetworkSignalStrengths[wifiSelectedNetworkIndex] = 0;
+        wifiNetworkChannels[wifiSelectedNetworkIndex] = 0u;
+        wifiNetworkEncryptionTypes[wifiSelectedNetworkIndex] = 0u;
+        wifiNetworkEncryptions[wifiSelectedNetworkIndex][0] = '\0';
+        (void)UNER_App_RequestWifiNetworkDetail(wifiNetworkSsids[wifiSelectedNetworkIndex]);
+        menuSystem.renderFn = OledUtils_RenderWiFiDetails_Wrapper;
+        menuSystem.renderFlag = true;
+        oled_first_draw = true;
     }
 }
 
@@ -454,6 +470,7 @@ static void WiFiResults_OnEncLongPress(void)
 
 static void WiFiResults_OnUserButton(void)
 {
+    WiFiScan_ClearResults();
     if (menuSystem.dashboardRender) {
         menuSystem.renderFn = menuSystem.dashboardRender;
     }
@@ -471,6 +488,43 @@ static const EventCallbacks_t wifiResultsCallbacks = {
     .onLongPress    = NULL,
     .onUserButton   = WiFiResults_OnUserButton,
     .onEncLongPress = WiFiResults_OnEncLongPress
+};
+
+// ============================================================================
+// CALLBACKS PARA DETALLE WIFI
+// ============================================================================
+
+static void WiFiDetails_BackToResults(void)
+{
+    if (menuSystem.insideMenuFlag) {
+        *menuSystem.insideMenuFlag = 1;
+    }
+    inside_menu_flag = true;
+    menuSystem.currentMenu = &wifiResultsMenu;
+    menuSystem.renderFn = OledUtils_RenderWiFiSearchResults_Wrapper;
+    menuSystem.renderFlag = true;
+    oled_first_draw = false;
+}
+
+static void WiFiDetails_OnShortPress(void)
+{
+    if (wifiSelectedNetworkIndex >= networksFound ||
+        wifiSelectedNetworkIndex >= WIFI_SCAN_MAX_NETWORKS) {
+        return;
+    }
+
+    if (UNER_App_SendWifiCredentialRequest(wifiNetworkSsids[wifiSelectedNetworkIndex]) == UNER_OK) {
+        OledUtils_ShowNotificationMs(OledUtils_RenderWiFiCredentialsWebNotification, 4000u);
+    }
+}
+
+static const EventCallbacks_t wifiDetailsCallbacks = {
+    .onRotateCW     = NULL,
+    .onRotateCCW    = NULL,
+    .onShortPress   = WiFiDetails_OnShortPress,
+    .onLongPress    = NULL,
+    .onUserButton   = WiFiDetails_BackToResults,
+    .onEncLongPress = WiFiDetails_BackToResults
 };
 
 // ============================================================================
@@ -626,6 +680,11 @@ void WiFiSearch_UserEventManager(UserEvent_t ev)
 void wifiEventManager(UserEvent_t ev)
 {
     GenericEventManager(ev, &wifiResultsCallbacks);
+}
+
+void WiFiDetails_UserEventManager(UserEvent_t ev)
+{
+    GenericEventManager(ev, &wifiDetailsCallbacks);
 }
 
 void ReadOnly_UserEventManager(UserEvent_t ev)

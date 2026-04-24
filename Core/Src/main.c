@@ -72,6 +72,30 @@
 
 /* USER CODE BEGIN PV */
 
+typedef struct {
+    GPIO_TypeDef *port;
+    uint16_t pin;
+} TCRT_MainLightHalCtx_t;
+
+#define TCRT_MAIN_PULL_DOWN_MASK ((1U << 3) | (1U << 4) | (1U << 5) | (1U << 6) | (1U << 7))
+
+static TCRT_MainLightHalCtx_t tcrtLightHal = {0};
+
+static void TCRT_MainLightWrite(void *ctx, bool state)
+{
+    TCRT_MainLightHalCtx_t *hal_ctx = (TCRT_MainLightHalCtx_t *)ctx;
+
+    if ((hal_ctx == NULL) || (hal_ctx->port == NULL)) {
+        return;
+    }
+
+    HAL_GPIO_WritePin(
+        hal_ctx->port,
+        hal_ctx->pin,
+        state ? GPIO_PIN_SET : GPIO_PIN_RESET
+    );
+}
+
 static bool Oled_WaitReady(I2C_ManagerHandle *manager, uint16_t addr_7bit, uint32_t retries, uint32_t delay_ms)
 {
     if (!manager) {
@@ -96,7 +120,6 @@ void OledUtils_Clear_Wrapper(){
 void OLED_Is_Ready(void) {
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
         menuSystem.renderFn = OledUtils_RenderStartupNotification_Wrapper;
-        //menuSystem.renderFn = OledUtils_RenderTestScreen_Wrapper;
         menuSystem.renderFlag = true;
         oled_first_draw = true;
         SET_FLAG(systemFlags, OLED_READY);
@@ -242,7 +265,7 @@ int main(void)
 	 espBootRebootPending = 1;
 	uner_uart1_rx_last_tick = HAL_GetTick();
 		if (espBootRebootPending && !usart1_tx_busy) {
-			if (UNER_App_SendCommand(UNER_CMD_ID_REBOOT_ESP, NULL, 0u) == UNER_OK) {
+			if (UNER_App_SendEspReboot(UNER_ESP_REBOOT_BOOT_MODE_NORMAL) == UNER_OK) {
 				espBootRebootPending = 0u;
 				espBootRebootPendingResponse = 1;
 			}
@@ -422,15 +445,27 @@ void Encoder_MainTask(ENC_Handle_t *encoder) {
     }
 }
 
+#if 0
 void initTCRTLib(void)
 {
-    // 1) Configuro el LED (opcional). Si no tienes LED, pasa NULL en TCRT5000_Create.
-    tcrtLight.port  = Luces_IR_GPIO_Port;
-    tcrtLight.pin   = Luces_IR_Pin;
-    tcrtLight.state = true;
+    // 1) Configuro la salida de iluminación usando un callback HAL desacoplado.
+    tcrtLightHal.port = Luces_IR_GPIO_Port;
+    tcrtLightHal.pin = Luces_IR_Pin;
+    TCRT5000_Config_t tcrt_cfg;
+    TCRT5000_Status st;
 
     // 2) Creo la instancia del TCRT5000. Pasa USART1_PrintString (o NULL si no quieres debug).
-    HAL_StatusTypeDef st = TCRT5000_Create(
+    tcrt_cfg.pull_down_mask = TCRT_MAIN_PULL_DOWN_MASK;
+    tcrt_cfg.lateral_alpha = TCRT5000_DEFAULT_LATERAL_ALPHA;
+    tcrt_cfg.auto_mode_advance = false;
+    tcrt_cfg.light_initial_state = true;
+    tcrt_cfg.ready_batch_size = TCRT5000_DEFAULT_READY_BATCH_SIZE;
+    tcrt_cfg.default_threshold_line = TCRT5000_DEFAULT_THRESHOLD_LINE;
+    tcrt_cfg.default_threshold_obstacle = TCRT5000_DEFAULT_THRESHOLD_OBS;
+    tcrt_cfg.light_write = TCRT_MainLightWrite;
+    tcrt_cfg.light_ctx = &tcrtLightHal;
+    st = TCRT5000_Init(&tcrtTask, &tcrt_cfg);
+    /*
         &tcrtTask,            // handler de la librería
         &procesar_flag,       // bandera que marca “8 muestras ADC listas”
         sensor_raw_data,      // arreglo uint16_t[8]
@@ -440,7 +475,8 @@ void initTCRTLib(void)
     );
     TCRT5000_SetAutoModeAdvance(&tcrtTask, false);
     // 3) Informo por UART si hubo éxito o error al crear la instancia.
-    if (st != HAL_OK) {
+    */
+    if (st != TCRT5000_OK) {
 
         return;  // Salimos, no tiene sentido continuar si la creación falló.
     }
@@ -448,7 +484,7 @@ void initTCRTLib(void)
 
     }
     // 4) Si la creación fue exitosa, inicio la calibración interna:
-    if (TCRT5000_StartCalibration(&tcrtTask, 50, 50) != HAL_OK) {
+    if (TCRT5000_StartCalibration(&tcrtTask, 50, 50) != TCRT5000_OK) {
         // Si falla la primera fase de calibración, lo informo:
 
     }
@@ -459,6 +495,17 @@ void initTCRTLib(void)
 }
 
 void TCRT_MainTask(){
+	(void)TCRT5000_TryUpdate(&tcrtTask);
+	if (TCRT5000_IsReady(&tcrtTask)) {
+		SET_FLAG(systemFlags, PROCESS_IR_DATA);
+	    TCRT5000_ClearReady(&tcrtTask);
+	}
+	if(IS_FLAG_SET(systemFlags, PROCESS_IR_DATA)){
+		//Procesar aca la data de los IR
+		CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
+	}
+	return;
+#if 0
 	if (procesar_flag) {
 		TCRT5000_Update(&tcrtTask);
 		procesar_flag = false; // ya procesó la transferencia
@@ -490,6 +537,47 @@ void TCRT_MainTask(){
 		CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
 
 	}
+#endif
+}
+#endif
+
+void initTCRTLib(void)
+{
+    TCRT5000_Config_t tcrt_cfg;
+
+    tcrtLightHal.port = Luces_IR_GPIO_Port;
+    tcrtLightHal.pin = Luces_IR_Pin;
+
+    tcrt_cfg.pull_down_mask = TCRT_MAIN_PULL_DOWN_MASK;
+    tcrt_cfg.lateral_alpha = TCRT5000_DEFAULT_LATERAL_ALPHA;
+    tcrt_cfg.auto_mode_advance = false;
+    tcrt_cfg.light_initial_state = true;
+    tcrt_cfg.ready_batch_size = TCRT5000_DEFAULT_READY_BATCH_SIZE;
+    tcrt_cfg.default_threshold_line = TCRT5000_DEFAULT_THRESHOLD_LINE;
+    tcrt_cfg.default_threshold_obstacle = TCRT5000_DEFAULT_THRESHOLD_OBS;
+    tcrt_cfg.light_write = TCRT_MainLightWrite;
+    tcrt_cfg.light_ctx = &tcrtLightHal;
+
+    if (TCRT5000_Init(&tcrtTask, &tcrt_cfg) != TCRT5000_OK) {
+        return;
+    }
+
+    (void)TCRT5000_StartCalibration(&tcrtTask, 50, 50);
+}
+
+void TCRT_MainTask()
+{
+    if (procesar_flag) {
+        procesar_flag = false;
+        if (TCRT5000_ProcessSample(&tcrtTask, sensor_raw_data)) {
+            SET_FLAG(systemFlags, PROCESS_IR_DATA);
+        }
+    }
+
+    if (IS_FLAG_SET(systemFlags, PROCESS_IR_DATA)) {
+        // Procesar aca la data de los IR
+        CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
+    }
 }
 
 void My_TimerCalcFunc(uint32_t target_freq_hz,
@@ -683,9 +771,10 @@ void OLED_MainTask(void) {
     }
 
     // 4) Enviar el buffer al display (no bloqueante con DMA/I2C manager)
-    if (did_render) {
+        if (did_render) {
         __NOP(); // BREAKPOINT: inicio de ssd1306_UpdateScreen
         ssd1306_UpdateScreen();
+        onRenderComplete();
     }
 }
 

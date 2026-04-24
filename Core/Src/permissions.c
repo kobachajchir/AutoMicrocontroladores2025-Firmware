@@ -6,7 +6,6 @@
 
 #include "permissions.h"
 
-#include <stdio.h>
 #include <string.h>
 
 #include "globals.h"
@@ -48,6 +47,34 @@ typedef struct {
 } PermissionManager_t;
 
 static PermissionManager_t permissionManager;
+
+static void Permission_FormatAttempts(char *buf, size_t len, uint8_t attempts)
+{
+    static const char prefix[] = "Intentos: ";
+    char digits[3];
+    uint8_t count = 0u;
+    size_t pos = 0u;
+
+    if (!buf || len == 0u) {
+        return;
+    }
+
+    while (prefix[pos] != '\0' && pos + 1u < len) {
+        buf[pos] = prefix[pos];
+        pos++;
+    }
+
+    do {
+        digits[count++] = (char)('0' + (attempts % 10u));
+        attempts /= 10u;
+    } while (attempts != 0u && count < (uint8_t)sizeof(digits));
+
+    while (count > 0u && pos + 1u < len) {
+        buf[pos++] = digits[--count];
+    }
+
+    buf[pos] = '\0';
+}
 
 static const PermissionPolicy_t permissionPolicies[PERMISSION_COUNT] = {
     [PERMISSION_NONE] = {
@@ -250,8 +277,54 @@ static void Permission_Grant(uint32_t ttl_ms)
     }
 }
 
+static bool Permission_HasActiveRequest(void)
+{
+    return (permissionManager.state == AUTH_INPUT_PIN ||
+            permissionManager.state == AUTH_WAITING_ESP) &&
+           permissionManager.requestedPermission > PERMISSION_NONE &&
+           permissionManager.requestedPermission < PERMISSION_COUNT;
+}
+
+static uint8_t Permission_ResolveDeniedAttempts(uint8_t attempts_left)
+{
+    if (attempts_left == 0xFFu) {
+        return permissionManager.attemptsLeft > 0u
+            ? (uint8_t)(permissionManager.attemptsLeft - 1u)
+            : 0u;
+    }
+
+    return attempts_left;
+}
+
+static void Permission_ApplyDeniedState(PermissionId_t permission, uint8_t attempts_left)
+{
+    permissionManager.attemptsLeft = attempts_left;
+
+    if (permission == PERMISSION_CAR_MODE_TEST) {
+        Permission_Emit(attempts_left == 0u ? PERMISSION_EVT_LOCKED : PERMISSION_EVT_DENIED);
+        Permission_ClearPendingRequest();
+        Permission_RestoreUiContext();
+        OledUtils_ShowSimpleNotificationMs(OLED_SIMPLE_NOTIFICATION_PERMISSION_DENIED, 2200u);
+        return;
+    }
+
+    if (attempts_left == 0u) {
+        Permission_MarkResult(AUTH_LOCKED, PERMISSION_EVT_LOCKED);
+    } else {
+        Permission_MarkResult(AUTH_DENIED, PERMISSION_EVT_DENIED);
+    }
+}
+
+static void Permission_ApplyTimeoutState(void)
+{
+    Permission_MarkResult(AUTH_TIMEOUT, PERMISSION_EVT_TIMEOUT);
+}
+
 static void Permission_TrySendValidation(void)
 {
+#if PERMISSION_EXTERNAL_PIN_GRANT_ONLY
+    return;
+#else
     if (permissionManager.state != AUTH_WAITING_ESP ||
         !permissionManager.validationSendPending) {
         return;
@@ -277,8 +350,10 @@ static void Permission_TrySendValidation(void)
         Permission_ClearPin();
         Permission_Emit(PERMISSION_EVT_VALIDATION_STARTED);
     }
+#endif
 }
 
+#if !PERMISSION_EXTERNAL_PIN_GRANT_ONLY
 static void Permission_SubmitPin(void)
 {
     permissionManager.requestId++;
@@ -293,6 +368,7 @@ static void Permission_SubmitPin(void)
     Permission_Emit(PERMISSION_EVT_PIN_SUBMITTED);
     Permission_TrySendValidation();
 }
+#endif
 
 static void Permission_ResetForRetry(void)
 {
@@ -327,27 +403,36 @@ static void Permission_DrawBaselineText(uint8_t x, uint8_t baseline_y, FontDef f
 static void Permission_RenderPinDigits(void)
 {
     char digitText[2] = {0};
-    const uint8_t frameY = 18u;
-    const uint8_t frameW = 16u;
-    const uint8_t frameH = 17u;
-    const uint8_t frameX[PERMISSION_PIN_DIGITS] = {23u, 44u, 65u, 86u};
-    const uint8_t textX[PERMISSION_PIN_DIGITS] = {27u, 48u, 69u, 90u};
+    const FontDef digitFont = OLED_LARGE_FONT;
+    const uint8_t frameY = 20u;
+    const uint8_t frameW = 18u;
+    const uint8_t frameH = 20u;
+    const uint8_t frameX[PERMISSION_PIN_DIGITS] = {20u, 43u, 66u, 89u};
 
     for (uint8_t i = 0u; i < PERMISSION_PIN_DIGITS; i++) {
+        const uint8_t textX = (uint8_t)(frameX[i] + ((frameW - digitFont.FontWidth) / 2u));
+        const uint8_t textY = (uint8_t)(frameY + ((frameH - digitFont.FontHeight) / 2u));
+
+#if PERMISSION_EXTERNAL_PIN_GRANT_ONLY
+        digitText[0] = '*';
+#else
         if (permissionManager.state == AUTH_WAITING_ESP) {
             digitText[0] = '*';
         } else {
             digitText[0] = (char)('0' + permissionManager.pinDigits[i]);
         }
+#endif
 
         ssd1306_SetColor(White);
         ssd1306_DrawRect(frameX[i], frameY, frameW, frameH);
 
+#if !PERMISSION_EXTERNAL_PIN_GRANT_ONLY
         if (permissionManager.state == AUTH_INPUT_PIN && i == permissionManager.pinIndex) {
             ssd1306_DrawRect((int16_t)frameX[i] - 2, frameY - 2, frameW + 4, frameH + 4);
         }
+#endif
 
-        Permission_DrawText(textX[i], 17u, Font_11x18, digitText);
+        Permission_DrawText(textX, textY, digitFont, digitText);
     }
 }
 
@@ -379,7 +464,7 @@ void Permission_Task(uint32_t now_ms)
 
     if (permissionManager.state == AUTH_WAITING_ESP &&
         ((uint32_t)(now_ms - permissionManager.requestStartedAt) >= PERMISSION_REQUEST_TIMEOUT_MS)) {
-        Permission_MarkResult(AUTH_TIMEOUT, PERMISSION_EVT_TIMEOUT);
+        Permission_ApplyTimeoutState();
     }
 
     for (uint8_t i = (uint8_t)PERMISSION_NONE + 1u; i < (uint8_t)PERMISSION_COUNT; i++) {
@@ -467,6 +552,11 @@ void Permission_HandleUserEvent(UserEvent_t ev)
 {
     switch (permissionManager.state) {
         case AUTH_INPUT_PIN:
+#if PERMISSION_EXTERNAL_PIN_GRANT_ONLY
+            if (ev == UE_ENC_LONG_PRESS || ev == UE_LONG_PRESS) {
+                Permission_CancelRequest();
+            }
+#else
             if (ev == UE_ROTATE_CW) {
                 permissionManager.pinDigits[permissionManager.pinIndex] =
                     (uint8_t)((permissionManager.pinDigits[permissionManager.pinIndex] + 1u) % 10u);
@@ -476,17 +566,15 @@ void Permission_HandleUserEvent(UserEvent_t ev)
                     (uint8_t)((permissionManager.pinDigits[permissionManager.pinIndex] + 9u) % 10u);
                 Permission_RequestRender();
             } else if (ev == UE_ENC_SHORT_PRESS) {
-                if (permissionManager.pinIndex < (PERMISSION_PIN_DIGITS - 1u)) {
-                    permissionManager.pinIndex++;
-                    Permission_RequestRender();
-                } else {
-                    Permission_SubmitPin();
-                }
+                permissionManager.pinIndex =
+                    (uint8_t)((permissionManager.pinIndex + 1u) % PERMISSION_PIN_DIGITS);
+                Permission_RequestRender();
             } else if (ev == UE_SHORT_PRESS) {
                 Permission_SubmitPin();
             } else if (ev == UE_ENC_LONG_PRESS || ev == UE_LONG_PRESS) {
                 Permission_CancelRequest();
             }
+#endif
             break;
 
         case AUTH_DENIED:
@@ -540,8 +628,8 @@ void Permission_RenderPinEntry(void)
         case AUTH_DENIED:
             screen_code = SCREEN_CODE_WARNING_PIN_DENIED;
             MenuSys_SetCurrentScreenCode(&menuSystem, screen_code, SCREEN_REPORT_SOURCE_PERMISSION);
-            Permission_DrawText(15, 14, Font_11x18, "Rechazado");
-            snprintf(line, sizeof(line), "Intentos: %u", permissionManager.attemptsLeft);
+            Permission_DrawText(15, 14, OLED_LARGE_FONT, "Rechazado");
+            Permission_FormatAttempts(line, sizeof(line), permissionManager.attemptsLeft);
             Permission_DrawText(4, 42, Font_7x10, line);
             Permission_DrawText(4, 58, Font_7x10, "OK: reintentar");
             break;
@@ -549,7 +637,7 @@ void Permission_RenderPinEntry(void)
         case AUTH_TIMEOUT:
             screen_code = SCREEN_CODE_WARNING_PIN_TIMEOUT;
             MenuSys_SetCurrentScreenCode(&menuSystem, screen_code, SCREEN_REPORT_SOURCE_PERMISSION);
-            Permission_DrawText(26, 14, Font_11x18, "Sin resp.");
+            Permission_DrawText(26, 14, OLED_LARGE_FONT, "Sin resp.");
             Permission_DrawText(4, 42, Font_7x10, "ESP no valido");
             Permission_DrawText(4, 58, Font_7x10, "OK: volver");
             break;
@@ -557,7 +645,7 @@ void Permission_RenderPinEntry(void)
         case AUTH_LOCKED:
             screen_code = SCREEN_CODE_WARNING_PIN_BLOCKED;
             MenuSys_SetCurrentScreenCode(&menuSystem, screen_code, SCREEN_REPORT_SOURCE_PERMISSION);
-            Permission_DrawText(18, 14, Font_11x18, "Bloqueado");
+            Permission_DrawText(18, 14, OLED_LARGE_FONT, "Bloqueado");
             Permission_DrawText(4, 42, Font_7x10, "Demasiados fallos");
             Permission_DrawText(4, 58, Font_7x10, "OK: volver");
             break;
@@ -565,7 +653,11 @@ void Permission_RenderPinEntry(void)
         case AUTH_INPUT_PIN:
         default:
             MenuSys_SetCurrentScreenCode(&menuSystem, screen_code, SCREEN_REPORT_SOURCE_PERMISSION);
+#if PERMISSION_EXTERNAL_PIN_GRANT_ONLY
+            Permission_RenderPinForm("Esperando");
+#else
             Permission_RenderPinForm("Confirmar");
+#endif
             break;
     }
 }
@@ -588,41 +680,43 @@ void Permission_OnValidationResult(uint8_t request_id,
         }
         Permission_Grant(ttl_ms);
     } else {
-        if (attempts_left == 0xFFu) {
-            attempts_left = permissionManager.attemptsLeft > 0u
-                ? (uint8_t)(permissionManager.attemptsLeft - 1u)
-                : 0u;
-        }
-
-        permissionManager.attemptsLeft = attempts_left;
-
-        if (permission == PERMISSION_CAR_MODE_TEST) {
-            Permission_Emit(attempts_left == 0u ? PERMISSION_EVT_LOCKED : PERMISSION_EVT_DENIED);
-            Permission_ClearPendingRequest();
-            Permission_RestoreUiContext();
-            OledUtils_ShowNotificationMs(OledUtils_RenderPermissionDeniedNotification, 2200u);
-            return;
-        }
-
-        if (attempts_left == 0u) {
-            Permission_MarkResult(AUTH_LOCKED, PERMISSION_EVT_LOCKED);
-        } else {
-            Permission_MarkResult(AUTH_DENIED, PERMISSION_EVT_DENIED);
-        }
+        Permission_ApplyDeniedState(permission, Permission_ResolveDeniedAttempts(attempts_left));
     }
 }
 
 bool Permission_GrantCurrentRequest(uint32_t ttl_ms)
 {
-    if ((permissionManager.state != AUTH_INPUT_PIN &&
-         permissionManager.state != AUTH_WAITING_ESP) ||
-        permissionManager.requestedPermission <= PERMISSION_NONE ||
-        permissionManager.requestedPermission >= PERMISSION_COUNT) {
+    if (!Permission_HasActiveRequest()) {
         return false;
     }
 
     Permission_Grant(ttl_ms);
     return true;
+}
+
+bool Permission_ApplyRemoteResult(uint8_t result_code, uint8_t attempts_left)
+{
+    if (!Permission_HasActiveRequest()) {
+        return false;
+    }
+
+    switch (result_code) {
+        case UNER_AUTH_REMOTE_RESULT_DENIED:
+            Permission_ApplyDeniedState(permissionManager.requestedPermission,
+                                        Permission_ResolveDeniedAttempts(attempts_left));
+            return true;
+
+        case UNER_AUTH_REMOTE_RESULT_TIMEOUT:
+            Permission_ApplyTimeoutState();
+            return true;
+
+        case UNER_AUTH_REMOTE_RESULT_BLOCKED:
+            Permission_ApplyDeniedState(permissionManager.requestedPermission, 0u);
+            return true;
+
+        default:
+            return false;
+    }
 }
 
 void Permission_SetEventCallback(PermissionEventCallback callback)

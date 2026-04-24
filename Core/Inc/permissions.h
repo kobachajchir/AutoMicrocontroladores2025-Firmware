@@ -17,6 +17,10 @@ extern "C" {
 
 #define PERMISSION_PIN_DIGITS 4u
 
+#ifndef PERMISSION_EXTERNAL_PIN_GRANT_ONLY
+#define PERMISSION_EXTERNAL_PIN_GRANT_ONLY 0u
+#endif
+
 typedef enum {
     PERMISSION_NONE = 0,
     PERMISSION_ESP_RESET,
@@ -93,6 +97,7 @@ void Permission_OnValidationResult(uint8_t request_id,
                                    uint32_t ttl_ms,
                                    uint8_t attempts_left);
 bool Permission_GrantCurrentRequest(uint32_t ttl_ms);
+bool Permission_ApplyRemoteResult(uint8_t result_code, uint8_t attempts_left);
 
 void Permission_SetEventCallback(PermissionEventCallback callback);
 AuthState_t Permission_GetState(void);

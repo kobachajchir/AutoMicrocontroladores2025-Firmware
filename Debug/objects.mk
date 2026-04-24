@@ -5,5 +5,5 @@
 
 USER_OBJS :=
 
-LIBS := -lHAL_LIB_TCRT5000_KOBA
+LIBS :=
 

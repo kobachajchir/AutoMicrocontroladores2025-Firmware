@@ -13,18 +13,18 @@
 
 void OledUtils_DrawItem_Wrapper(const MenuItem *item, int y, bool selected);
 void OledUtils_RenderDashboard_Wrapper(void);
-void OledUtils_RenderTestScreen_Wrapper(void);
 void OledUtils_About_Wrapper(void);
 void MenuSys_RenderMenu_Wrapper(void);
 void MenuSys_GoBack_Wrapper(void);
 void OledUtils_RenderMotorTest_Wrapper(void);
-void OledUtils_RenderRadar_Wrapper(void);
 void OledUtils_RenderValoresIR_Wrapper(void);
 void OledUtils_RenderValoresMPU_Wrapper(void);
 void OledUtils_RenderWiFiSearching_Wrapper(void);
 void OledUtils_RenderWiFiSearchResults_Wrapper(void);
+void OledUtils_RenderWiFiDetails_Wrapper(void);
 void OledUtils_RenderWiFiConnectionStatus_Wrapper(void);
 void OledUtils_RenderESPFirmwareScreen_Wrapper(void);
+void WiFiScan_ClearResults(void);
 void onRenderComplete(void);
 
 #endif /* INC_SCREENWRAPPERS_H_ */

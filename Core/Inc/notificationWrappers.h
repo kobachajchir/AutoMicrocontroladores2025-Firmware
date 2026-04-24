@@ -10,6 +10,6 @@
 void OledUtils_RenderStartupNotification_Wrapper(void);
 void OledUtils_RenderESPCheckConnection_Wrapper(void);
 void OledUtils_RenderESPFirmwareRequest_Wrapper(void);
-void OledUtils_RenderESPResetSent_Wrapper(void);
+void OledUtils_RenderESPResetMode_Wrapper(void);
 
 #endif /* INC_NOTIFICATIONWRAPPERS_H_ */

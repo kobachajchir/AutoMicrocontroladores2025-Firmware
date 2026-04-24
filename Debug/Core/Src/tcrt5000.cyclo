@@ -1,0 +1,6 @@
+../Core/Src/tcrt5000.c:69:13:TCRT5000_AdvanceMode	10
+../Core/Src/tcrt5000.c:10:17:TCRT5000_ReadSample.isra	2
+../Core/Src/tcrt5000.c:143:17:TCRT5000_Init	4
+../Core/Src/tcrt5000.c:186:17:TCRT5000_StartCalibration	4
+../Core/Src/tcrt5000.c:229:6:TCRT5000_RequestModeChange	2
+../Core/Src/tcrt5000.c:236:6:TCRT5000_ProcessSample	26

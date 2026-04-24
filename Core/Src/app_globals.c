@@ -38,15 +38,18 @@ volatile uint8_t  oled10msCounter = 0;
 /* Motores */
 volatile uint8_t motorSelected = 0; // 0: izquierdo, 1: derecho, 2: ambos
 volatile uint8_t motorSpeed    = 100;
-volatile uint8_t motorDir      = 0; // 0: adelante, 1: atrás
-
-/* TCRT config */
-TCRT_LightConfig_t tcrtLight;
+volatile uint8_t motorDir      = 0; // 0: adelante, 1: atras
 
 /* WiFi */
 uint16_t wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
 uint8_t networksFound = 0;
 char wifiNetworkSsids[WIFI_SCAN_MAX_NETWORKS][WIFI_SSID_MAX_LEN + 1] = {{0}};
+char wifiNetworkEncryptions[WIFI_SCAN_MAX_NETWORKS][WIFI_ENCRYPTION_MAX_LEN + 1] = {{0}};
+int8_t wifiNetworkSignalStrengths[WIFI_SCAN_MAX_NETWORKS] = {0};
+uint8_t wifiNetworkChannels[WIFI_SCAN_MAX_NETWORKS] = {0};
+uint8_t wifiNetworkEncryptionTypes[WIFI_SCAN_MAX_NETWORKS] = {0};
+uint8_t wifiNetworkDetailValid[WIFI_SCAN_MAX_NETWORKS] = {0};
+uint8_t wifiSelectedNetworkIndex = WIFI_SELECTED_NETWORK_INVALID;
 volatile uint8_t wifiScanSessionActive = 0;
 volatile uint8_t wifiScanResultsPending = 0;
 volatile IPStruct_t espStaIp = {0u, 0u, 0u, 0u};
@@ -59,18 +62,6 @@ ESPWiFiConnectionInfo_t espWifiConnection = {
     .apIpValid = 0u,
 };
 char espFirmwareVersion[33] = {0};
-
-/* Pull config */
-bool pull_cfg[TCRT5000_NUM_SENSORS] = {
-    TCRT_PULL_UP,    // canal 0: línea central  (no invertir)
-    TCRT_PULL_UP,    // canal 1: línea lateral izq
-    TCRT_PULL_UP,    // canal 2: línea lateral der
-    TCRT_PULL_DOWN,  // canal 3: obstáculo diag izq (invertir)
-    TCRT_PULL_DOWN,  // canal 4: obstáculo frente izq
-    TCRT_PULL_DOWN,  // canal 5: obstáculo centro
-    TCRT_PULL_DOWN,  // canal 6: obstáculo frente der
-    TCRT_PULL_DOWN   // canal 7: obstáculo diag der
-};
 
 /* USART1 DMA RX */
 volatile uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];

@@ -10,7 +10,7 @@
 typedef struct {
 	const uint8_t FontWidth;    /*!< Font width in pixels */
 	uint8_t FontHeight;   /*!< Font height in pixels */
-	const uint16_t *data; /*!< Pointer to data font data array */
+	const void *data; /*!< Row data: uint8_t rows for <=8 px, uint16_t rows otherwise */
 } FontDef;
 
 #define Font5x10_WIDTH  5
@@ -30,6 +30,18 @@ typedef struct {
 extern const uint8_t FontMap[128];
 extern const FontDef Font_7x10;
 extern const FontDef Font_11x18;
+
+#ifndef OLED_USE_LARGE_FONT
+/* Set to 1 to keep the 11x18 title font in the firmware image. */
+#define OLED_USE_LARGE_FONT 0u
+#endif
+
+#if OLED_USE_LARGE_FONT
+#define OLED_LARGE_FONT Font_11x18
+#else
+#define OLED_LARGE_FONT Font_7x10
+#endif
+
 extern const uint8_t Icon_UserBtn_bits[];
 extern const uint8_t Icon_Wifi_bits[];
 extern const uint8_t Icon_Sensors_bits[];
@@ -44,7 +56,8 @@ extern const uint8_t Icon_RF_bits[];
 extern const uint8_t Icon_Car_bits[];
 extern const uint8_t Arrow_Right_bits[];
 extern const uint8_t Arrow_Left_bits[];
-extern const uint8_t QRCode_Github_bits[];
+/* QRCode_Github_bits now lives in ESP and is streamed as a binary asset. */
+/* extern const uint8_t QRCode_Github_bits[]; */
 extern const uint8_t QrCodeAutoWEBGithub[];
 extern const uint8_t Icon_Info_bits[];
 extern const uint8_t Icon_Link_bits[];
