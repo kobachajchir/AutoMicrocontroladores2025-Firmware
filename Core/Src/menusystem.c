@@ -13,7 +13,7 @@
 #include "types/menu_types.h"
 #include "globals.h"         // USART1_PrintString
 #include "menusystem.h"
-#include "uner_app.h"
+#include "wifi_bridge.h"
 
 static bool MenuSys_HasNavigableSelection(const MenuSystem *ms);
 static bool MenuSys_IsCurrentScreenMenu(const MenuSystem *ms);
@@ -34,8 +34,9 @@ void MenuSys_FlushScreenReport(MenuSystem *ms)
         return;
     }
 
-    if (UNER_App_ReportScreenChanged((uint32_t)ms->current_screen_code,
-                                     ms->current_screen_source) == UNER_OK) {
+    if (WifiBridge_ReportScreenChanged(&wifiBridge,
+                                       (uint32_t)ms->current_screen_code,
+                                       ms->current_screen_source) == WIFI_BRIDGE_OK) {
         ms->last_reported_screen_code = ms->current_screen_code;
         ms->screen_report_pending = false;
     }
@@ -48,10 +49,11 @@ void MenuSys_FlushMenuSelectionReport(MenuSystem *ms)
         return;
     }
 
-    if (UNER_App_ReportMenuSelectionChanged((uint32_t)ms->current_screen_code,
-                                            ms->current_selected_index,
-                                            ms->current_item_count,
-                                            ms->current_selection_source) == UNER_OK) {
+    if (WifiBridge_ReportMenuSelectionChanged(&wifiBridge,
+                                              (uint32_t)ms->current_screen_code,
+                                              ms->current_selected_index,
+                                              ms->current_item_count,
+                                              ms->current_selection_source) == WIFI_BRIDGE_OK) {
         ms->last_reported_selected_index = ms->current_selected_index;
         ms->last_reported_item_count = ms->current_item_count;
         ms->selection_report_pending = false;

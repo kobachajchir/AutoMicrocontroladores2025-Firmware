@@ -78,6 +78,8 @@ typedef enum {
 #define SCREEN_CODE_SENSORS_MENU                              SCREEN_CODE(0x03u, 0x01u, 0x01u)
 #define SCREEN_CODE_SENSORS_IR_VALUES                         SCREEN_CODE(0x03u, 0x02u, 0x01u)
 #define SCREEN_CODE_SENSORS_MPU_VALUES                        SCREEN_CODE(0x03u, 0x03u, 0x01u)
+#define SCREEN_CODE_SENSORS_MPU_STREAM_STARTED                SCREEN_CODE(0x03u, 0x03u, 0x02u)
+#define SCREEN_CODE_SENSORS_MPU_STREAM_STOPPED                SCREEN_CODE(0x03u, 0x03u, 0x03u)
 #define SCREEN_CODE_SENSORS_RADAR                             SCREEN_CODE(0x03u, 0x04u, 0x01u)
 
 /* 0x04xxxx: motor and motion/control views. */
@@ -85,8 +87,10 @@ typedef enum {
 
 /* 0x05xxxx: settings and information pages. */
 #define SCREEN_CODE_SETTINGS_MENU                             SCREEN_CODE(0x05u, 0x01u, 0x01u)
+#define SCREEN_CODE_SETTINGS_ABOUT_MENU                       SCREEN_CODE(0x05u, 0x02u, 0x00u)
 #define SCREEN_CODE_SETTINGS_ABOUT_PROJECT                    SCREEN_CODE(0x05u, 0x02u, 0x01u)
 #define SCREEN_CODE_SETTINGS_ABOUT_REPO                       SCREEN_CODE(0x05u, 0x02u, 0x02u)
+#define SCREEN_CODE_SETTINGS_ABOUT_BUILD                      SCREEN_CODE(0x05u, 0x02u, 0x03u)
 #define SCREEN_CODE_SETTINGS_WARNING_TIME                     SCREEN_CODE(0x05u, 0x03u, 0x01u)
 
 /* 0x06xxxx: diagnostics, controller, and protocol status notifications. */

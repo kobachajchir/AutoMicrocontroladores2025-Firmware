@@ -77,7 +77,11 @@ typedef union {
 #define DATA_READY BIT0_MASK
 #define TX_SENT  BIT1_MASK
 #define CALIBRATED  BIT2_MASK
-//#define UNUSED  BIT3_MASK*/
+#define MPU_NEW_READING BIT3_MASK
+#define MPU_VALID BIT4_MASK
+#define MPU_ERROR BIT5_MASK
+#define MPU_STATIONARY BIT6_MASK
+#define MPU_CALIBRATING BIT7_MASK
 //Otra parte (Alta) guarda la prioridad
 
 /** Callback que se ejecuta cuando los datos del MPU6050 están listos. */
@@ -88,9 +92,9 @@ typedef struct {
     int16_t accel_y_mg;
     int16_t accel_z_mg;
     int16_t temperature_celsius_x100;
-    int16_t gyro_x_mdps;
-    int16_t gyro_y_mdps;
-    int16_t gyro_z_mdps;
+    int32_t gyro_x_mdps;
+    int32_t gyro_y_mdps;
+    int32_t gyro_z_mdps;
 } MPU6050_IntData_t;
 
 typedef struct {
@@ -98,6 +102,24 @@ typedef struct {
     int32_t angle_y_md;
     int32_t angle_z_md;
 } MPU6050_Orientation_t;
+
+typedef struct {
+    uint8_t flags;
+    uint16_t sample_seq;
+    uint16_t sample_dt_us;
+    int16_t accel_x_mg;
+    int16_t accel_y_mg;
+    int16_t accel_z_mg;
+    int16_t linear_accel_x_mg;
+    int16_t linear_accel_y_mg;
+    int16_t linear_accel_z_mg;
+    int32_t gyro_x_mdps;
+    int32_t gyro_y_mdps;
+    int32_t gyro_z_mdps;
+    int32_t roll_md;
+    int32_t pitch_md;
+    int32_t yaw_md;
+} MPU6050_Snapshot_t;
 
 typedef enum {
     MPU6050_READ_ALL = 0,
@@ -130,6 +152,7 @@ typedef struct {
 
     MPU_Byte_Flag_Struct_t flags;
     MPU6050_IntData_t  data;            ///< Datos convertidos
+    MPU6050_Snapshot_t latest;          ///< Snapshot liviano para PID/UNER/UI
 
     /** Usuario callback */
     MPU6050_Callback   on_data_ready_cb;
@@ -139,9 +162,17 @@ typedef struct {
     volatile bool     *trigger;         ///< Señal externa de disparo
     int32_t gyro_bias_x, gyro_bias_y, gyro_bias_z;
 	int32_t calib_sum_x,  calib_sum_y,  calib_sum_z;
+    int32_t calib_accel_sum_x, calib_accel_sum_y, calib_accel_sum_z;
     int32_t angle_x_md,  angle_y_md,  angle_z_md;
     int32_t rem_x, rem_y, rem_z;
+    int16_t gravity_x_mg, gravity_y_mg, gravity_z_mg;
+    int16_t prev_accel_x_mg, prev_accel_y_mg, prev_accel_z_mg;
+    int32_t roll_ref_md, pitch_ref_md;
+    uint32_t calib_started_ms;
+    uint32_t last_sample_time_us;
 	uint16_t calib_count,   calib_target;
+    uint16_t calib_warmup_ms, calib_window_ms;
+    uint8_t prev_accel_valid;
 } MPU6050_Handle_t;
 
 /**
@@ -171,11 +202,13 @@ HAL_StatusTypeDef MPU6050_BindI2CManager(
 HAL_StatusTypeDef MPU6050_Configure(MPU6050_Handle_t *hmpu);
 
 void MPU6050_CalibrateGyro(MPU6050_Handle_t *h, uint16_t samples);
+void MPU6050_StartCalibration(MPU6050_Handle_t *h, uint16_t warmup_ms, uint16_t window_ms);
 
 /**
  * @brief Revisa la señal @p trigger; si está activa, la limpia y pide TX bus.
  */
 void MPU6050_CheckTrigger(MPU6050_Handle_t *hmpu);
+void MPU6050_Process(MPU6050_Handle_t *hmpu);
 
 HAL_StatusTypeDef MPU6050_RequestAllData(MPU6050_Handle_t *hmpu);
 HAL_StatusTypeDef MPU6050_RequestAccel(MPU6050_Handle_t *hmpu);
@@ -187,6 +220,10 @@ HAL_StatusTypeDef MPU6050_RequestOrientation(MPU6050_Handle_t *hmpu);
  * @brief Devuelve el puntero a los datos convertidos (mg, mdps, °C×100).
  */
 const MPU6050_IntData_t* MPU6050_GetData(MPU6050_Handle_t *hmpu);
+HAL_StatusTypeDef MPU6050_GetLatest(MPU6050_Handle_t *hmpu, MPU6050_Snapshot_t *out);
+uint8_t MPU6050_HasNewSample(const MPU6050_Handle_t *hmpu, uint16_t last_seq);
+void MPU6050_ClearNewFlag(MPU6050_Handle_t *hmpu);
+void MPU6050_SetReferenceNow(MPU6050_Handle_t *hmpu);
 
 /**
  * @brief Devuelve orientación integrada en milideg.

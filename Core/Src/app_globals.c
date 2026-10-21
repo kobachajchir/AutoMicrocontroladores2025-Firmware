@@ -62,6 +62,8 @@ ESPWiFiConnectionInfo_t espWifiConnection = {
     .apIpValid = 0u,
 };
 char espFirmwareVersion[33] = {0};
+const char buildDate[] = __DATE__;
+const char buildTime[] = __TIME__;
 
 /* USART1 DMA RX */
 volatile uint8_t usart1_rx_dma_buf[USART1_RX_DMA_BUF_LEN];

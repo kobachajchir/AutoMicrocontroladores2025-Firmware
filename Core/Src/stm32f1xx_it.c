@@ -25,7 +25,7 @@
 #include "globals.h"
 #include "utils.h"
 #include "i2c_manager.h"
-#include "uner_app.h"
+#include "wifi_bridge.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -354,7 +354,7 @@ void USART1_IRQHandler(void)
 
     if ((sr & USART_SR_IDLE) != 0u)
     {
-        UNER_App_NotifyUart1Rx();
+        WifiBridge_OnIdleIrq(&wifiBridge);
     }
 
     /* NO llamar HAL_UART_IRQHandler(&huart1); */

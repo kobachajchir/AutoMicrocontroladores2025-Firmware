@@ -13,14 +13,14 @@
 #include "i2c_manager.h"
 #include "user_button.h"
 #include "main.h"
-#include "uner_app.h"
+#include "wifi_bridge.h"
 #include "usart.h"
 
 /* Libera busy al completar */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART1) {
-        UNER_App_OnUart1TxComplete();
+        WifiBridge_OnTxComplete(&wifiBridge);
     }
 }
 
@@ -33,27 +33,27 @@ void USART1_DMA_CheckHealth(void)
     if (((huart1.Instance->CR3 & USART_CR3_DMAR) == 0u) ||
         (huart1.RxState == HAL_UART_STATE_READY))
     {
-        (void)HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
+        (void)HAL_UART_Receive_DMA(&huart1, (uint8_t *)usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
         __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
 
-        UNER_App_ResetUart1RxPos();
+        WifiBridge_ResetRxPos(&wifiBridge);
     }
 }
 
 
-/*void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
+void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART1) {
-        USART1_DMA_CheckRx();
+        WifiBridge_OnRxHalfComplete(&wifiBridge);
     }
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART1) {
-        USART1_DMA_CheckRx();
+        WifiBridge_OnRxComplete(&wifiBridge);
     }
-}*/
+}
 
 void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {

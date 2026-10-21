@@ -107,11 +107,30 @@ SubMenu submenu2 = {
     .screen_code = SCREEN_CODE_SENSORS_MENU
 };
 
+/* ---------- Submenu Acerca de ---------- */
+
+MenuItem submenuAboutItems[] = {
+    {"Info", NULL, NULL, Icon_Info_bits, OledUtils_AboutInfo_Wrapper, ReadOnly_UserEventManager, NULL, SCREEN_CODE_SETTINGS_ABOUT_PROJECT},
+    {"Repositorio", NULL, NULL, Icon_Info_bits, OledUtils_AboutRepo_Wrapper, ReadOnly_UserEventManager, NULL, SCREEN_CODE_SETTINGS_ABOUT_REPO},
+    {"Build", NULL, NULL, Icon_Info_bits, OledUtils_AboutBuild_Wrapper, ReadOnly_UserEventManager, NULL, SCREEN_CODE_SETTINGS_ABOUT_BUILD}
+};
+
+SubMenu submenuAbout = {
+    .name = "Acerca de",
+    .items = submenuAboutItems,
+    .itemCount = sizeof(submenuAboutItems)/sizeof(submenuAboutItems[0]),
+    .currentItemIndex = 0,
+    .firstVisibleItem = 0,
+    .parent = &submenu3,
+    .icon = NULL,
+    .screen_code = SCREEN_CODE_SETTINGS_ABOUT_MENU
+};
+
 /* ---------- Submenu Config ---------- */
 
 MenuItem submenu3Items[] = {
     {"Preferencias", NULL, NULL, Icon_Prefs_bits, NULL, menuEventManager, NULL, SCREEN_CODE_NONE},
-    {"Acerca de", NULL, NULL, Icon_Info_bits, OledUtils_About_Wrapper, About_UserEventManager, NULL, SCREEN_CODE_SETTINGS_ABOUT_PROJECT},
+    {"Acerca de", NULL, &submenuAbout, Icon_Info_bits, MenuSys_RenderMenu_Wrapper, menuEventManager, NULL, SCREEN_CODE_SETTINGS_ABOUT_MENU},
     {"Volver", MenuSys_GoBack_Wrapper, &mainMenu, Icon_Volver_bits, MenuSys_RenderMenu_Wrapper, menuEventManager, NULL, SCREEN_CODE_CORE_MAIN_MENU}
 };
 

@@ -9,12 +9,12 @@
 #include "globals.h"
 #include "mpu6050.h"
 #include "ssd1306.h"
-#include "uner_app.h"
+#include "wifi_bridge.h"
 #include <string.h>
 
 static const FontDef *oled_font = &Font_7x10;
 static char oled_wifi_connected_ssid[WIFI_SSID_MAX_LEN + 1u] = "WiFi";
-static uint8_t oled_wifi_credentials_result_status = UNER_WIFI_WEB_CREDENTIALS_STATUS_FAILED;
+static uint8_t oled_wifi_credentials_result_status = WIFI_BRIDGE_WIFI_WEB_CREDENTIALS_STATUS_FAILED;
 
 typedef enum {
     OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2 = 0u,
@@ -159,6 +159,11 @@ static const OledSimpleNotificationDef oled_simple_notifications[] = {
         Icon_Lock_bits, "PIN no verificado", "Accion restringida",
         LOCK_ICON_W, LOCK_ICON_H, OLED_SIMPLE_LAYOUT_CENTER_ICON_SMALL_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
     },
+    [OLED_SIMPLE_NOTIFICATION_PIN_TIMEOUT] = {
+        SCREEN_CODE_WARNING_PIN_TIMEOUT,
+        Icon_Lock_bits, "PIN sin resp.", "Valide otra vez",
+        LOCK_ICON_W, LOCK_ICON_H, OLED_SIMPLE_LAYOUT_CENTER_ICON_SMALL_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
     [OLED_SIMPLE_NOTIFICATION_CONTROLLER_CONNECTED] = {
         SCREEN_CODE_DIAG_CONTROLLER_CONNECTED,
         Icon_Controller_bits, "Control", "conectado",
@@ -168,6 +173,16 @@ static const OledSimpleNotificationDef oled_simple_notifications[] = {
         SCREEN_CODE_DIAG_CONTROLLER_DISCONNECTED,
         Icon_Controller_bits, "Control", "desconectado",
         37u, 27u, OLED_SIMPLE_LAYOUT_CENTER_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_INVERSE, 3u
+    },
+    [OLED_SIMPLE_NOTIFICATION_MPU_STREAM_STARTED] = {
+        SCREEN_CODE_SENSORS_MPU_STREAM_STARTED,
+        Icon_Info_bits, "MPU stream", "iniciado",
+        16u, 16u, OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
+    },
+    [OLED_SIMPLE_NOTIFICATION_MPU_STREAM_STOPPED] = {
+        SCREEN_CODE_SENSORS_MPU_STREAM_STOPPED,
+        Icon_Info_bits, "MPU stream", "detenido",
+        16u, 16u, OLED_SIMPLE_LAYOUT_LEFT_ICON_LARGE_2, OLED_SIMPLE_ICON_FLAG_NONE, 0u
     },
 };
 
@@ -1014,7 +1029,7 @@ void OledUtils_RenderProyectScreen(void)
  */
 void OledUtils_RenderProyectInfoScreen(void)
 {
-    BinaryAssetView_t qr_asset;
+    WifiBridge_BinaryAssetView qr_asset;
     uint8_t qr_ready;
 
     OledUtils_SetScreenCode(SCREEN_CODE_SETTINGS_ABOUT_REPO, SCREEN_REPORT_SOURCE_RENDER);
@@ -1034,11 +1049,11 @@ void OledUtils_RenderProyectInfoScreen(void)
     Oled_DrawStr("STM32");
 
     /*
-     * El QR ya no vive en flash STM. Al renderizar esta pantalla se pide a ESP
-     * por UNER_CMD_ID_BINARY_ASSET_STREAM y se dibuja cuando llega completo.
+     * El QR ya no vive en flash STM. Al renderizar esta pantalla se pide al
+     * backend activo y se dibuja cuando llega completo.
      */
-    (void)UNER_App_RequestBinaryAsset(UNER_BINARY_ASSET_ID_GITHUB_QR);
-    qr_ready = UNER_App_GetBinaryAsset(UNER_BINARY_ASSET_ID_GITHUB_QR, &qr_asset);
+    (void)WifiBridge_RequestBinaryAsset(&wifiBridge, WIFI_BRIDGE_BINARY_ASSET_ID_GITHUB_QR);
+    qr_ready = WifiBridge_GetBinaryAsset(&wifiBridge, WIFI_BRIDGE_BINARY_ASSET_ID_GITHUB_QR, &qr_asset);
 
     // QR Code del repositorio (64x64 píxeles)
     ssd1306_SetColor(White);
@@ -1054,6 +1069,28 @@ void OledUtils_RenderProyectInfoScreen(void)
         ssd1306_SetCursor(68, 48 - fh);
         Oled_DrawStr("ESP");
     }
+}
+
+void OledUtils_RenderBuildInfoScreen(void)
+{
+    OledUtils_SetScreenCode(SCREEN_CODE_SETTINGS_ABOUT_BUILD, SCREEN_REPORT_SOURCE_RENDER);
+    ssd1306_SetColor(White);
+
+    Oled_DrawXBM(4, 20, 16, 16, Icon_Info_bits);
+
+    Oled_SetFont(&OLED_LARGE_FONT);
+    ssd1306_SetCursor(30, 18 - Oled_FontHeight());
+    Oled_DrawStr("Build");
+
+    Oled_SetFont(&Font_7x10);
+    ssd1306_SetCursor(30, 36 - Oled_FontHeight());
+    Oled_DrawStrMax(buildDate, 13u);
+
+    ssd1306_SetCursor(30, 50 - Oled_FontHeight());
+    Oled_DrawStrMax(buildTime, 13u);
+
+    ssd1306_SetCursor(30, 63 - Oled_FontHeight());
+    Oled_DrawStr("OK vuelve");
 }
 
 void OledUtils_RenderModeChange_Full(void)
@@ -1531,12 +1568,12 @@ void OledUtils_RenderWiFiCredentialsFailedNotification(void)
     uint8_t line1_x = 38u;
     uint8_t line2_x = 42u;
 
-    if (oled_wifi_credentials_result_status == UNER_WIFI_WEB_CREDENTIALS_STATUS_TIMEOUT) {
+    if (oled_wifi_credentials_result_status == WIFI_BRIDGE_WIFI_WEB_CREDENTIALS_STATUS_TIMEOUT) {
         line1 = "Tiempo";
         line2 = "agotado";
         line1_x = 43u;
         line2_x = 39u;
-    } else if (oled_wifi_credentials_result_status == UNER_WIFI_WEB_CREDENTIALS_STATUS_CANCELED) {
+    } else if (oled_wifi_credentials_result_status == WIFI_BRIDGE_WIFI_WEB_CREDENTIALS_STATUS_CANCELED) {
         line1 = "Cancelada";
         line2 = "desde web";
         line1_x = 32u;

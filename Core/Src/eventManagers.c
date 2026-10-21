@@ -4,7 +4,7 @@
  *  Created on: Jul 23, 2025
  *      Author: kobac
  */
-#include "uner_app.h"
+#include "wifi_bridge.h"
 #include "eventManagers.h"
 #include "screenWrappers.h"
 #include "oled_utils.h"
@@ -359,7 +359,7 @@ static void WiFiResults_RestartScan(void)
  */
 static void WiFiSearch_Cancel(void)
 {
-    (void)UNER_App_SendCommand(UNER_CMD_ID_STOP_SCAN, NULL, 0u);
+    (void)WifiBridge_StopScan(&wifiBridge);
 
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
     wifiSearchingTimeout = WIFIDEFAULTSEARCHTIMEOUT;
@@ -388,7 +388,7 @@ static void WiFiSearch_OnShortPress(void)
 
 static void WiFiSearch_OnLongPress(void)
 {
-    (void)UNER_App_SendCommand(UNER_CMD_ID_STOP_SCAN, NULL, 0u);
+    (void)WifiBridge_StopScan(&wifiBridge);
     CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
     wifiScanSessionActive = 0u;
     wifiScanResultsPending = 0u;
@@ -456,7 +456,7 @@ static void WiFiResults_OnShortPress(void)
         wifiNetworkChannels[wifiSelectedNetworkIndex] = 0u;
         wifiNetworkEncryptionTypes[wifiSelectedNetworkIndex] = 0u;
         wifiNetworkEncryptions[wifiSelectedNetworkIndex][0] = '\0';
-        (void)UNER_App_RequestWifiNetworkDetail(wifiNetworkSsids[wifiSelectedNetworkIndex]);
+        (void)WifiBridge_RequestWifiNetworkDetail(&wifiBridge, wifiNetworkSsids[wifiSelectedNetworkIndex]);
         menuSystem.renderFn = OledUtils_RenderWiFiDetails_Wrapper;
         menuSystem.renderFlag = true;
         oled_first_draw = true;
@@ -513,7 +513,7 @@ static void WiFiDetails_OnShortPress(void)
         return;
     }
 
-    if (UNER_App_SendWifiCredentialRequest(wifiNetworkSsids[wifiSelectedNetworkIndex]) == UNER_OK) {
+    if (WifiBridge_SendWifiCredentialRequest(&wifiBridge, wifiNetworkSsids[wifiSelectedNetworkIndex]) == WIFI_BRIDGE_OK) {
         OledUtils_ShowNotificationMs(OledUtils_RenderWiFiCredentialsWebNotification, 4000u);
     }
 }

@@ -68,6 +68,7 @@ UNER_Status UNER_Core_Init(
     core->queue_overflow = 0;
 
     uner_reset_parser(core, UNER_RESET_NONE);
+    return UNER_OK;
 }
 
 static UNER_Status uner_queue_commit(UNER_Core *core, uint8_t len)

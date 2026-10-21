@@ -166,6 +166,8 @@ extern volatile IPStruct_t espStaIp;
 extern volatile IPStruct_t espApIp;
 extern ESPWiFiConnectionInfo_t espWifiConnection;
 extern char espFirmwareVersion[33];
+extern const char buildDate[];
+extern const char buildTime[];
 
 /* --- Handlers de librerias --- */
 extern USART_Buffer_t usart1Buf;

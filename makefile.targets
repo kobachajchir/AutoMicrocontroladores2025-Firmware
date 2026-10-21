@@ -1,0 +1,13 @@
+# User makefile hook included by STM32CubeIDE after generated targets.
+# The generated objects.list is rebuilt here from the filtered OBJS list.
+
+define WIFI_BRIDGE_NEWLINE
+
+
+endef
+
+objects.list: FORCE
+	$(file >$@,$(foreach obj,$(OBJS),"$(obj)"$(WIFI_BRIDGE_NEWLINE)))
+	@echo 'Updated backend-filtered objects.list for WifiBridge $(WIFI_BRIDGE_BACKEND)'
+
+.PHONY: FORCE

@@ -1,0 +1,54 @@
+# User makefile hook included by STM32CubeIDE after generated subdir.mk files.
+# Keep backend selection here so regenerated Debug/*.mk files do not break it.
+
+WIFI_BRIDGE_BACKEND ?= UNER
+WIFI_BRIDGE_BACKEND := $(strip $(WIFI_BRIDGE_BACKEND))
+
+ifeq ($(WIFI_BRIDGE_BACKEND),)
+WIFI_BRIDGE_BACKEND := UNER
+endif
+
+ifeq ($(WIFI_BRIDGE_BACKEND),UNER)
+WIFI_BRIDGE_DEFINE := -DWIFI_BRIDGE_USE_UNER
+WIFI_BRIDGE_EXCLUDED_C_SRCS := \
+../Core/Src/wifi_bridge_at.c
+WIFI_BRIDGE_EXCLUDED_OBJS := \
+./Core/Src/wifi_bridge_at.o
+WIFI_BRIDGE_EXCLUDED_C_DEPS := \
+./Core/Src/wifi_bridge_at.d
+else ifeq ($(WIFI_BRIDGE_BACKEND),ESP_AT)
+WIFI_BRIDGE_DEFINE := -DWIFI_BRIDGE_USE_ESP_AT
+WIFI_BRIDGE_EXCLUDED_C_SRCS := \
+../Core/Src/uner_app.c \
+../Core/Src/uner_core.c \
+../Core/Src/uner_handle.c \
+../Core/Src/uner_router.c \
+../Core/Src/uner_transport_nrf24_spi2.c \
+../Core/Src/uner_transport_uart1_dma.c \
+../Core/Src/uner_transport_usbcdc.c \
+../Core/Src/wifi_bridge_uner.c
+WIFI_BRIDGE_EXCLUDED_OBJS := \
+./Core/Src/uner_app.o \
+./Core/Src/uner_core.o \
+./Core/Src/uner_handle.o \
+./Core/Src/uner_router.o \
+./Core/Src/uner_transport_nrf24_spi2.o \
+./Core/Src/uner_transport_uart1_dma.o \
+./Core/Src/uner_transport_usbcdc.o \
+./Core/Src/wifi_bridge_uner.o
+WIFI_BRIDGE_EXCLUDED_C_DEPS := \
+./Core/Src/uner_app.d \
+./Core/Src/uner_core.d \
+./Core/Src/uner_handle.d \
+./Core/Src/uner_router.d \
+./Core/Src/uner_transport_nrf24_spi2.d \
+./Core/Src/uner_transport_uart1_dma.d \
+./Core/Src/uner_transport_usbcdc.d \
+./Core/Src/wifi_bridge_uner.d
+else
+$(error WIFI_BRIDGE_BACKEND must be UNER or ESP_AT)
+endif
+
+C_SRCS := $(filter-out $(WIFI_BRIDGE_EXCLUDED_C_SRCS),$(C_SRCS))
+OBJS := $(filter-out $(WIFI_BRIDGE_EXCLUDED_OBJS),$(OBJS))
+C_DEPS := $(filter-out $(WIFI_BRIDGE_EXCLUDED_C_DEPS),$(C_DEPS))

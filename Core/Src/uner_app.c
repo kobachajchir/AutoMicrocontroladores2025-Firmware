@@ -6,6 +6,7 @@
 #include "uner_core.h"
 #include "uner_handle.h"
 #include "uner_transport_uart1_dma.h"
+#include "uner_transport_usbcdc.h"
 #include "uner_v2.h"
 #include "oled_utils.h"
 #include "permissions.h"
@@ -22,9 +23,14 @@ extern DMA_HandleTypeDef hdma_usart1_rx;
 #define WIFI_SCAN_RESULTS_POLL_RUNNING_MS 750u
 #define WIFI_SCAN_RESULTS_POLL_PENDING_MS 100u
 #define WIFI_SCAN_RESULTS_POLL_RETRY_MS 250u
+#define MPU_STREAM_DEFAULT_PERIOD_MS 100u
+#define MPU_STREAM_MIN_PERIOD_MS 20u
+#define MPU_STREAM_MAX_PERIOD_MS 1000u
+#define MPU_SNAPSHOT_PAYLOAD_SIZE 42u
 
 static UNER_Handle uner_handle;
 static UNER_TransportUart1Dma uner_uart1;
+static UNER_TransportUsbCdc uner_usb;
 static UNER_Packet uner_slots[UNER_QUEUE_SLOTS];
 static volatile uint8_t uner_payload_pool[UNER_QUEUE_SLOTS * 255u];
 static volatile uint8_t uner_waiting_validation = 0;
@@ -41,6 +47,17 @@ static uint16_t binary_asset_received_len = 0u;
 static uint8_t binary_asset_ready = 0u;
 static uint8_t binary_asset_in_progress = 0u;
 static uint32_t wifi_scan_results_next_poll_at = 0u;
+
+typedef struct {
+    uint8_t active;
+    uint8_t transport_id;
+    uint8_t dst_node;
+    uint16_t period_ms;
+    uint16_t last_seq;
+    uint32_t next_due_ms;
+} UNER_MpuStreamState;
+
+static UNER_MpuStreamState mpu_stream;
 
 typedef enum {
     UNER_CMD_STATUS_OK = 0u,
@@ -90,6 +107,9 @@ static void UNER_App_ClearWaitingValidation(void);
 static void UNER_App_ShowNotification(RenderFunction renderFn, uint16_t timeout_ms);
 static void UNER_App_ShowSimpleNotification(OledSimpleNotificationId notificationId, uint16_t timeout_ms);
 static void UNER_App_UpdateEncoderFastScroll(const UNER_Packet *packet);
+static void UNER_App_ServiceMpuStream(void);
+static uint8_t UNER_App_BuildMpuSnapshotPayload(uint8_t *payload, MPU6050_Snapshot_t *snapshot_out);
+static uint8_t UNER_App_MpuStreamTransportAllowed(uint8_t transport_id);
 
 typedef enum {
     UNER_CMD_SET_MODE_AP = 0x10u,
@@ -137,6 +157,11 @@ typedef enum {
     UNER_CMD_BINARY_ASSET_STREAM = 0x5Au,
     UNER_CMD_WIFI_CREDENTIALS_WEB_RESULT = 0x5Cu,
     UNER_CMD_AUTH_REMOTE_RESULT = 0x5Du,
+    UNER_CMD_SET_I2C_POLICY = 0x5Eu,
+    UNER_CMD_GET_I2C_POLICY = 0x5Fu,
+    UNER_CMD_GET_MPU_SNAPSHOT = 0x60u,
+    UNER_CMD_SET_MPU_STREAM = 0x61u,
+    UNER_CMD_STOP_MPU_STREAM = 0x62u,
 
     UNER_CMD_ACK = 0xE0u,
     UNER_CMD_NACK = 0xE1u,
@@ -205,6 +230,11 @@ static void cmd_get_car_mode_handler(void *ctx, const UNER_Packet *packet);
 static void cmd_binary_asset_stream_handler(void *ctx, const UNER_Packet *packet);
 static void cmd_wifi_credentials_web_result_handler(void *ctx, const UNER_Packet *packet);
 static void cmd_wifi_get_detail_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_set_i2c_policy_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_get_i2c_policy_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_get_mpu_snapshot_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_set_mpu_stream_handler(void *ctx, const UNER_Packet *packet);
+static void cmd_stop_mpu_stream_handler(void *ctx, const UNER_Packet *packet);
 
 static const UNER_CommandSpec uner_commands[] = {
     { UNER_CMD_SET_MODE_AP, 0u, 0u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, NULL },
@@ -250,6 +280,11 @@ static const UNER_CommandSpec uner_commands[] = {
 	{ UNER_CMD_TRIGGER_ENCODER_ROTATE_RIGHT, 4u, 4u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 100u, cmd_trigger_encoder_rotate_right_handler },
     { UNER_CMD_BINARY_ASSET_STREAM, 1u, 255u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 1000u, cmd_binary_asset_stream_handler },
     { UNER_CMD_WIFI_CREDENTIALS_WEB_RESULT, 2u, 38u, UNER_SPEC_F_ACK | UNER_SPEC_F_RESP, 200u, cmd_wifi_credentials_web_result_handler },
+    { UNER_CMD_SET_I2C_POLICY, 1u, 1u, UNER_SPEC_F_RESP, 50u, cmd_set_i2c_policy_handler },
+    { UNER_CMD_GET_I2C_POLICY, 0u, 0u, UNER_SPEC_F_RESP, 50u, cmd_get_i2c_policy_handler },
+    { UNER_CMD_GET_MPU_SNAPSHOT, 0u, 0u, UNER_SPEC_F_RESP, 50u, cmd_get_mpu_snapshot_handler },
+    { UNER_CMD_SET_MPU_STREAM, 1u, 3u, UNER_SPEC_F_RESP, 50u, cmd_set_mpu_stream_handler },
+    { UNER_CMD_STOP_MPU_STREAM, 0u, 0u, UNER_SPEC_F_RESP, 50u, cmd_stop_mpu_stream_handler },
     { UNER_CMD_ACK, 1u, 2u, 0u, 0u, cmd_ack_handler },
     { UNER_CMD_NACK, 1u, 2u, 0u, 0u, NULL },
     { UNER_EVT_BOOT, 0u, 255u, UNER_SPEC_F_EVT, 0u, evt_boot_handler },
@@ -850,11 +885,11 @@ static void UNER_App_ParseScanResultsResponse(const UNER_Packet *p)
 
 static void UNER_App_ParseAuthValidatePinResponse(const UNER_Packet *p)
 {
-    if (!p || !p->payload || p->len < 4u || p->payload[0] != 0u) {
+    if (!p || !p->payload || p->len < 3u) {
         return;
     }
 
-    uint8_t offset = 1u;
+    uint8_t offset = (p->len >= 4u && p->payload[0] == 0u) ? 1u : 0u;
     const uint8_t request_id = p->payload[offset++];
     const PermissionId_t permission = (PermissionId_t)p->payload[offset++];
     const bool granted = (p->payload[offset++] != 0u);
@@ -895,6 +930,129 @@ static uint16_t UNER_App_ReadU16Le(const uint8_t *payload)
 
     return (uint16_t)payload[0] |
            ((uint16_t)payload[1] << 8);
+}
+
+static void UNER_App_WriteU16Le(uint8_t *payload, uint16_t value)
+{
+    payload[0] = (uint8_t)(value & 0xFFu);
+    payload[1] = (uint8_t)((value >> 8) & 0xFFu);
+}
+
+static void UNER_App_WriteI16Le(uint8_t *payload, int16_t value)
+{
+    UNER_App_WriteU16Le(payload, (uint16_t)value);
+}
+
+static void UNER_App_WriteI32Le(uint8_t *payload, int32_t value)
+{
+    uint32_t uvalue = (uint32_t)value;
+
+    payload[0] = (uint8_t)(uvalue & 0xFFu);
+    payload[1] = (uint8_t)((uvalue >> 8) & 0xFFu);
+    payload[2] = (uint8_t)((uvalue >> 16) & 0xFFu);
+    payload[3] = (uint8_t)((uvalue >> 24) & 0xFFu);
+}
+
+static uint8_t UNER_App_MpuStreamTransportAllowed(uint8_t transport_id)
+{
+    if (transport_id == UNER_TR_USB_CDC) {
+        return 1u;
+    }
+
+#if defined(WIFI_BRIDGE_USE_UNER)
+    if (transport_id == UNER_TR_UART1_ESP) {
+        return 1u;
+    }
+#endif
+
+    return 0u;
+}
+
+static uint8_t UNER_App_BuildMpuSnapshotPayload(uint8_t *payload, MPU6050_Snapshot_t *snapshot_out)
+{
+    MPU6050_Snapshot_t s = {0};
+    uint8_t offset = 0u;
+
+    if (!payload) {
+        return 0u;
+    }
+
+    payload[offset++] = (MPU6050_GetLatest(&mpuTask, &s) == HAL_OK) ? 0u : 3u;
+    payload[offset++] = s.flags;
+    UNER_App_WriteU16Le(&payload[offset], s.sample_seq);
+    offset = (uint8_t)(offset + 2u);
+    UNER_App_WriteI32Le(&payload[offset], s.roll_md);
+    offset = (uint8_t)(offset + 4u);
+    UNER_App_WriteI32Le(&payload[offset], s.pitch_md);
+    offset = (uint8_t)(offset + 4u);
+    UNER_App_WriteI32Le(&payload[offset], s.yaw_md);
+    offset = (uint8_t)(offset + 4u);
+    UNER_App_WriteI16Le(&payload[offset], s.accel_x_mg);
+    offset = (uint8_t)(offset + 2u);
+    UNER_App_WriteI16Le(&payload[offset], s.accel_y_mg);
+    offset = (uint8_t)(offset + 2u);
+    UNER_App_WriteI16Le(&payload[offset], s.accel_z_mg);
+    offset = (uint8_t)(offset + 2u);
+    UNER_App_WriteI16Le(&payload[offset], s.linear_accel_x_mg);
+    offset = (uint8_t)(offset + 2u);
+    UNER_App_WriteI16Le(&payload[offset], s.linear_accel_y_mg);
+    offset = (uint8_t)(offset + 2u);
+    UNER_App_WriteI16Le(&payload[offset], s.linear_accel_z_mg);
+    offset = (uint8_t)(offset + 2u);
+    UNER_App_WriteI32Le(&payload[offset], s.gyro_x_mdps);
+    offset = (uint8_t)(offset + 4u);
+    UNER_App_WriteI32Le(&payload[offset], s.gyro_y_mdps);
+    offset = (uint8_t)(offset + 4u);
+    UNER_App_WriteI32Le(&payload[offset], s.gyro_z_mdps);
+    offset = (uint8_t)(offset + 4u);
+    UNER_App_WriteU16Le(&payload[offset], s.sample_dt_us);
+
+    if (snapshot_out) {
+        *snapshot_out = s;
+    }
+
+    return MPU_SNAPSHOT_PAYLOAD_SIZE;
+}
+
+static void UNER_App_ServiceMpuStream(void)
+{
+    uint8_t payload[MPU_SNAPSHOT_PAYLOAD_SIZE];
+    MPU6050_Snapshot_t s;
+    uint32_t now;
+    UNER_Status status;
+
+    if (!mpu_stream.active) {
+        return;
+    }
+
+    now = HAL_GetTick();
+    if ((int32_t)(now - mpu_stream.next_due_ms) < 0) {
+        return;
+    }
+
+    if (UNER_App_BuildMpuSnapshotPayload(payload, &s) == 0u) {
+        mpu_stream.next_due_ms = now + mpu_stream.period_ms;
+        return;
+    }
+
+    if (payload[0] == 0u && s.sample_seq == mpu_stream.last_seq) {
+        mpu_stream.next_due_ms = now + mpu_stream.period_ms;
+        return;
+    }
+
+    status = UNER_Send(&uner_handle,
+                       mpu_stream.transport_id,
+                       UNER_NODE_MCU,
+                       mpu_stream.dst_node,
+                       UNER_EVT_APP_GET_MPU_READINGS,
+                       payload,
+                       (uint8_t)sizeof(payload));
+    if (status == UNER_OK) {
+        mpu_stream.last_seq = s.sample_seq;
+        mpu_stream.next_due_ms = now + mpu_stream.period_ms;
+    } else {
+        mpu_stream.next_due_ms = now + 10u;
+    }
 }
 
 static void UNER_App_ResetBinaryAssetState(uint8_t asset_id)
@@ -1817,6 +1975,181 @@ static void cmd_get_car_mode_handler(void *ctx, const UNER_Packet *p)
                     (uint8_t)sizeof(payload));
 }
 
+static void cmd_set_i2c_policy_handler(void *ctx, const UNER_Packet *p)
+{
+    uint8_t payload[2u];
+    uint8_t status = 0u;
+    I2C_PolicyMode mode = I2C_POLICY_BALANCED;
+
+    (void)ctx;
+
+    if (!p || !p->payload || p->len != 1u) {
+        return;
+    }
+
+    mode = (I2C_PolicyMode)p->payload[0];
+    if (mode != I2C_POLICY_BALANCED &&
+        mode != I2C_POLICY_PRIORITIZE_MPU &&
+        mode != I2C_POLICY_PRIORITIZE_OLED) {
+        status = 2u;
+    } else if (i2cManager.hi2c == NULL ||
+               I2C_Manager_SetPolicy(&i2cManager, mode) != HAL_OK) {
+        status = 3u;
+    }
+
+    payload[0] = status;
+    payload[1] = (uint8_t)I2C_Manager_GetPolicy(&i2cManager);
+
+    (void)UNER_Send(&uner_handle,
+                    p->transport_id,
+                    UNER_NODE_MCU,
+                    p->src,
+                    UNER_CMD_SET_I2C_POLICY,
+                    payload,
+                    (uint8_t)sizeof(payload));
+}
+
+static void cmd_get_i2c_policy_handler(void *ctx, const UNER_Packet *p)
+{
+    uint8_t payload[2u];
+
+    (void)ctx;
+
+    if (!p || p->len != 0u) {
+        return;
+    }
+
+    payload[0] = (i2cManager.hi2c != NULL) ? 0u : 3u;
+    payload[1] = (uint8_t)I2C_Manager_GetPolicy(&i2cManager);
+
+    (void)UNER_Send(&uner_handle,
+                    p->transport_id,
+                    UNER_NODE_MCU,
+                    p->src,
+                    UNER_CMD_GET_I2C_POLICY,
+                    payload,
+                    (uint8_t)sizeof(payload));
+}
+
+static void cmd_get_mpu_snapshot_handler(void *ctx, const UNER_Packet *p)
+{
+    uint8_t payload[MPU_SNAPSHOT_PAYLOAD_SIZE] = {0};
+
+    (void)ctx;
+
+    if (!p || p->len != 0u) {
+        return;
+    }
+
+    (void)UNER_App_BuildMpuSnapshotPayload(payload, NULL);
+
+    (void)UNER_Send(&uner_handle,
+                    p->transport_id,
+                    UNER_NODE_MCU,
+                    p->src,
+                    UNER_CMD_GET_MPU_SNAPSHOT,
+                    payload,
+                    (uint8_t)sizeof(payload));
+}
+
+static void cmd_set_mpu_stream_handler(void *ctx, const UNER_Packet *p)
+{
+    uint8_t payload[6u];
+    uint8_t status = 0u;
+    uint8_t enable;
+    uint8_t was_active;
+    uint16_t period_ms = MPU_STREAM_DEFAULT_PERIOD_MS;
+
+    (void)ctx;
+
+    if (!p || !p->payload || p->len < 1u) {
+        return;
+    }
+
+    enable = p->payload[0];
+    was_active = mpu_stream.active;
+    if (p->len >= 3u) {
+        period_ms = UNER_App_ReadU16Le(&p->payload[1]);
+    }
+    if (period_ms < MPU_STREAM_MIN_PERIOD_MS) {
+        period_ms = MPU_STREAM_MIN_PERIOD_MS;
+    }
+    if (period_ms > MPU_STREAM_MAX_PERIOD_MS) {
+        period_ms = MPU_STREAM_MAX_PERIOD_MS;
+    }
+
+    if (enable > 1u) {
+        status = 2u;
+    } else if (enable != 0u && !UNER_App_MpuStreamTransportAllowed(p->transport_id)) {
+        status = 5u;
+    } else if (enable != 0u) {
+        mpu_stream.active = 1u;
+        mpu_stream.transport_id = p->transport_id;
+        mpu_stream.dst_node = p->src;
+        mpu_stream.period_ms = period_ms;
+        mpu_stream.last_seq = 0u;
+        mpu_stream.next_due_ms = HAL_GetTick();
+        UNER_App_ShowSimpleNotification(OLED_SIMPLE_NOTIFICATION_MPU_STREAM_STARTED, 1800u);
+    } else if (mpu_stream.active &&
+               (mpu_stream.transport_id != p->transport_id || mpu_stream.dst_node != p->src)) {
+        status = 4u;
+    } else {
+        mpu_stream.active = 0u;
+        if (was_active != 0u) {
+            UNER_App_ShowSimpleNotification(OLED_SIMPLE_NOTIFICATION_MPU_STREAM_STOPPED, 1800u);
+        }
+    }
+
+    payload[0] = status;
+    payload[1] = mpu_stream.active;
+    UNER_App_WriteU16Le(&payload[2], mpu_stream.period_ms);
+    payload[4] = mpu_stream.transport_id;
+    payload[5] = mpu_stream.dst_node;
+
+    (void)UNER_Send(&uner_handle,
+                    p->transport_id,
+                    UNER_NODE_MCU,
+                    p->src,
+                    UNER_CMD_SET_MPU_STREAM,
+                    payload,
+                    (uint8_t)sizeof(payload));
+}
+
+static void cmd_stop_mpu_stream_handler(void *ctx, const UNER_Packet *p)
+{
+    uint8_t payload[2u];
+    uint8_t status = 0u;
+    uint8_t was_active;
+
+    (void)ctx;
+
+    if (!p || p->len != 0u) {
+        return;
+    }
+
+    was_active = mpu_stream.active;
+    if (mpu_stream.active &&
+        (mpu_stream.transport_id != p->transport_id || mpu_stream.dst_node != p->src)) {
+        status = 4u;
+    } else {
+        mpu_stream.active = 0u;
+        if (was_active != 0u) {
+            UNER_App_ShowSimpleNotification(OLED_SIMPLE_NOTIFICATION_MPU_STREAM_STOPPED, 1800u);
+        }
+    }
+
+    payload[0] = status;
+    payload[1] = mpu_stream.active;
+
+    (void)UNER_Send(&uner_handle,
+                    p->transport_id,
+                    UNER_NODE_MCU,
+                    p->src,
+                    UNER_CMD_STOP_MPU_STREAM,
+                    payload,
+                    (uint8_t)sizeof(payload));
+}
+
 static void cmd_reset_mcu_handler(void *ctx, const UNER_Packet *p)
 {
     (void)ctx;
@@ -1997,7 +2330,7 @@ void UNER_App_Init(void)
         &cfg,
         uner_slots,
         UNER_QUEUE_SLOTS,
-        uner_payload_pool,
+        (uint8_t *)uner_payload_pool,
         sizeof(uner_payload_pool));
 
     (void)UNER_TransportUart1Dma_Init(
@@ -2010,15 +2343,19 @@ void UNER_App_Init(void)
         &usart1_tx_busy);
 
     (void)UNER_Handle_RegisterTransport(&uner_handle, &uner_uart1.base);
+    (void)UNER_TransportUsbCdc_Init(&uner_usb, UNER_TR_USB_CDC);
+    (void)UNER_Handle_RegisterTransport(&uner_handle, &uner_usb.base);
     (void)UNER_Handle_RegisterCommands(
         &uner_handle,
         uner_commands,
         (uint8_t)(sizeof(uner_commands) / sizeof(uner_commands[0])),
         UNER_App_ExecuteCommand,
         NULL);
-    (void)HAL_UART_Receive_DMA(&huart1, usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
+    (void)HAL_UART_Receive_DMA(&huart1, (uint8_t *)usart1_rx_dma_buf, USART1_RX_DMA_BUF_LEN);
     __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
     UNER_App_ResetUart1RxPos();
+    memset(&mpu_stream, 0, sizeof(mpu_stream));
+    mpu_stream.period_ms = MPU_STREAM_DEFAULT_PERIOD_MS;
 }
 
 void UNER_App_Poll(void)
@@ -2040,6 +2377,7 @@ void UNER_App_Poll(void)
     }
 
     UNER_App_ServiceWifiScanResults();
+    UNER_App_ServiceMpuStream();
 
     MenuSys_FlushScreenReport(&menuSystem);
     MenuSys_FlushMenuSelectionReport(&menuSystem);

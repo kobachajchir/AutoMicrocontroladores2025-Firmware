@@ -7,7 +7,7 @@
 #include "notificationWrappers.h"
 #include "menu_definitions.h"
 #include "screenWrappers.h"
-#include "uner_app.h"
+#include "wifi_bridge.h"
 #include "menusystem.h"
 #include "oled_utils.h"
 #include "fonts.h"
@@ -48,7 +48,7 @@ static SubMenu espResetModeMenu = {
 
 static void OledUtils_SendFirmwareRequest(void)
 {
-    (void)UNER_App_SendCommand(UNER_CMD_ID_REQUEST_FIRMWARE, NULL, 0u);
+    (void)WifiBridge_SendCommand(&wifiBridge, WIFI_BRIDGE_CMD_ID_REQUEST_FIRMWARE, NULL, 0u);
 }
 
 static void OledUtils_ReturnToESPMenu(void)
@@ -66,7 +66,7 @@ static void OledUtils_ReturnToESPMenu(void)
 
 static void OledUtils_SendESPResetWithMode(uint8_t boot_mode)
 {
-    if (UNER_App_SendEspReboot(boot_mode) != UNER_OK) {
+    if (WifiBridge_SendEspReboot(&wifiBridge, boot_mode) != WIFI_BRIDGE_OK) {
         return;
     }
 
@@ -76,12 +76,12 @@ static void OledUtils_SendESPResetWithMode(uint8_t boot_mode)
 
 static void OledUtils_SendESPResetNormal(void)
 {
-    OledUtils_SendESPResetWithMode(UNER_ESP_REBOOT_BOOT_MODE_NORMAL);
+    OledUtils_SendESPResetWithMode(WIFI_BRIDGE_ESP_REBOOT_BOOT_MODE_NORMAL);
 }
 
 static void OledUtils_SendESPResetApMode(void)
 {
-    OledUtils_SendESPResetWithMode(UNER_ESP_REBOOT_BOOT_MODE_AP);
+    OledUtils_SendESPResetWithMode(WIFI_BRIDGE_ESP_REBOOT_BOOT_MODE_AP);
 }
 
 static void OledUtils_OpenESPResetModeMenu(void)
@@ -141,7 +141,7 @@ void OledUtils_RenderStartupNotification_Wrapper(void)
 void OledUtils_RenderESPCheckConnection_Wrapper(void)
 {
     __NOP();
-    (void)UNER_App_SendCommand(UNER_CMD_ID_GET_STATUS, NULL, 0u);
+    (void)WifiBridge_GetStatus(&wifiBridge);
     OledUtils_DisableContinuousRender();
     encoder.allowEncoderInput = false;
     menuSystem.userEventManagerFn = menuEventManager;

@@ -47,7 +47,8 @@
 #include "notificationWrappers.h"
 #include "eventManagers.h"
 #include "menu_definitions.h"
-#include "uner_app.h"
+#include "wifi_bridge.h"
+#include "wifi_bridge_ui_adapter.h"
 #include "permissions.h"
 //#include "oled_screens.h"
 
@@ -104,7 +105,7 @@ static bool Oled_WaitReady(I2C_ManagerHandle *manager, uint16_t addr_7bit, uint3
 
     for (uint32_t attempt = 0; attempt < retries; attempt++) {
         if (I2C_Manager_IsAddressReady(manager, addr_7bit) == HAL_OK) {
-            __NOP(); // BREAKPOINT: OLED respondió en I2C
+            __NOP(); // BREAKPOINT: OLED respondiÃƒÂ³ en I2C
             return true;
         }
         HAL_Delay(delay_ms);
@@ -151,7 +152,7 @@ void MPU_MainTask(void);
 void OLED_MainTask(void);
 /**
  * @brief Tarea principal del encoder (main loop)
- *        Maneja eventos de botón corto/largo
+ *        Maneja eventos de botÃƒÂ³n corto/largo
  */
 void Encoder_MainTask(ENC_Handle_t *h);
 void initMenuSystemTask(void);
@@ -209,11 +210,13 @@ int main(void)
   MX_USB_PCD_Init();
   /* USER CODE BEGIN 2 */
 	 HAL_StatusTypeDef result;
-	 UNER_App_Init();
+	 WifiBridge_Init(&wifiBridge, &huart1);
+	 WifiBridge_SetEventCallback(&wifiBridge, WifiBridge_UI_OnEvent);
+	 WifiBridge_Start(&wifiBridge);
 	 Permission_Init();
 	 initTCRTLib();
 	 InitMotorTask();
-	 I2C_Manager_Init(&i2cManager, &hi2c1, 0);
+	 I2C_Manager_Init(&i2cManager, &hi2c1, I2C_MANAGER_DEFAULT_LEASE_TIMEOUT_MS);
 	 __NOP(); // BREAKPOINT: I2C Manager inicializado
 	 /*I2C_Manager_ScanBus();*/
 	 if (I2C_Manager_IsAddressReady(&i2cManager, I2C_ADDR_MPU) == HAL_OK) {
@@ -232,17 +235,17 @@ int main(void)
 	         );
 	         if (res == HAL_OK) {
 	             MPU6050_Configure(&mpuTask);
-	             MPU6050_CalibrateGyro(&mpuTask, 250);
+	             MPU6050_StartCalibration(&mpuTask, 400u, 1600u);
 	             SET_FLAG(systemFlags, MPU_GET_DATA);
 	         } else {
-	             // Falló al registrar (posiblemente sin espacio en la tabla)
+	             // FallÃƒÂ³ al registrar (posiblemente sin espacio en la tabla)
 	         }
 	     }
 	 } else {
-	     // El MPU no respondió en el bus
+	     // El MPU no respondiÃƒÂ³ en el bus
 	 }
 	 if (I2C_Manager_IsAddressReady(&i2cManager, I2C_ADDR_OLED) == HAL_OK) {
-	     __NOP(); // BREAKPOINT: I2C detectó el OLED
+	     __NOP(); // BREAKPOINT: I2C detectÃƒÂ³ el OLED
 	     result = ssd1306_BindI2CManager(&i2cManager, DEVICE_ID_OLED);
 
 	     if (result == HAL_OK) {
@@ -251,10 +254,10 @@ int main(void)
 	        	 SET_FLAG(systemFlags2, OLED_ACTIVE);
 	         }
 	     } else {
-	         // Falló al registrar
+	         // FallÃƒÂ³ al registrar
 	     }
 	 } else {
-	     // El OLED no respondió
+	     // El OLED no respondiÃƒÂ³
 	 }
 	 HAL_ADC_Start_DMA(&hadc1, (uint32_t*)sensor_raw_data, TCRT5000_NUM_SENSORS);
 	 HAL_TIM_Base_Start_IT(&htim3);
@@ -263,9 +266,8 @@ int main(void)
 	 //Aca debemos poner la inicializacion de la ESP
 	 //SET_FLAG(systemFlags2, ESP_PRESENT);
 	 espBootRebootPending = 1;
-	uner_uart1_rx_last_tick = HAL_GetTick();
 		if (espBootRebootPending && !usart1_tx_busy) {
-			if (UNER_App_SendEspReboot(UNER_ESP_REBOOT_BOOT_MODE_NORMAL) == UNER_OK) {
+			if (WifiBridge_SendEspReboot(&wifiBridge, WIFI_BRIDGE_ESP_REBOOT_BOOT_MODE_NORMAL) == WIFI_BRIDGE_OK) {
 				espBootRebootPending = 0u;
 				espBootRebootPendingResponse = 1;
 			}
@@ -282,7 +284,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 	while (1) {
 		USART1_DMA_CheckHealth();
-		UNER_App_Poll();
+		WifiBridge_Process(&wifiBridge);
 		Permission_Task(HAL_GetTick());
 		TCRT_MainTask();
 		i2cManager_MainTask();
@@ -291,7 +293,7 @@ int main(void)
 		OLED_MainTask();
 		MPU_MainTask();
 		Motor_MainTask();
-		// Si quieres saber cuántos sobrepasos de 1 s hubo (0..9):
+		// Si quieres saber cuÃƒÂ¡ntos sobrepasos de 1 s hubo (0..9):
 		//uint8_t num_overflows = NIBBLEH_GET_STATE(btnUser.state.flags);
 
     /* USER CODE END WHILE */
@@ -406,7 +408,7 @@ void Encoder_MainTask(ENC_Handle_t *encoder) {
     UserEvent_t local_ev = UE_NONE;
     int16_t scaled_steps = 0;
 
-    // rotación
+    // rotaciÃƒÂ³n
     if (IS_FLAG_SET(encoder->flags, ENC_FLAG_UPDATED)) {
         CLEAR_FLAG(encoder->flags, ENC_FLAG_UPDATED);
         local_ev = (encoder->dir == ENC_DIR_CW ? UE_ROTATE_CW : UE_ROTATE_CCW);
@@ -444,102 +446,6 @@ void Encoder_MainTask(ENC_Handle_t *encoder) {
         }
     }
 }
-
-#if 0
-void initTCRTLib(void)
-{
-    // 1) Configuro la salida de iluminación usando un callback HAL desacoplado.
-    tcrtLightHal.port = Luces_IR_GPIO_Port;
-    tcrtLightHal.pin = Luces_IR_Pin;
-    TCRT5000_Config_t tcrt_cfg;
-    TCRT5000_Status st;
-
-    // 2) Creo la instancia del TCRT5000. Pasa USART1_PrintString (o NULL si no quieres debug).
-    tcrt_cfg.pull_down_mask = TCRT_MAIN_PULL_DOWN_MASK;
-    tcrt_cfg.lateral_alpha = TCRT5000_DEFAULT_LATERAL_ALPHA;
-    tcrt_cfg.auto_mode_advance = false;
-    tcrt_cfg.light_initial_state = true;
-    tcrt_cfg.ready_batch_size = TCRT5000_DEFAULT_READY_BATCH_SIZE;
-    tcrt_cfg.default_threshold_line = TCRT5000_DEFAULT_THRESHOLD_LINE;
-    tcrt_cfg.default_threshold_obstacle = TCRT5000_DEFAULT_THRESHOLD_OBS;
-    tcrt_cfg.light_write = TCRT_MainLightWrite;
-    tcrt_cfg.light_ctx = &tcrtLightHal;
-    st = TCRT5000_Init(&tcrtTask, &tcrt_cfg);
-    /*
-        &tcrtTask,            // handler de la librería
-        &procesar_flag,       // bandera que marca “8 muestras ADC listas”
-        sensor_raw_data,      // arreglo uint16_t[8]
-        pull_cfg,             // arreglo bool[8]
-        &tcrtLight,           // LED opcional para iluminar sensores
-        NULL //USART1_PrintString    // callback de debug (puede ser NULL)
-    );
-    TCRT5000_SetAutoModeAdvance(&tcrtTask, false);
-    // 3) Informo por UART si hubo éxito o error al crear la instancia.
-    */
-    if (st != TCRT5000_OK) {
-
-        return;  // Salimos, no tiene sentido continuar si la creación falló.
-    }
-    else {
-
-    }
-    // 4) Si la creación fue exitosa, inicio la calibración interna:
-    if (TCRT5000_StartCalibration(&tcrtTask, 50, 50) != TCRT5000_OK) {
-        // Si falla la primera fase de calibración, lo informo:
-
-    }
-    else {
-        // Si StartCalibration devolvió HAL_OK, quedó en modo CALIB_LINE_BLACK
-
-    }
-}
-
-void TCRT_MainTask(){
-	(void)TCRT5000_TryUpdate(&tcrtTask);
-	if (TCRT5000_IsReady(&tcrtTask)) {
-		SET_FLAG(systemFlags, PROCESS_IR_DATA);
-	    TCRT5000_ClearReady(&tcrtTask);
-	}
-	if(IS_FLAG_SET(systemFlags, PROCESS_IR_DATA)){
-		//Procesar aca la data de los IR
-		CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
-	}
-	return;
-#if 0
-	if (procesar_flag) {
-		TCRT5000_Update(&tcrtTask);
-		procesar_flag = false; // ya procesó la transferencia
-	}
-	// Si pasó a READY, entonces podemos usar IsReady + Update para filtrar continuamente:
-	/* En tu bucle principal (por ejemplo, dentro de while(1)): */
-	if (TCRT5000_IsReady(&tcrtTask)) {
-	    // Aquí han pasado 4000 bloques de 8 muestras en modo READY.
-
-	    // 1) Leer las banderas digitales:
-	    bool too_left   = tcrtTask.results.flags.bitmap.bit0;
-	    bool too_right  = tcrtTask.results.flags.bitmap.bit1;
-	    bool obs_center = tcrtTask.results.flags.bitmap.bit4;
-	    bool light_on   = tcrtTask.results.flags.bitmap.bit7;
-
-	    // 2) Leer lecturas crudas si hace falta:
-	    uint16_t raw_center = tcrtTask.results.raw.channels.line;
-	    uint16_t raw_obs5   = tcrtTask.results.raw.channels.obs_center;
-
-	    uint16_t values[TCRT5000_NUM_SENSORS];
-		for (int i = 0; i < TCRT5000_NUM_SENSORS; i++) {
-			values[i] = tcrtTask.results.raw.array[i];
-		}
-		SET_FLAG(systemFlags, PROCESS_IR_DATA);
-	    TCRT5000_ClearReady(&tcrtTask);
-	}
-	if(IS_FLAG_SET(systemFlags, PROCESS_IR_DATA)){
-		//Procesar aca la data de los IR
-		CLEAR_FLAG(systemFlags, PROCESS_IR_DATA);
-
-	}
-#endif
-}
-#endif
 
 void initTCRTLib(void)
 {
@@ -633,13 +539,13 @@ void Motor_MainTask(void)
     HAL_GPIO_WritePin(Motor_Enable_GPIO_Port, Motor_Enable_Pin,
         enabled ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
-    // Si está deshabilitado, frenamos ambos y salimos
+    // Si estÃƒÂ¡ deshabilitado, frenamos ambos y salimos
     if (!enabled) {
         Motor_StopBoth(&motorTask);
         return;
     }
 
-    // 2) Leemos selección y config del motor desde motorData
+    // 2) Leemos selecciÃƒÂ³n y config del motor desde motorData
     uint8_t sel = NIBBLEH_GET_STATE(motorTask.motorData.flags);
     Motor_Config_t *cfg = NULL;
     switch (sel) {
@@ -649,9 +555,9 @@ void Motor_MainTask(void)
         default:                  cfg = NULL;                           break;
     }
 
-    // 3) Ejecutar según selección
+    // 3) Ejecutar segÃƒÂºn selecciÃƒÂ³n
     if (sel == MOTORNONE_SELECTED) {
-        // Ambos: usan la misma velocidad/dirección guardada en cada config
+        // Ambos: usan la misma velocidad/direcciÃƒÂ³n guardada en cada config
         Motor_SetBoth(&motorTask,
                       motorTask.motorData.motorLeft.motorSpeed,
                       motorTask.motorData.motorLeft.motorDirection);
@@ -674,68 +580,14 @@ void Motor_MainTask(void)
         else /* derecho */                   Motor_StopLeft(&motorTask);
     }
     else {
-        // Selección inválida: frenar todo
+        // SelecciÃƒÂ³n invÃƒÂ¡lida: frenar todo
         Motor_StopBoth(&motorTask);
     }
 }
 
 
 void MPU_MainTask(void) {
-    // ——————————————————————————————————————————
-    // 1) Trigger periódico
-    // ——————————————————————————————————————————
-    if (mpu_trigger) {
-        __NOP();              // BREAKPOINT #1
-        MPU6050_CheckTrigger(&mpuTask);
-        mpu_trigger = false;  // consumimos
-    }
-
-    // ——————————————————————————————————————————
-    // 2) DATA_READY (RX DMA complete)
-    // ——————————————————————————————————————————
-    if (IS_FLAG_SET(mpuTask.flags, DATA_READY)) {
-        CLEAR_FLAG(mpuTask.flags, DATA_READY);
-        __NOP();              // BREAKPOINT #2
-
-        // ————————————————— Calibración —————————————————
-        if (!IS_FLAG_SET(mpuTask.flags, CALIBRATED)) {
-            // acumulamos muestras
-            mpuTask.calib_sum_x += mpuTask.data.gyro_x_mdps;
-            mpuTask.calib_sum_y += mpuTask.data.gyro_y_mdps;
-            mpuTask.calib_sum_z += mpuTask.data.gyro_z_mdps;
-            mpuTask.calib_count++;
-
-            if (mpuTask.calib_count >= mpuTask.calib_target) {
-                // calculamos bias y marcamos calibrado
-                mpuTask.gyro_bias_x = mpuTask.calib_sum_x / mpuTask.calib_target;
-                mpuTask.gyro_bias_y = mpuTask.calib_sum_y / mpuTask.calib_target;
-                mpuTask.gyro_bias_z = mpuTask.calib_sum_z / mpuTask.calib_target;
-                SET_FLAG(mpuTask.flags, CALIBRATED);
-                __NOP();  // BREAKPOINT #3
-
-                // **rearmamos un nuevo ciclo de lectura**
-                mpu_trigger = true;
-                MPU6050_CheckTrigger(&mpuTask);
-                return;
-            } else {
-                // pedimos siguiente muestra de calibración
-                mpu_trigger = true;
-                MPU6050_CheckTrigger(&mpuTask);
-                __NOP();  // breakpoint opcional
-                return;
-            }
-        }
-
-        // ————————————————— Fase normal ————————————————
-        MPU6050_Convert(&mpuTask);
-        __NOP();              // BREAKPOINT #4: conversión + ángulo listos
-
-        // ————————————————— Callback usuario ————————————
-        if (mpuTask.on_data_ready_cb) {
-            __NOP();          // BREAKPOINT #5
-            mpuTask.on_data_ready_cb();
-        }
-    }
+    MPU6050_Process(&mpuTask);
 }
 
 void i2cManager_MainTask(){
@@ -744,13 +596,13 @@ void i2cManager_MainTask(){
 
 
 void OLED_MainTask(void) {
-    // 0) Esperamos a que el SSD esté listo
+    // 0) Esperamos a que el SSD estÃƒÂ© listo
     if (!IS_FLAG_SET(systemFlags, OLED_READY)) {
     	__NOP();
         return;
     }
 
-    // 2) Refresco periódico si está permitido
+    // 2) Refresco periÃƒÂ³dico si estÃƒÂ¡ permitido
     if (IS_FLAG_SET(systemFlags, OLED_REFRESH) && menuSystem.allowPeriodicRefresh) {
     	__NOP();
         if (menuSystem.renderFn) {
@@ -759,7 +611,7 @@ void OLED_MainTask(void) {
         CLEAR_FLAG(systemFlags, OLED_REFRESH);
     }
 
-    // 3) Ejecutar la rutina de render si alguien la pidió
+    // 3) Ejecutar la rutina de render si alguien la pidiÃƒÂ³
     bool did_render = false;
     if (menuSystem.renderFlag && menuSystem.renderFn) {
         if (ssd1306_UpdateScreenCompleted()) {

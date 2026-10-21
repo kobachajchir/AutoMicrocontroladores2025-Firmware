@@ -53,6 +53,14 @@ typedef enum {
     I2C_REQ_PRIO_HIGH = 2
 } I2C_RequestPrio;
 
+typedef enum {
+    I2C_POLICY_BALANCED = 1,
+    I2C_POLICY_PRIORITIZE_MPU = 2,
+    I2C_POLICY_PRIORITIZE_OLED = 3
+} I2C_PolicyMode;
+
+#define I2C_MANAGER_DEFAULT_LEASE_TIMEOUT_MS 120u
+
 // ---------- Device entry ----------
 typedef struct {
     I2C_DeviceID id;           // internal ID
@@ -81,6 +89,7 @@ typedef struct {
 
     uint32_t lease_start_tick;   // for timeout watchdog
     uint32_t lease_timeout_ms;   // 0 disables timeout
+    I2C_PolicyMode policy;
     void (*recover_cb)(I2C_HandleTypeDef *hi2c); // optional recovery hook
 
     uint32_t spurious_tx;
@@ -109,6 +118,8 @@ HAL_StatusTypeDef I2C_Manager_RequestBusPrio(I2C_ManagerHandle *hmgr,
                                              I2C_RequestPrio prio);
 HAL_StatusTypeDef I2C_Manager_RequestBus(I2C_ManagerHandle *hmgr, I2C_DeviceID id);
 HAL_StatusTypeDef I2C_Manager_ReleaseBus(I2C_ManagerHandle *hmgr, I2C_DeviceID id);
+HAL_StatusTypeDef I2C_Manager_SetPolicy(I2C_ManagerHandle *hmgr, I2C_PolicyMode policy);
+I2C_PolicyMode I2C_Manager_GetPolicy(const I2C_ManagerHandle *hmgr);
 
 I2C_DeviceID I2C_Manager_GetOwner(I2C_ManagerHandle *hmgr);
 uint16_t I2C_Manager_GetAddress7(I2C_ManagerHandle *hmgr, I2C_DeviceID id);

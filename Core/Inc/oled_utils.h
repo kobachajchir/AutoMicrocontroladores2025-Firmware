@@ -20,6 +20,7 @@ void OledUtils_RenderDashboard(void);
 
 void OledUtils_RenderProyectScreen(void);
 void OledUtils_RenderProyectInfoScreen(void);
+void OledUtils_RenderBuildInfoScreen(void);
 
 void OledUtils_RenderModeChange_Full(void);
 void OledUtils_RenderModeChange_ModeOnly(void);
@@ -66,8 +67,11 @@ typedef enum {
     OLED_SIMPLE_NOTIFICATION_ESP_CHECKING_CONNECTION,
     OLED_SIMPLE_NOTIFICATION_ESP_CHECK_CONNECTION_REQUIRED,
     OLED_SIMPLE_NOTIFICATION_PERMISSION_DENIED,
+    OLED_SIMPLE_NOTIFICATION_PIN_TIMEOUT,
     OLED_SIMPLE_NOTIFICATION_CONTROLLER_CONNECTED,
     OLED_SIMPLE_NOTIFICATION_CONTROLLER_DISCONNECTED,
+    OLED_SIMPLE_NOTIFICATION_MPU_STREAM_STARTED,
+    OLED_SIMPLE_NOTIFICATION_MPU_STREAM_STOPPED,
 } OledSimpleNotificationId;
 
 void OledUtils_RenderWiFiCredentialsWebNotification(void);

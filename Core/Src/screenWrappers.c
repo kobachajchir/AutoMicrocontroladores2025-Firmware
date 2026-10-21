@@ -6,16 +6,47 @@
  */
 
 #include "screenWrappers.h"
-#include "uner_app.h"
+#include "wifi_bridge.h"
 #include "menusystem.h"
 #include "oled_utils.h"
 #include "fonts.h"
 #include "encoder.h"
 #include "eventManagers.h"
 #include "globals.h"
+#include "stm32f1xx_hal.h"
 #include <string.h>
 
 static bool dashboardModeReportPending = false;
+static uint32_t dashboardWifiCredentialRequestedAt = 0u;
+
+#define DASHBOARD_WIFI_CREDENTIAL_REQUEST_PERIOD_MS 30000u
+
+static void Dashboard_RequestWifiCredentialsIfNeeded(void)
+{
+    const char *ssid = wifiBridgeCredentials.flags.bits.ssid_set
+        ? wifiBridgeCredentials.ssid
+        : espWifiConnection.staSsid;
+    const uint32_t now = HAL_GetTick();
+
+    if (!IS_FLAG_SET(systemFlags2, ESP_PRESENT) ||
+        IS_FLAG_SET(systemFlags2, WIFI_ACTIVE) ||
+        WifiBridge_IsWaitingValidation(&wifiBridge) ||
+        ssid == NULL ||
+        ssid[0] == '\0') {
+        return;
+    }
+
+    if (dashboardWifiCredentialRequestedAt != 0u &&
+        ((uint32_t)(now - dashboardWifiCredentialRequestedAt) <
+         DASHBOARD_WIFI_CREDENTIAL_REQUEST_PERIOD_MS)) {
+        return;
+    }
+
+    if (WifiBridge_SendWifiCredentialRequest(&wifiBridge, ssid) == WIFI_BRIDGE_OK) {
+        dashboardWifiCredentialRequestedAt = now;
+        OledUtils_ShowNotificationMs(OledUtils_RenderWiFiCredentialsWebNotification, 4000u);
+    }
+}
 
 static void WiFiResults_ResetMenuState(void)
 {
@@ -148,6 +179,7 @@ void OledUtils_RenderDashboard_Wrapper(void)
     OledUtils_Clear();
     OledUtils_RenderDashboard();
     dashboardModeReportPending = true;
+    Dashboard_RequestWifiCredentialsIfNeeded();
 
     // ¡no vuelvo a tocar menuSystem.renderFlag!
 }
@@ -250,6 +282,45 @@ void OledUtils_About_Wrapper(void)
     menuSystem.userEventManagerFn = About_UserEventManager;
 }
 
+void OledUtils_AboutInfo_Wrapper(void)
+{
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_SETTINGS_ABOUT_PROJECT,
+                                 SCREEN_REPORT_SOURCE_RENDER);
+    OledUtils_DisableContinuousRender();
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = true;
+    OledUtils_Clear();
+    OledUtils_RenderProyectScreen();
+    menuSystem.userEventManagerFn = ReadOnly_UserEventManager;
+}
+
+void OledUtils_AboutRepo_Wrapper(void)
+{
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_SETTINGS_ABOUT_REPO,
+                                 SCREEN_REPORT_SOURCE_RENDER);
+    OledUtils_DisableContinuousRender();
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = true;
+    OledUtils_Clear();
+    OledUtils_RenderProyectInfoScreen();
+    menuSystem.userEventManagerFn = ReadOnly_UserEventManager;
+}
+
+void OledUtils_AboutBuild_Wrapper(void)
+{
+    MenuSys_SetCurrentScreenCode(&menuSystem,
+                                 SCREEN_CODE_SETTINGS_ABOUT_BUILD,
+                                 SCREEN_REPORT_SOURCE_RENDER);
+    OledUtils_DisableContinuousRender();
+    inside_menu_flag = false;
+    encoder.allowEncoderInput = true;
+    OledUtils_Clear();
+    OledUtils_RenderBuildInfoScreen();
+    menuSystem.userEventManagerFn = ReadOnly_UserEventManager;
+}
+
 /**
  * @brief  Wrapper para la pantalla de Valores IR.
  */
@@ -316,7 +387,7 @@ void OledUtils_RenderWiFiSearching_Wrapper(void)
         wifiScanSessionActive = 1u;
         wifiScanResultsPending = 0u;
         __NOP();
-        (void)UNER_App_SendCommand(UNER_CMD_ID_START_SCAN, NULL, 0u);
+        (void)WifiBridge_StartScan(&wifiBridge);
         OledUtils_Clear();
         OledUtils_RenderWiFiSearchScene();
         OledUtils_UpdateWiFiSearchTimer((uint8_t)(wifiSearchingTimeout / 100U));
@@ -331,7 +402,7 @@ void OledUtils_RenderWiFiConnectionStatus_Wrapper(){
 	encoder.allowEncoderInput = true;
 	menuSystem.userEventManagerFn = ReadOnly_UserEventManager;
 	__NOP();
-	(void)UNER_App_SendCommand(UNER_CMD_ID_GET_STATUS, NULL, 0u);
+	(void)WifiBridge_GetStatus(&wifiBridge);
 	menuSystem.renderFn = OledUtils_RenderWiFiStatus;
 	OledUtils_RenderWiFiStatus();
 	menuSystem.renderFlag = true;
@@ -403,6 +474,6 @@ void onRenderComplete(void) {
 
     if (dashboardModeReportPending) {
         dashboardModeReportPending = false;
-        (void)UNER_App_ReportCarModeChanged((uint8_t)GET_CAR_MODE());
+        (void)WifiBridge_ReportCarModeChanged(&wifiBridge, (uint8_t)GET_CAR_MODE());
     }
 }

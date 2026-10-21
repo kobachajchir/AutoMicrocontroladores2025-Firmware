@@ -11,7 +11,7 @@
 #include "globals.h"
 #include "menusystem.h"
 #include "oled_utils.h"
-#include "uner_app.h"
+#include "wifi_bridge.h"
 #include "ssd1306.h"
 #include "stm32f1xx_hal.h"
 
@@ -317,7 +317,14 @@ static void Permission_ApplyDeniedState(PermissionId_t permission, uint8_t attem
 
 static void Permission_ApplyTimeoutState(void)
 {
-    Permission_MarkResult(AUTH_TIMEOUT, PERMISSION_EVT_TIMEOUT);
+    PermissionId_t permission = permissionManager.requestedPermission;
+
+    permissionManager.state = AUTH_TIMEOUT;
+    Permission_ClearPin();
+    Permission_EmitFor(permission, PERMISSION_EVT_TIMEOUT);
+    Permission_ClearPendingRequest();
+    Permission_RestoreUiContext();
+    OledUtils_ShowSimpleNotificationMs(OLED_SIMPLE_NOTIFICATION_PIN_TIMEOUT, 2200u);
 }
 
 static void Permission_TrySendValidation(void)
@@ -330,7 +337,7 @@ static void Permission_TrySendValidation(void)
         return;
     }
 
-    if (UNER_App_IsWaitingValidation()) {
+    if (WifiBridge_IsWaitingValidation(&wifiBridge)) {
         return;
     }
 
@@ -343,9 +350,10 @@ static void Permission_TrySendValidation(void)
         permissionManager.pinDigits[3],
     };
 
-    if (UNER_App_SendCommand(UNER_CMD_ID_AUTH_VALIDATE_PIN,
-                             payload,
-                             (uint8_t)sizeof(payload)) == UNER_OK) {
+    if (WifiBridge_SendCommand(&wifiBridge,
+                               WIFI_BRIDGE_CMD_ID_AUTH_VALIDATE_PIN,
+                               payload,
+                               (uint8_t)sizeof(payload)) == WIFI_BRIDGE_OK) {
         permissionManager.validationSendPending = 0u;
         Permission_ClearPin();
         Permission_Emit(PERMISSION_EVT_VALIDATION_STARTED);
@@ -701,16 +709,16 @@ bool Permission_ApplyRemoteResult(uint8_t result_code, uint8_t attempts_left)
     }
 
     switch (result_code) {
-        case UNER_AUTH_REMOTE_RESULT_DENIED:
+        case WIFI_BRIDGE_AUTH_REMOTE_RESULT_DENIED:
             Permission_ApplyDeniedState(permissionManager.requestedPermission,
                                         Permission_ResolveDeniedAttempts(attempts_left));
             return true;
 
-        case UNER_AUTH_REMOTE_RESULT_TIMEOUT:
+        case WIFI_BRIDGE_AUTH_REMOTE_RESULT_TIMEOUT:
             Permission_ApplyTimeoutState();
             return true;
 
-        case UNER_AUTH_REMOTE_RESULT_BLOCKED:
+        case WIFI_BRIDGE_AUTH_REMOTE_RESULT_BLOCKED:
             Permission_ApplyDeniedState(permissionManager.requestedPermission, 0u);
             return true;
 

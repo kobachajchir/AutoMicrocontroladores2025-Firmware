@@ -9,7 +9,7 @@
 #include "globals.h"
 #include "menusystem.h"
 #include "screenWrappers.h"
-#include "uner_app.h"
+#include "wifi_bridge.h"
 
 void UiEventRouter_HandleEvent(UserEvent_t ev)
 {
@@ -21,7 +21,7 @@ void UiEventRouter_HandleEvent(UserEvent_t ev)
     	//No deberia estar esto aca, hacer chequeo de si esta buscando antes
         const ScreenCode_t screen_code = MenuSys_GetCurrentScreenCode(&menuSystem);
     	if(IS_FLAG_SET(systemFlags3, WIFI_SEARCHING)){
-            (void)UNER_App_SendCommand(UNER_CMD_ID_STOP_SCAN, NULL, 0u);
+            (void)WifiBridge_StopScan(&wifiBridge);
 			CLEAR_FLAG(systemFlags3, WIFI_SEARCHING);
 			wifiScanSessionActive = 0u;
 			wifiScanResultsPending = 0u;

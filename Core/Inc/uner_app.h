@@ -135,6 +135,11 @@ typedef struct __attribute__((packed))
 #define UNER_CMD_ID_BINARY_ASSET_STREAM        0x5Au
 #define UNER_CMD_ID_WIFI_CREDENTIALS_WEB_RESULT 0x5Cu
 #define UNER_CMD_ID_AUTH_REMOTE_RESULT         0x5Du
+#define UNER_CMD_ID_SET_I2C_POLICY             0x5Eu
+#define UNER_CMD_ID_GET_I2C_POLICY             0x5Fu
+#define UNER_CMD_ID_GET_MPU_SNAPSHOT           0x60u
+#define UNER_CMD_ID_SET_MPU_STREAM             0x61u
+#define UNER_CMD_ID_STOP_MPU_STREAM            0x62u
 
 #define UNER_AUTH_REMOTE_RESULT_DENIED         0x00u
 #define UNER_AUTH_REMOTE_RESULT_TIMEOUT        0x01u

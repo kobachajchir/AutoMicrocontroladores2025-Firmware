@@ -283,7 +283,7 @@ const uint8_t Icon_APWifi_bits[] = {
 };
 const uint8_t Arrow_Right_bits[] = {0x01,0x03,0x07,0x0f,0x07,0x03,0x01};
 const uint8_t Arrow_Left_bits[] = {0x08,0x0c,0x0e,0x0f,0x0e,0x0c,0x08};
-/* QR local deshabilitado: ahora se pide a ESP con UNER_CMD_ID_BINARY_ASSET_STREAM. */
+/* QR local deshabilitado: ahora se pide al backend WifiBridge activo. */
 #if 0
 const uint8_t QRCode_Github_bits[]  = {
   0x00, 0x00, 0x30, 0x3f, 0x83, 0xfc, 0x00, 0x00,

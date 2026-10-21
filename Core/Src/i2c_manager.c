@@ -27,6 +27,24 @@ static uint8_t find_index(I2C_ManagerHandle *hmgr, I2C_DeviceID id)
     return IDX_INVALID;
 }
 
+static uint8_t effective_prio(I2C_ManagerHandle *hmgr, const I2C_DeviceEntry *dev)
+{
+    uint8_t prio;
+
+    if (!hmgr || !dev) {
+        return 0u;
+    }
+
+    prio = (uint8_t)dev->pending_prio;
+    if (hmgr->policy == I2C_POLICY_PRIORITIZE_MPU && dev->id == DEVICE_ID_MPU) {
+        prio++;
+    } else if (hmgr->policy == I2C_POLICY_PRIORITIZE_OLED && dev->id == DEVICE_ID_OLED) {
+        prio++;
+    }
+
+    return prio;
+}
+
 static void clear_device_entry(I2C_DeviceEntry *e)
 {
     if (!e) return;
@@ -48,7 +66,7 @@ static uint8_t pick_next_pending_index(I2C_ManagerHandle *hmgr)
     if (!hmgr) return IDX_INVALID;
 
     uint8_t best_idx = IDX_INVALID;
-    I2C_RequestPrio best_prio = I2C_REQ_PRIO_LOW;
+    uint8_t best_prio = 0u;
     uint8_t best_fair = 0;
 
     for (uint8_t i = 0; i < I2C_MANAGER_MAX_DEVICES; i++) {
@@ -56,7 +74,7 @@ static uint8_t pick_next_pending_index(I2C_ManagerHandle *hmgr)
             continue;
         }
 
-        I2C_RequestPrio prio = hmgr->devices[i].pending_prio;
+        uint8_t prio = effective_prio(hmgr, &hmgr->devices[i]);
         uint8_t fair = (hmgr->devices[i].id != hmgr->last_owner_id);
 
         if (best_idx == IDX_INVALID ||
@@ -106,6 +124,7 @@ HAL_StatusTypeDef I2C_Manager_Init(I2C_ManagerHandle *hmgr,
     hmgr->owner_index = IDX_INVALID;
     hmgr->lease_start_tick = 0;
     hmgr->lease_timeout_ms = lease_timeout_ms;
+    hmgr->policy = I2C_POLICY_BALANCED;
     hmgr->recover_cb = NULL;
     hmgr->spurious_tx = 0;
     hmgr->spurious_rx = 0;
@@ -142,6 +161,7 @@ HAL_StatusTypeDef I2C_Manager_RegisterDevice(I2C_ManagerHandle *hmgr,
             hmgr->devices[i].priority = priority;
             hmgr->devices[i].enabled = 1;
             hmgr->devices[i].pending = 0;
+            hmgr->devices[i].pending_prio = I2C_REQ_PRIO_LOW;
             hmgr->devices[i].ctx = ctx;
             hmgr->devices[i].on_granted = on_granted;
             hmgr->devices[i].on_tx_done = on_tx_done;
@@ -210,6 +230,26 @@ HAL_StatusTypeDef I2C_Manager_ReleaseBus(I2C_ManagerHandle *hmgr, I2C_DeviceID i
     }
 
     return HAL_OK;
+}
+
+HAL_StatusTypeDef I2C_Manager_SetPolicy(I2C_ManagerHandle *hmgr, I2C_PolicyMode policy)
+{
+    if (!hmgr) return HAL_ERROR;
+
+    if (policy != I2C_POLICY_BALANCED &&
+        policy != I2C_POLICY_PRIORITIZE_MPU &&
+        policy != I2C_POLICY_PRIORITIZE_OLED) {
+        return HAL_ERROR;
+    }
+
+    hmgr->policy = policy;
+    return HAL_OK;
+}
+
+I2C_PolicyMode I2C_Manager_GetPolicy(const I2C_ManagerHandle *hmgr)
+{
+    if (!hmgr) return I2C_POLICY_BALANCED;
+    return hmgr->policy;
 }
 
 I2C_DeviceID I2C_Manager_GetOwner(I2C_ManagerHandle *hmgr)
@@ -304,9 +344,16 @@ void I2C_Manager_OnError(I2C_ManagerHandle *hmgr, I2C_HandleTypeDef *hi2c)
 void I2C_Manager_Tick(I2C_ManagerHandle *hmgr)
 {
     if (!hmgr) return;
-    if (hmgr->lease_timeout_ms == 0) return;
 
-    if (hmgr->owner_id == (I2C_DeviceID)I2C_MANAGER_DEVICE_NONE) return;
+    if (hmgr->owner_id == (I2C_DeviceID)I2C_MANAGER_DEVICE_NONE) {
+        uint8_t next = pick_next_pending_index(hmgr);
+        if (next != IDX_INVALID) {
+            grant_to_index(hmgr, next);
+        }
+        return;
+    }
+
+    if (hmgr->lease_timeout_ms == 0) return;
 
     uint32_t now = HAL_GetTick();
     if ((now - hmgr->lease_start_tick) > hmgr->lease_timeout_ms) {
